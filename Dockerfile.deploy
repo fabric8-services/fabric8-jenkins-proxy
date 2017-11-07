@@ -1,0 +1,8 @@
+FROM centos:7
+MAINTAINER Vašek Pavlín <vasek@redhat.com>
+
+EXPOSE 8080
+
+COPY /go-binary/fabric8-jenkins-proxy /usr/local/bin/fabric8-jenkins-proxy
+
+ENTRYPOINT [ "fabric8-jenkins-proxy" ]
