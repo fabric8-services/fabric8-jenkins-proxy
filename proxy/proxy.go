@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"errors"
 	"time"
 	"crypto/tls"
 	"bytes"
@@ -66,9 +67,18 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-				log.Fatal(err)
+			log.Error("Could not load request body: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("Could not load request body: %s", err)))
+			return
 		}
-		payload := loadHookPayload(body)
+		payload, err := LoadHookPayload(body)
+		if err != nil {
+			log.Error("Could not parse GH payload: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("Could not parse GH payload: %s", err)))
+			return
+		}
 		ns, err := p.GetUser(payload)
 		if err != nil {
 			log.Error(err)
@@ -135,6 +145,10 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
+	if !strings.HasPrefix(pl.Repository.GitURL, "git://") {
+		err = errors.New("Could not parse git url from payload")
+		return
+	}
 	gu := pl.Repository.GitURL[6:]
 	wi, err := p.wit.SearchCodebase(gu)
 	if err != nil {
@@ -243,12 +257,11 @@ type GHHookStruct struct {
 	} `json:"repository"`
 }
 
-func loadHookPayload(b []byte) GHHookStruct {
-	gh := GHHookStruct{}
-	err := json.Unmarshal(b, &gh)
+func LoadHookPayload(b []byte) (gh GHHookStruct, err error) {
+	err = json.Unmarshal(b, &gh)
 	if err != nil {
-		log.Error(err)
+		return
 	}
 
-	return gh
+	return
 }

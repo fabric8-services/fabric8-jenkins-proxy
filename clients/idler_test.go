@@ -1,7 +1,9 @@
-package clients
+package clients_test
 
 import (
 	"testing"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 )
 
 
@@ -9,7 +11,7 @@ func TestIdler(t *testing.T) {
 	ts := MockServer(IdlerData1())
 	defer ts.Close()
 
-	il := NewIdler(ts.URL)
+	il := clients.NewIdler(ts.URL)
 	r, err := il.GetRoute("vpavlin-jenkins")
 	if err != nil {
 		t.Error(err)
