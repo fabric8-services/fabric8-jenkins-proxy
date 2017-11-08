@@ -1,4 +1,4 @@
-package clients
+package clients_test
 
 import (
 	"net/http"
