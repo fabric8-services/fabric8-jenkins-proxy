@@ -151,15 +151,20 @@ type GHHookStruct struct {
 }
 
 func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
+	log.Info(pl.Repository.CloneURL)
 	wi, err := p.wit.SearchCodebase(pl.Repository.CloneURL)
 	if err != nil {
 		return
 	}
 
+	log.Info(wi.OwnedBy)
+
 	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
 	if err != nil {
 		return
 	}
+
+	log.Info(ti.Data.Attributes.Email)
 
 	n, err := p.tenant.GetNamespaceByType(ti, "jenkins")
 	if err != nil {
