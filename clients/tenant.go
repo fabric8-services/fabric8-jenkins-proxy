@@ -18,6 +18,10 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 
 type TenantInfo struct {
 	Data TenantInfoData
+	Errors []struct{
+		Code string `json:"code"`
+		Msg string `json:"msg"`
+	} `json:"errors"`
 }
 
 type TenantInfoData struct {
@@ -44,29 +48,31 @@ type Tenant struct {
 	authToken string
 }
 
-func (t Tenant) GetTenantInfo(tenantId string) (*TenantInfo, error) {
-	
+func (t Tenant) GetTenantInfo(tenantId string) (ti *TenantInfo, err error) {
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantId), nil)
 		if err != nil {
-			return nil, err
+			return
 		}
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer: %s", t.authToken))
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.authToken))
 	
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			return nil, err
+			return
 		}
 	
-		tenantInfo := &TenantInfo{}
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
-		err = json.Unmarshal(body, tenantInfo)
+		err = json.Unmarshal(body, ti)
 		if err != nil {
-			return nil, err
+			return
+		}
+
+		if len(ti.Errors) > 0 {
+			err = errors.New(fmt.Sprintf("%+v", ti.Errors))
 		}
 	
-		return tenantInfo, nil
+		return
 	}
 
 	func (t Tenant) GetNamespaceByType(ti *TenantInfo, typ string) (r *Namespace, err error) {
