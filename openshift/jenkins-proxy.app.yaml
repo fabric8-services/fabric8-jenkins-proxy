@@ -43,7 +43,7 @@ objects:
             valueFrom:
               configMapKeyRef:
                 name: jenkins-proxy
-                key: tenant.api.url
+                key: f8tenant.api.url
           - name: JC_AUTH_TOKEN
             valueFrom:
               secretKeyRef:
@@ -59,16 +59,16 @@ objects:
           terminationMessagePath: /dev/termination-log
           readinessProbe:
             httpGet:
-              path: /iapi/proxy/builds
-              port: 9090
+              path: /papi/info/none
+              port: 9091
               scheme: HTTP
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 10
           livenessProbe:
             httpGet:
-              path: /iapi/proxy/builds
-              port: 9090
+              path: /papi/info/none
+              port: 9091
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 20
