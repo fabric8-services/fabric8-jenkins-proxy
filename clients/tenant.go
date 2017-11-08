@@ -50,7 +50,7 @@ func (t Tenant) GetTenantInfo(tenantId string) (*TenantInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", t.authToken)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer: %s", t.authToken))
 	
 		client := &http.Client{}
 		resp, err := client.Do(req)
