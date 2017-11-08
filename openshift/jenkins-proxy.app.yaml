@@ -99,6 +99,10 @@ objects:
       port: 8080
       protocol: TCP
       targetPort: 8080
+    - name: 9091-tcp
+      port: 9091
+      protocol: TCP
+      targetPort: 9091
     selector:
       service: jenkins-proxy
     sessionAffinity: None

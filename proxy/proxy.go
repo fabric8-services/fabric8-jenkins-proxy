@@ -71,7 +71,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("Could not load request body: %s", err)))
 			return
 		}
-		log.Info(string(body))
 		gh := GHHookStruct{}
 		err = json.Unmarshal(body, &gh)
 		if err != nil {
@@ -157,14 +156,10 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 		return
 	}
 
-	log.Info(wi.OwnedBy)
-
 	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
 	if err != nil {
 		return
 	}
-
-	log.Info(ti.Data.Attributes.Email)
 
 	n, err := p.tenant.GetNamespaceByType(ti, "jenkins")
 	if err != nil {
