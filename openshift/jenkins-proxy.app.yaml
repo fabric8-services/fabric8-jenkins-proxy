@@ -1,0 +1,125 @@
+kind: Template
+apiVersion: v1
+metadata:
+  name: jenkins-proxy
+labels:
+  template: jenkins-proxy
+objects:
+- kind: DeploymentConfig
+  apiVersion: v1
+  metadata:
+    name: jenkins-proxy
+  spec:
+    replicas: 1
+    selector:
+      service: jenkins-proxy
+    strategy:
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          service: jenkins-proxy
+      spec:
+        containers:
+        - env:
+          - name: JC_IDLER_API_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: idler.api.url
+          - name: JC_WIT_API_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: wit.api.url
+          - name: JC_F8TENANT_API_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: tenant.api.url
+          - name: JC_AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: proxy.auth.token
+          image: ${IMAGE}:${IMAGE_TAG}
+          imagePullPolicy: Always
+          name: jenkins-proxy
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          readinessProbe:
+            httpGet:
+              path: /iapi/proxy/builds
+              port: 9090
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /iapi/proxy/builds
+              port: 9090
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 10
+          resources:
+            requests:
+              memory: "50Mi"
+              cpu: "30m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+    test: false
+    triggers:
+    - type: ConfigChange
+- kind: Service
+  apiVersion: v1
+  metadata:
+    labels:
+      service: jenkins-proxy
+    name: jenkins-proxy
+  spec:
+    ports:
+    - name: 8080-tcp
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      service: jenkins-proxy
+    sessionAffinity: None
+    type: ClusterIP
+- kind: Route
+  apiVersion: v1
+  metadata:
+    name: jenkins-proxy
+  spec:
+    host: ''
+    port:
+      targetPort: 8080-tcp
+    to:
+      kind: Service
+      name: jenkins-proxy
+      weight: 100
+    wildcardPolicy: None
+parameters:
+- name: IMAGE
+  value: registry.devshift.net/fabric8-services/fabric8-jenkins-proxy
+  required: true
+- name: IMAGE_TAG
+  value: latest
+  required: true
