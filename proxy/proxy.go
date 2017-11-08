@@ -92,7 +92,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		}
-		r.Host = fmt.Sprintf(route)
+		r.Host = fmt.Sprintf("https://%s/", route)
 
 		isIdle, err := p.idler.IsIdle(ns)
 		if err != nil {
