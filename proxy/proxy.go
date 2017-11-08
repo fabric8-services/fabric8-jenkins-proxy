@@ -152,12 +152,7 @@ type GHHookStruct struct {
 }
 
 func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
-	if !strings.HasPrefix(pl.Repository.GitURL, "git://") {
-		err = errors.New("Could not parse git url from payload")
-		return
-	}
-	gu := pl.Repository.GitURL[6:]
-	wi, err := p.wit.SearchCodebase(gu)
+	wi, err := p.wit.SearchCodebase(pl.Repository.CloneURL)
 	if err != nil {
 		return
 	}
