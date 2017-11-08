@@ -60,7 +60,6 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 		return err
 	}
 
-	fmt.Printf("%+v\n", i)
 	for _, d := range i.Data {
 		for _, i := range i.Included {
 			if d.Relationships.Space.Data.Id == i.Id {

@@ -73,14 +73,15 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Info(string(body))
-		payload, err := LoadHookPayload(body)
+		gh := GHHookStruct{}
+		err = json.Unmarshal(body, &gh)
 		if err != nil {
 			log.Error("Could not parse GH payload: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(fmt.Sprintf("Could not parse GH payload: %s", err)))
 			return
 		}
-		ns, err := p.GetUser(payload)
+		ns, err := p.GetUser(gh)
 		if err != nil {
 			log.Error(err)
 			w.WriteHeader(http.StatusNotFound)
@@ -139,6 +140,15 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			req = p.prepareRequest(req, r, []byte{})
 		},
 	}).ServeHTTP(w, r)
+}
+
+type GHHookStruct struct {
+	Repository struct {
+		Name string `json:"name"`
+		FullName string `json:"full_name"`
+		GitURL string `json:"git_url"`
+		CloneURL string `json:"clone_url"`
+	} `json:"repository"`
 }
 
 func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
@@ -246,21 +256,4 @@ func (p *Proxy) GetBufferInfo(namespace string) (int, string) {
 func (p *Proxy) GetLastVisitString(namespace string) string {
 	vs := p.VisitStats
 	return (*vs)[namespace].Format(time.RFC3339)
-}
-
-type GHHookStruct struct {
-	Repository struct {
-		Name string `json:"name"`
-		FullName string `json:"full_name"`
-		GitURL string `json:"git_url"`
-	} `json:"repository"`
-}
-
-func LoadHookPayload(b []byte) (gh GHHookStruct, err error) {
-	err = json.Unmarshal(b, &gh)
-	if err != nil {
-		return
-	}
-
-	return
 }
