@@ -238,3 +238,7 @@ func TenantData1() []byte {
 		}
 }`)
 }
+
+func TenantData2() []byte {
+	return []byte(`{"errors":[{"code":"not_found","detail":"/","id":"2Q/BAc8b","status":"404","title":"Not Found"}]}`)
+}

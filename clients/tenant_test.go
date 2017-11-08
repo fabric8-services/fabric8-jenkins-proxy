@@ -1,7 +1,6 @@
 package clients_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -18,11 +17,27 @@ func TestGetTenant(t *testing.T) {
 		t.Error(err)
 	}
 
-	fmt.Printf("%+v", ti)
-
-	n := ct.GetNamespaceByType(ti, "jenkins")
+	n, err := ct.GetNamespaceByType(ti, "jenkins")
+	if err != nil {
+		t.Error(err)
+	}
 	if !strings.HasSuffix(n.Name, "-jenkins") {
 		t.Error("Could not find Jenkins namespace - ", n.Name)
 	}
 
+}
+
+func TestGetError(t *testing.T) {
+	ts := MockServer(TenantData2())
+	defer ts.Close()
+
+	ct := clients.NewTenant(ts.URL, "aaa")
+	ti, err := ct.GetTenantInfo("2e15e957-0366-4802-bf1e-0d6fe3f11bb6")
+	if err == nil {
+		t.Error("Expected Errors to be populated in output")
+	}
+
+	if len(ti.Errors) != 1 {
+		t.Error(ti.Errors)
+	}
 }
