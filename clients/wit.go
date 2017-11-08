@@ -77,7 +77,7 @@ func (w WIT) SearchCodebase(repo string) (*WITInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", w.authToken)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", w.authToken))
 
 	q := req.URL.Query()
 	q.Add("url", repo)
