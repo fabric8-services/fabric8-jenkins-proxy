@@ -182,9 +182,9 @@ func (p *Proxy) ProcessBuffer() {
 					break
 				}
 				if !isIdle {
-					req, reqErr := http.NewRequest("", "", nil)
-					if reqErr != nil {
-						log.Error("Request error ", reqErr)
+					req, err := http.NewRequest("", "", nil)
+					if err != nil {
+						log.Error("Request error ", err)
 						continue
 					}
 					req = p.prepareRequest(req, rb.Request, rb.Body)
@@ -194,9 +194,14 @@ func (p *Proxy) ProcessBuffer() {
 							TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 						},
 					}
-					_, err := client.Do(req) 
+					resp, err := client.Do(req)
 					if err != nil {
 						log.Error("Error: ", err)
+						break
+					}
+
+					if resp.StatusCode != 200 {
+						log.Error(fmt.Sprintf("Got status %s after retrying request", resp.Status))
 					}
 
 					p.bufferLock.Lock()

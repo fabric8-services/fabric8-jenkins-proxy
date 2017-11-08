@@ -34,12 +34,11 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 
 	s := &Status{}
 	err = json.Unmarshal(body, s)
-
-	if s.IsIdle {
-		return true, nil
+	if err != nil {
+		return false, err
 	}
 
-	return false, nil
+	return s.IsIdle, nil
 }
 
 func (i Idler) GetRoute(n string) (rt string, err error) {
