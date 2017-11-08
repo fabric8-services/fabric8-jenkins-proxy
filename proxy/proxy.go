@@ -119,6 +119,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			log.Info("Webhook request buffered")
 			w.Write([]byte(""))
 			return
+		} else {
+			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
 	/*
@@ -134,7 +136,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req = p.prepareRequest(req, r, []byte{})
+			req = r
 		},
 	}).ServeHTTP(w, r)
 }
