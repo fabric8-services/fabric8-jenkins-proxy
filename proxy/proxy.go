@@ -137,6 +137,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req = r
+			fmt.Printf("%+v\n", req)
 		},
 	}).ServeHTTP(w, r)
 }
@@ -197,7 +198,7 @@ func (p *Proxy) ProcessBuffer() {
 					}
 
 					if resp.StatusCode != 200 {
-						log.Error(fmt.Sprintf("Got status %s after retrying request", resp.Status))
+						log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
 						break
 					}
 
