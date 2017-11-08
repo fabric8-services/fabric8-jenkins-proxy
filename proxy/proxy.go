@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"time"
-	"crypto/tls"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -188,12 +187,7 @@ func (p *Proxy) ProcessBuffer() {
 						continue
 					}
 					req = p.prepareRequest(req, rb.Request, rb.Body)
-					client := &http.Client{
-						Transport: &http.Transport{
-							Proxy: http.ProxyFromEnvironment,
-							TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-						},
-					}
+					client := &http.Client{}
 					resp, err := client.Do(req)
 					if err != nil {
 						log.Error("Error: ", err)
@@ -202,6 +196,7 @@ func (p *Proxy) ProcessBuffer() {
 
 					if resp.StatusCode != 200 {
 						log.Error(fmt.Sprintf("Got status %s after retrying request", resp.Status))
+						break
 					}
 
 					p.bufferLock.Lock()
