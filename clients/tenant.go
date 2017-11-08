@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"errors"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -68,19 +69,20 @@ func (t Tenant) GetTenantInfo(tenantId string) (*TenantInfo, error) {
 		return tenantInfo, nil
 	}
 
-	func (t Tenant) GetNamespaceByType(ti *TenantInfo, typ string) (*Namespace) {
+	func (t Tenant) GetNamespaceByType(ti *TenantInfo, typ string) (r *Namespace, err error) {
 		if ti == nil {
-			return nil
+			err = errors.New("Cannot find namepsace - no info about tenant passed in.")
+			return
 		}
-		var result *Namespace
-		result = nil
+
 		for i:=0;i<len(ti.Data.Attributes.Namespaces);i++ {
 			n := ti.Data.Attributes.Namespaces[i]
 			if n.Type == typ {
-				result = &n
-				break
+				r = &n
+				return
 			}		
 		}
 	
-		return result
+		err = errors.New(fmt.Sprintf("Could not find tenant %s Jenkins namespace.", ti.Data.Attributes.Email))
+		return
 	}

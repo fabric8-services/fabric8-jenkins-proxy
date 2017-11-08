@@ -157,8 +157,10 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 		return
 	}
 
-	n := p.tenant.GetNamespaceByType(ti, "jenkins")
-
+	n, err := p.tenant.GetNamespaceByType(ti, "jenkins")
+	if err != nil {
+		return
+	}
 	res = n.Name
 	return
 }
