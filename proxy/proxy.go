@@ -72,6 +72,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("Could not load request body: %s", err)))
 			return
 		}
+		log.Info(string(body))
 		payload, err := LoadHookPayload(body)
 		if err != nil {
 			log.Error("Could not parse GH payload: ", err)
@@ -136,10 +137,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req = p.prepareRequest(req, r, []byte{})
-		},
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		},
 	}).ServeHTTP(w, r)
 }
