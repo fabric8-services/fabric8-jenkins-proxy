@@ -125,6 +125,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		} else {
+			log.Info("Pure proxy...")
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
@@ -148,7 +149,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		r.Header["Authorization"] = []string{fmt.Sprintf("Bearer %s", p.GetUserToken(""))}
 		*/
 	}
-
+	fmt.Printf("%+v\n", r)
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req, err = p.prepareRequest(r, body) //FIXME r.URL empty!!
