@@ -63,6 +63,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var body []byte
 	var err error
+	var oldRoute string
 	if isGH {
 		defer r.Body.Close()
 		body, err = ioutil.ReadAll(r.Body)
@@ -95,6 +96,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		//r.Host = route
+		oldRoute = r.URL.Host
 		r.URL.Scheme = scheme
 		r.URL.Host = route
 
@@ -128,6 +130,10 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
+		if strings.Contains(oldRoute, "prod-preview") {//FIXME this is ugly...and workaround for future feature
+			http.Redirect(w, r, "https://prod-preview.openshift.io", 301)
+		}
+		return
 	/*
 		Here will be a proxy
 	
