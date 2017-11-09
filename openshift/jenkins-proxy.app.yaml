@@ -62,7 +62,7 @@ objects:
               path: /papi/info/none
               port: 9091
               scheme: HTTP
-            initialDelaySeconds: 15
+            initialDelaySeconds: 5
             periodSeconds: 20
             timeoutSeconds: 10
           livenessProbe:

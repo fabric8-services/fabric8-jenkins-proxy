@@ -220,8 +220,6 @@ func (p *Proxy) ProcessBuffer() {
 
 func (p *Proxy) prepareRequest(dst *http.Request, src *http.Request, body []byte) *http.Request {
 	dst.URL = src.URL
-	dst.URL.Host = src.Host
-	dst.URL.Scheme = "https" //FIXME
 	dst.Host = src.Host
 	dst.Method = src.Method
 
