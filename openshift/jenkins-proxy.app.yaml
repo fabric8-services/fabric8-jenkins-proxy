@@ -107,19 +107,6 @@ objects:
       service: jenkins-proxy
     sessionAffinity: None
     type: ClusterIP
-- kind: Route
-  apiVersion: v1
-  metadata:
-    name: jenkins-proxy
-  spec:
-    host: ''
-    port:
-      targetPort: 8080-tcp
-    to:
-      kind: Service
-      name: jenkins-proxy
-      weight: 100
-    wildcardPolicy: None
 parameters:
 - name: IMAGE
   value: registry.devshift.net/fabric8-services/fabric8-jenkins-proxy

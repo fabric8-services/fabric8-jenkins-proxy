@@ -130,6 +130,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
+		log.Info(oldRoute)
 		if strings.Contains(oldRoute, "prod-preview") {//FIXME this is ugly...and workaround for future feature
 			http.Redirect(w, r, "https://prod-preview.openshift.io", 301)
 		}
