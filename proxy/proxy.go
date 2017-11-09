@@ -150,7 +150,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req, _ = p.prepareRequest(r, body) //FIXME r.URL empty!!
+			req = r//p.prepareRequest(r, body) //FIXME r.URL empty!!
 		},
 	}).ServeHTTP(w, r)
 }
