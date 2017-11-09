@@ -121,6 +121,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			(*brs).LastRequest = time.Now().UTC()
 			p.bufferLock.Unlock()
 			log.Info("Webhook request buffered")
+			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte(""))
 			return
 		} else {
