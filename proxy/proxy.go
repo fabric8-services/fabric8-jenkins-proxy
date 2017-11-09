@@ -191,7 +191,9 @@ func (p *Proxy) ProcessBuffer() {
 						log.Error("Request error ", err)
 						continue
 					}
-					req = p.prepareRequest(req, rb.Request, rb.Body)
+					*req = *rb.Request//p.prepareRequest(req, rb.Request, rb.Body)
+					req.Body = ioutil.NopCloser(bytes.NewReader(rb.Body))
+					fmt.Printf("%+v\n", req)
 					client := &http.Client{}
 					resp, err := client.Do(req)
 					if err != nil {
