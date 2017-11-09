@@ -130,14 +130,14 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		fmt.Printf("%+v\n", r)
-		hs := strings.Split(r.URL.Host, ".")
+		hs := strings.Split(r.Host, ".")
 		if len(hs) > 2 {
 			hs = hs[1:]
 		}
-		r.URL.Host = strings.Join(hs, ".")
-		nh := fmt.Sprintf("%s://%s/", r.URL.Scheme, r.URL.Host)
+		r.Host = strings.Join(hs, ".")
+		nh := fmt.Sprintf("%s://%s/", r.URL.Scheme, r.Host)
 		fmt.Printf("Redirecting to %s.\n", nh)
-		//http.Redirect(w, r, nh, 301)
+		http.Redirect(w, r, nh, 301)
 		return
 	/*
 		Here will be a proxy
