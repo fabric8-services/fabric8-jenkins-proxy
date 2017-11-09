@@ -135,7 +135,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		if len(hs) > 2 {
 			hs = hs[1:]
 		}
-		oldRoute.Host = strings.Join(hs, ".")
+		r.URL.Host = strings.Join(hs, ".")
 		http.Redirect(w, r, fmt.Sprintf("%s://%s/", r.URL.Scheme, r.URL.Host), 301)
 		return
 	/*
@@ -238,8 +238,10 @@ func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Reques
 		dst.Header[k] = v
 	}
 	dst.Header["Server"] = []string{"Webhook-Proxy"}
+	dst.ContentLength = int64(len(body))
 	
-	fmt.Printf("%+v\n", dst)
+	fmt.Printf("Src: %+v\n", src)
+	fmt.Printf("DST: %+v\n", dst)
 	return
 }
 
