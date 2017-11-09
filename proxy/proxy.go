@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"net/url"
 	"time"
 	"bytes"
 	"encoding/json"
@@ -64,7 +63,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var body []byte
 	var err error
-	var oldRoute url.URL
 	if isGH {
 		defer r.Body.Close()
 		body, err = ioutil.ReadAll(r.Body)
@@ -97,7 +95,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		//r.Host = route
-		oldRoute = *r.URL
 		r.URL.Scheme = scheme
 		r.URL.Host = route
 
