@@ -92,7 +92,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		}
-		r.Host = fmt.Sprintf("%s://%s/", scheme, route)
+		r.Host = route
 		r.URL.Scheme = scheme
 		r.URL.Host = route
 
