@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net/url"
 	"time"
 	"bytes"
 	"encoding/json"
@@ -63,7 +64,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var body []byte
 	var err error
-	var oldRoute string
+	var oldRoute url.URL
 	if isGH {
 		defer r.Body.Close()
 		body, err = ioutil.ReadAll(r.Body)
@@ -96,7 +97,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		//r.Host = route
-		oldRoute = r.URL.Host
+		oldRoute = *r.URL
 		r.URL.Scheme = scheme
 		r.URL.Host = route
 
@@ -130,10 +131,12 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
-		log.Info(oldRoute)
-		if strings.Contains(oldRoute, "prod-preview") {//FIXME this is ugly...and workaround for future feature
-			http.Redirect(w, r, "https://prod-preview.openshift.io", 301)
+		hs := strings.Split(r.URL.Host, ".")
+		if len(hs) > 2 {
+			hs = hs[1:]
 		}
+		oldRoute.Host = strings.Join(hs, ".")
+		http.Redirect(w, r, fmt.Sprintf("%s://%s/", r.URL.Scheme, r.URL.Host), 301)
 		return
 	/*
 		Here will be a proxy
@@ -236,6 +239,7 @@ func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Reques
 	}
 	dst.Header["Server"] = []string{"Webhook-Proxy"}
 	
+	fmt.Printf("%+v\n", dst)
 	return
 }
 
