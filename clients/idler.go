@@ -41,7 +41,7 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 	return s.IsIdle, nil
 }
 
-func (i Idler) GetRoute(n string) (rt string, err error) {
+func (i Idler) GetRoute(n string) (scheme string, rt string, err error) {
 	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/route/%s", i.idlerApi, n))
 	if err != nil {
 		return
@@ -58,12 +58,19 @@ func (i Idler) GetRoute(n string) (rt string, err error) {
 	type route struct {
 		Service string
 		Route string
+		TLS bool
 	}
 	r := route{}
 
 	err = json.Unmarshal(body, &r)
 	if err != nil {
 		return
+	}
+
+	if r.TLS {
+		scheme = "https"
+	} else {
+		scheme = "http"
 	}
 
 	rt = r.Route

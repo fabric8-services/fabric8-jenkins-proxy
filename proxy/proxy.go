@@ -85,14 +85,16 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		}
-		route, err := p.idler.GetRoute(ns)
+		scheme, route, err := p.idler.GetRoute(ns)
 		if err != nil {
 			log.Error(err)
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(""))
 			return
 		}
-		r.Host = fmt.Sprintf("https://%s/", route)
+		r.Host = fmt.Sprintf("%s://%s/", scheme, route)
+		r.URL.Scheme = scheme
+		r.URL.Host = route
 
 		isIdle, err := p.idler.IsIdle(ns)
 		if err != nil {
@@ -136,7 +138,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req = r
+			req = r //FIXME r.URL empty!!
 			fmt.Printf("%+v\n", req)
 		},
 	}).ServeHTTP(w, r)
