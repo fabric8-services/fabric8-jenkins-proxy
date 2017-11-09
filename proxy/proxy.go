@@ -128,6 +128,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
+		fmt.Printf("%+v\n", r)
 		hs := strings.Split(r.URL.Host, ".")
 		if len(hs) > 2 {
 			hs = hs[1:]
@@ -150,7 +151,11 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req = r//p.prepareRequest(r, body) //FIXME r.URL empty!!
+			req, err = p.prepareRequest(r, body) //FIXME r.URL empty!!
+			if err != nil {
+				log.Error("Could not proxy: ", err)
+				return
+			}
 		},
 	}).ServeHTTP(w, r)
 }
