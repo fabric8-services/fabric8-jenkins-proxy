@@ -92,7 +92,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		}
-		r.Host = route
+		//r.Host = route
 		r.URL.Scheme = scheme
 		r.URL.Host = route
 
@@ -118,6 +118,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			(*brs).Requests = append((*brs).Requests, BufferedReuqest{Request: r, Body: body})
 			(*brs).LastRequest = time.Now().UTC()
 			p.bufferLock.Unlock()
+			fmt.Printf("Buffered: %+v\n", r)
 			log.Info("Webhook request buffered")
 			w.Write([]byte(""))
 			return
@@ -191,6 +192,8 @@ func (p *Proxy) ProcessBuffer() {
 						log.Error("Request error ", err)
 						continue
 					}
+					fmt.Printf("Origin: %+v\n", rb.Request)
+					fmt.Printf("Dest: %+v\n", req)
 					*req = *rb.Request//p.prepareRequest(req, rb.Request, rb.Body)
 					req.Body = ioutil.NopCloser(bytes.NewReader(rb.Body))
 					fmt.Printf("%+v\n", req)
