@@ -61,9 +61,11 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		isGH = strings.HasPrefix(ua[0], "GitHub-Hookshot")
 	}
 
+	var body []byte
+	var err error
 	if isGH {
 		defer r.Body.Close()
-		body, err := ioutil.ReadAll(r.Body)
+		body, err = ioutil.ReadAll(r.Body)
 		if err != nil {
 			log.Error("Could not load request body: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -138,7 +140,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req = r //FIXME r.URL empty!!
+			req, _ = p.prepareRequest(r, body) //FIXME r.URL empty!!
 		},
 	}).ServeHTTP(w, r)
 }
@@ -185,13 +187,11 @@ func (p *Proxy) ProcessBuffer() {
 					break
 				}
 				if !isIdle {
-					req, err := http.NewRequest("", "", nil)
+					req, err := p.prepareRequest(rb.Request, rb.Body)
 					if err != nil {
-						log.Error("Request error ", err)
-						continue
+						log.Error("Error generating request: ", err)
+						break
 					}
-					*req = *rb.Request//p.prepareRequest(req, rb.Request, rb.Body)
-					req.Body = ioutil.NopCloser(bytes.NewReader(rb.Body))
 					client := &http.Client{}
 					resp, err := client.Do(req)
 					if err != nil {
@@ -220,23 +220,15 @@ func (p *Proxy) ProcessBuffer() {
 	}
 }
 
-func (p *Proxy) prepareRequest(dst *http.Request, src *http.Request, body []byte) *http.Request {
-	dst.URL = src.URL
-	dst.Host = src.Host
-	dst.Method = src.Method
-
+func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Request, err error) {
+	b := ioutil.NopCloser(bytes.NewReader(body))
+	dst, err = http.NewRequest(src.Method, src.URL.String(), b)
 	for k, v := range src.Header {
 		dst.Header[k] = v
 	}
 	dst.Header["Server"] = []string{"Webhook-Proxy"}
-
-	if len(body) == 0 {
-		dst.Body = src.Body
-	} else {
-		dst.Body = ioutil.NopCloser(bytes.NewReader(body))
-	}
 	
-	return dst
+	return
 }
 
 func (p *Proxy) GetBufferInfo(namespace string) (int, string) {
