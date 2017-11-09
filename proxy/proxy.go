@@ -133,7 +133,9 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			hs = hs[1:]
 		}
 		r.URL.Host = strings.Join(hs, ".")
-		http.Redirect(w, r, fmt.Sprintf("%s://%s/", r.URL.Scheme, r.URL.Host), 301)
+		nh := fmt.Sprintf("%s://%s/", r.URL.Scheme, r.URL.Host)
+		log.Info("Redirecting to ", nh)
+		http.Redirect(w, r, nh, 301)
 		return
 	/*
 		Here will be a proxy
@@ -231,6 +233,7 @@ func (p *Proxy) ProcessBuffer() {
 func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Request, err error) {
 	b := ioutil.NopCloser(bytes.NewReader(body))
 	dst, err = http.NewRequest(src.Method, src.URL.String(), b)
+	fmt.Printf("DST1: %+v\n", dst)
 	for k, v := range src.Header {
 		dst.Header[k] = v
 	}
