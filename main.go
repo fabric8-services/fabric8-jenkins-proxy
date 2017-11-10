@@ -55,6 +55,13 @@ func main() {
 		log.Error("You need to provide WIT API service URL")
 	}
 
+	redirURL := v.GetString("redirect.url")
+	_, err = url.ParseRequestURI(redirURL)
+	if len(redirURL) == 0 || err != nil {
+		missingParam = true
+		log.Error("You need to provide redirect URL")
+	}
+
 	if missingParam {
 		log.Fatal("A value for envinronment variable(s) is missing")
 	}
@@ -63,7 +70,7 @@ func main() {
 	w := clients.NewWIT(witApiURL, authToken)
 	il := clients.NewIdler(apiURL)
 
-	prx := proxy.NewProxy(t, w, il)
+	prx := proxy.NewProxy(t, w, il, redirURL)
 	api := api.NewAPI(&prx)
 	proxyMux := http.NewServeMux()	
 

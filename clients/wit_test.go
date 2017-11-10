@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	tu "github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 )
 
 func TestWIT(t *testing.T) {
-	ts := MockServer(WITData1())
+	ts := tu.MockServer(tu.WITData1())
 
 	defer ts.Close()
 

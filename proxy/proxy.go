@@ -25,6 +25,7 @@ type Proxy struct {
 	tenant clients.Tenant
 	wit clients.WIT
 	idler clients.Idler
+	redirect string
 }
 
 type BufferedReuqests struct {
@@ -37,7 +38,7 @@ type BufferedReuqest struct {
 	Body []byte
 }
 
-func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler) Proxy {
+func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, redirect string) Proxy {
 	rb := make(map[string]*BufferedReuqests)
 	vs := make(map[string]time.Time)
 	p := Proxy{
@@ -48,6 +49,7 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler) Proxy {
 		wit: w,
 		idler: i,
 		bufferCheckSleep: 5,
+		redirect: redirect,
 	}
 	go func() {
 		p.ProcessBuffer()
@@ -56,6 +58,7 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler) Proxy {
 }
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("%+v\n\n\n", r)
 	isGH := false
 	if ua, exist := r.Header["User-Agent"]; exist {
 		isGH = strings.HasPrefix(ua[0], "GitHub-Hookshot")
@@ -97,6 +100,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		//r.Host = route
 		r.URL.Scheme = scheme
 		r.URL.Host = route
+		r.Host = route
 
 		isIdle, err := p.idler.IsIdle(ns)
 		if err != nil {
@@ -125,19 +129,13 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		} else {
+			vs := p.VisitStats 
+			(*vs)[ns]=time.Now().UTC()
 			log.Info("Pure proxy...")
-			r.Body = ioutil.NopCloser(bytes.NewReader(body))
 		}
 	} else {
-		fmt.Printf("%+v\n", r)
-		hs := strings.Split(r.Host, ".")
-		if len(hs) > 2 {
-			hs = hs[1:]
-		}
-		r.Host = strings.Join(hs, ".")
-		nh := fmt.Sprintf("%s://%s/", r.URL.Scheme, r.Host)
-		fmt.Printf("Redirecting to %s.\n", nh)
-		http.Redirect(w, r, nh, 301)
+		fmt.Printf("Redirecting to %s.\n", p.redirect)
+		http.Redirect(w, r, p.redirect, 301)
 		return
 	/*
 		Here will be a proxy
@@ -149,14 +147,9 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		r.Header["Authorization"] = []string{fmt.Sprintf("Bearer %s", p.GetUserToken(""))}
 		*/
 	}
-	fmt.Printf("%+v\n", r)
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req, err = p.prepareRequest(r, body) //FIXME r.URL empty!!
-			if err != nil {
-				log.Error("Could not proxy: ", err)
-				return
-			}
+			req.Body = ioutil.NopCloser(bytes.NewReader(body))
 		},
 	}).ServeHTTP(w, r)
 }
@@ -238,16 +231,18 @@ func (p *Proxy) ProcessBuffer() {
 
 func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Request, err error) {
 	b := ioutil.NopCloser(bytes.NewReader(body))
+	log.Warn(len(body))
 	dst, err = http.NewRequest(src.Method, src.URL.String(), b)
-	fmt.Printf("DST1: %+v\n", dst)
+	fmt.Printf("DST1: %+v\n\n", dst)
 	for k, v := range src.Header {
-		dst.Header[k] = v
+		for _, vv := range v {
+			dst.Header.Add(k, vv)
+		}
 	}
 	dst.Header["Server"] = []string{"Webhook-Proxy"}
-	dst.ContentLength = int64(len(body))
 	
-	fmt.Printf("Src: %+v\n", src)
-	fmt.Printf("DST: %+v\n", dst)
+	fmt.Printf("Src: %+v\n\n", src)
+	fmt.Printf("DST: %+v\n\n", dst)
 	return
 }
 
