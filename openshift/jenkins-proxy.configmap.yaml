@@ -7,3 +7,4 @@ data:
   f8tenant.api,url: "http://f8tenant"
   idler.api.url: "http://jenkins-idler:8080"
   wit.api.url: ""
+  redirect.url: ""

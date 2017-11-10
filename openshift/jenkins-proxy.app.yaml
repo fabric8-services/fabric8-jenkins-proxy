@@ -44,6 +44,11 @@ objects:
               configMapKeyRef:
                 name: jenkins-proxy
                 key: f8tenant.api.url
+          - name: JC_REDIRECT_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: redirect.url
           - name: JC_AUTH_TOKEN
             valueFrom:
               secretKeyRef:

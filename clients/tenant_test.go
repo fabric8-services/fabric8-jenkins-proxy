@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	tu "github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 )
 
 func TestGetTenant(t *testing.T) {
-	ts := MockServer(TenantData1())
+	ts := tu.MockServer(tu.TenantData1())
 	defer ts.Close()
 
 	ct := clients.NewTenant(ts.URL, "aaa")
@@ -28,7 +29,7 @@ func TestGetTenant(t *testing.T) {
 }
 
 func TestGetError(t *testing.T) {
-	ts := MockServer(TenantData2())
+	ts := tu.MockServer(tu.TenantData2())
 	defer ts.Close()
 
 	ct := clients.NewTenant(ts.URL, "aaa")
