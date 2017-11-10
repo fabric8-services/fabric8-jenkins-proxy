@@ -58,7 +58,6 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, redirect string)
 }
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("%+v\n\n\n", r)
 	isGH := false
 	if ua, exist := r.Header["User-Agent"]; exist {
 		isGH = strings.HasPrefix(ua[0], "GitHub-Hookshot")
@@ -97,7 +96,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(""))
 			return
 		}
-		//r.Host = route
 		r.URL.Scheme = scheme
 		r.URL.Host = route
 		r.Host = route
@@ -124,17 +122,16 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			(*brs).Requests = append((*brs).Requests, BufferedReuqest{Request: r, Body: body})
 			(*brs).LastRequest = time.Now().UTC()
 			p.bufferLock.Unlock()
-			log.Info("Webhook request buffered")
+			log.Info("Webhook request buffered for ", ns)
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte(""))
 			return
 		} else {
 			vs := p.VisitStats 
 			(*vs)[ns]=time.Now().UTC()
-			log.Info("Pure proxy...")
 		}
 	} else {
-		fmt.Printf("Redirecting to %s.\n", p.redirect)
+		log.Info("Redirecting to %s.\n", p.redirect)
 		http.Redirect(w, r, p.redirect, 301)
 		return
 	/*
@@ -164,7 +161,6 @@ type GHHookStruct struct {
 }
 
 func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
-	log.Info(pl.Repository.CloneURL)
 	wi, err := p.wit.SearchCodebase(pl.Repository.CloneURL)
 	if err != nil {
 		return
@@ -215,6 +211,8 @@ func (p *Proxy) ProcessBuffer() {
 						log.Warn(fmt.Sprintf("Got status %s after retrying request on %s, throwing away the request", resp.Status, req.URL))
 					}
 
+					log.Info(fmt.Sprintf("Request for %s to %s forwarded.", namespace, req.Host))
+
 					p.bufferLock.Lock()
 					reqs = append((*rbs).Requests[:i], (*rbs).Requests[i+1:]...)
 					(*rbs).Requests = reqs
@@ -231,18 +229,13 @@ func (p *Proxy) ProcessBuffer() {
 
 func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Request, err error) {
 	b := ioutil.NopCloser(bytes.NewReader(body))
-	log.Warn(len(body))
 	dst, err = http.NewRequest(src.Method, src.URL.String(), b)
-	fmt.Printf("DST1: %+v\n\n", dst)
 	for k, v := range src.Header {
 		for _, vv := range v {
 			dst.Header.Add(k, vv)
 		}
 	}
 	dst.Header["Server"] = []string{"Webhook-Proxy"}
-	
-	fmt.Printf("Src: %+v\n\n", src)
-	fmt.Printf("DST: %+v\n\n", dst)
 	return
 }
 
