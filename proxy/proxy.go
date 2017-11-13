@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,6 +20,7 @@ import (
 type Proxy struct {
 	RequestBuffer map[string]*BufferedReuqests
 	VisitStats *map[string]time.Time
+	TenantCache *cache.Cache
 	bufferLock *sync.Mutex
 	service string
 	bufferCheckSleep time.Duration
@@ -44,6 +46,7 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, redirect string)
 	p := Proxy{
 		RequestBuffer: rb,
 		VisitStats: &vs,
+		TenantCache: cache.New(30*time.Minute, 40*time.Minute),
 		bufferLock: &sync.Mutex{},
 		tenant: t,
 		wit: w,
@@ -131,7 +134,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			(*vs)[ns]=time.Now().UTC()
 		}
 	} else {
-		log.Info("Redirecting to %s.\n", p.redirect)
+		log.Info(fmt.Sprintf("Redirecting to %s", p.redirect))
 		http.Redirect(w, r, p.redirect, 301)
 		return
 	/*
@@ -161,6 +164,12 @@ type GHHookStruct struct {
 }
 
 func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
+	if n, found := p.TenantCache.Get(pl.Repository.CloneURL); found {
+		log.Info("Cache hit")
+		res = n.(string)
+		return
+	}
+	log.Info("Cache miss")
 	wi, err := p.wit.SearchCodebase(pl.Repository.CloneURL)
 	if err != nil {
 		return
@@ -176,6 +185,7 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 		return
 	}
 	res = n.Name
+	p.TenantCache.SetDefault(pl.Repository.CloneURL, res)
 	return
 }
 
