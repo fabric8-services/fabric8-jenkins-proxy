@@ -2,7 +2,6 @@ package proxy_test
 
 import (
 	"strings"
-	"fmt"
 	"bytes"
 	"io/ioutil"
 	"net/http"
@@ -35,7 +34,6 @@ func TestGHData(t *testing.T) {
 	js.HandleFunc("/", HandleJenkins)
 	go http.ListenAndServe(":8888", js)
 
-	b := ioutil.NopCloser(bytes.NewReader(tu.GetGHData()))
 	resp, err := http.Get("http://localhost:8080/")
 	if err != nil {
 		t.Error(err)
@@ -44,6 +42,13 @@ func TestGHData(t *testing.T) {
 		t.Error(resp.Status)
 	}
 
+	client := &http.Client{}
+	WebhookHit(t, client)
+	WebhookHit(t, client)
+}
+
+func WebhookHit(t *testing.T, client *http.Client) {
+	b := ioutil.NopCloser(bytes.NewReader(tu.GetGHData()))
 	req, err := http.NewRequest("POST", "http://localhost:8080/github-webhook/", b)
 	if err != nil {
 		t.Error(err)
@@ -53,19 +58,18 @@ func TestGHData(t *testing.T) {
 	req.Header.Add("X-Hub-Signature", "sha1=07cabddd7b5094a28dab9e0a23ec8d2e8dc7ab83")
 	req.Header.Add("X-GitHub-Event", "push")
 
-	client := &http.Client{}
-	resp, err = client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Error(err)
 	}
 
-	fmt.Printf("%+v\n", resp)
+	defer resp.Body.Close()
 	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 202 {
 		t.Error("Could not proxy successfully: ", resp.Status)
 	}
 }

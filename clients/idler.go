@@ -53,8 +53,6 @@ func (i Idler) GetRoute(n string) (scheme string, rt string, err error) {
 			return
 	}
 
-	fmt.Println(string(body))
-
 	type route struct {
 		Service string
 		Route string
