@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/rsa"
 	"time"
 	"bytes"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -21,6 +23,7 @@ type Proxy struct {
 	RequestBuffer map[string]*BufferedReuqests
 	VisitStats *map[string]time.Time
 	TenantCache *cache.Cache
+	ProxyCache *cache.Cache
 	bufferLock *sync.Mutex
 	service string
 	bufferCheckSleep time.Duration
@@ -28,11 +31,14 @@ type Proxy struct {
 	wit clients.WIT
 	idler clients.Idler
 	redirect string
+	publicKey *rsa.PublicKey
+	authURL string
 }
 
 type BufferedReuqests struct {
 	LastRequest time.Time
 	Requests []BufferedReuqest
+	Targets []string
 }
 
 type BufferedReuqest struct {
@@ -40,24 +46,42 @@ type BufferedReuqest struct {
 	Body []byte
 }
 
-func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, redirect string) Proxy {
+type TokenJSON struct {
+	AccessToken string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType string `json:"token_type"`
+	ExpiresIn int `json:"expires_in"`
+	RefreshExpiresIn int `json:"refresh_expires_in"`
+}
+
+func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string) (Proxy, error) {
 	rb := make(map[string]*BufferedReuqests)
 	vs := make(map[string]time.Time)
 	p := Proxy{
 		RequestBuffer: rb,
 		VisitStats: &vs,
 		TenantCache: cache.New(30*time.Minute, 40*time.Minute),
+		ProxyCache: cache.New(15*time.Minute, 10*time.Minute),
 		bufferLock: &sync.Mutex{},
 		tenant: t,
 		wit: w,
 		idler: i,
 		bufferCheckSleep: 5,
 		redirect: redirect,
+		authURL: authURL,
 	}
+	
+	pk, err := GetPublicKey(keycloakURL)
+	if err != nil {
+		return p, err
+	}
+
+	p.publicKey = pk
+
 	go func() {
 		p.ProcessBuffer()
 	}()
-	return p
+	return p, nil
 }
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
@@ -134,18 +158,114 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			(*vs)[ns]=time.Now().UTC()
 		}
 	} else {
-		log.Info(fmt.Sprintf("Redirecting to %s", p.redirect))
-		http.Redirect(w, r, p.redirect, 301)
-		return
-	/*
-		Here will be a proxy
-	
-		vs := p.VisitStats 
-		(*vs)[ns]=time.Now().UTC()
-		r.Host = fmt.Sprintf(p.newUrl, "vpavlin")
-		//Switch or add OSO token
-		r.Header["Authorization"] = []string{fmt.Sprintf("Bearer %s", p.GetUserToken(""))}
-		*/
+		redirect := true
+		//fmt.Printf("Query: %s", r.URL)
+
+		if _, ok := r.Header["Authorization"]; ok { //FIXME Do we need this?
+			redirect = false
+			w.Write([]byte(fmt.Sprintf("%+v\n", r.Header)))
+		}
+
+
+		//FIXME Refactor error handling!
+		if tj, ok := r.URL.Query()["token_json"]; ok {
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+			redirect = false
+			tokenJSON := &TokenJSON{}
+			err = json.Unmarshal([]byte(tj[0]), tokenJSON)
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			uid, err := GetTokenUID(tokenJSON.AccessToken, p.publicKey)
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			ti, err := p.tenant.GetTenantInfo(uid)
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			ns, err := p.tenant.GetNamespaceByType(ti, "jenkins")
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			scheme, route, err := p.idler.GetRoute(ns.Name)
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			osoToken, err := GetOSOToken(fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(p.authURL, "/"), ns.ClusterURL), tokenJSON.AccessToken)
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			nr, _ := http.NewRequest("GET", fmt.Sprintf("%s://%s/", scheme, route), nil)
+			nr.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
+			c := http.DefaultClient
+			nresp, _ := c.Do(nr)
+			if nresp.StatusCode == http.StatusOK {
+				for _, cookie := range nresp.Cookies() {
+					http.SetCookie(w, cookie)
+					if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
+						url := url.URL{}
+						url.Scheme = scheme
+						url.Host = route
+						p.ProxyCache.SetDefault(cookie.Value, url)
+					}
+				}
+				http.Redirect(w, r, p.redirect, http.StatusFound)
+				return
+			}
+
+		}
+		if len(r.Cookies()) > 0 {
+			session := ""
+			for _, cookie := range r.Cookies() {
+				if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
+					session = cookie.Value
+					break
+				}
+			}
+			if cacheVal, ok := p.ProxyCache.Get(session); ok {
+					url := cacheVal.(url.URL)
+					r.Host = url.Host
+					r.URL.Host = url.Host
+					r.URL.Scheme = url.Scheme
+					redirect = false
+			}
+		}
+
+		if redirect {
+			redir := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), p.redirect)
+			log.Info(fmt.Sprintf("Redirecting to %s", redir))
+			http.Redirect(w, r, redir, 301)
+		}
 	}
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {

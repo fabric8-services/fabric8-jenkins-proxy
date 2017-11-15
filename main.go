@@ -62,6 +62,20 @@ func main() {
 		log.Error("You need to provide redirect URL")
 	}
 
+	keycloakURL := v.GetString("keycloak.url")
+	_, err = url.ParseRequestURI(keycloakURL)
+	if len(keycloakURL) == 0 || err != nil {
+		missingParam = true
+		log.Error("You need to provide Keycloak URL")
+	}
+
+	authURL := v.GetString("auth.url")
+	_, err = url.ParseRequestURI(authURL)
+	if len(authURL) == 0 || err != nil {
+		missingParam = true
+		log.Error("You need to provide Auth service URL")
+	}
+
 	if missingParam {
 		log.Fatal("A value for envinronment variable(s) is missing")
 	}
@@ -70,7 +84,7 @@ func main() {
 	w := clients.NewWIT(witApiURL, authToken)
 	il := clients.NewIdler(apiURL)
 
-	prx := proxy.NewProxy(t, w, il, redirURL)
+	prx := proxy.NewProxy(t, w, il, keycloakURL, authURL, redirURL)
 	api := api.NewAPI(&prx)
 	proxyMux := http.NewServeMux()	
 
