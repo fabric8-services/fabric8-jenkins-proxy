@@ -15,24 +15,27 @@ import (
 func TestGHData(t *testing.T) {
 	ts := tu.MockServer(tu.TenantData1())
 	defer ts.Close()
-	is := tu.MockServer(tu.IdlerData2())
+	is := tu.MockServer(tu.IdlerData1())
 	defer is.Close()
 	ws := tu.MockServer(tu.WITData1())
 
 	tc := clients.NewTenant(ts.URL, "xxx")
 	i := clients.NewIdler(is.URL)
 	w := clients.NewWIT(ws.URL, "xxx")
-	p := proxy.NewProxy(tc, w, i, "https://prod-preview.openshift.io")
+	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io",  "https://auth.prod-preview.openshift.io", "https://localhost:8443/")
+	if err != nil {
+		t.Error(err)
+	}
 
 	proxyMux := http.NewServeMux()	
 
 	proxyMux.HandleFunc("/", p.Handle)
-	
-	go http.ListenAndServe(":8080", proxyMux)
+	http.ListenAndServeTLS(":8443", "../server.crt", "../server.key", proxyMux)
+	//http.ListenAndServe(":8080", proxyMux)
 
 	js := http.NewServeMux()
 	js.HandleFunc("/", HandleJenkins)
-	go http.ListenAndServe(":8888", js)
+	http.ListenAndServe(":8888", js)
 
 	resp, err := http.Get("http://localhost:8080/")
 	if err != nil {
@@ -40,6 +43,12 @@ func TestGHData(t *testing.T) {
 	}
 	if resp.StatusCode != 200 {
 		t.Error(resp.Status)
+		defer resp.Body.Close()
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Error(string(b))
 	}
 
 	client := &http.Client{}
