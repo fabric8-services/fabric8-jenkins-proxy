@@ -92,6 +92,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var body []byte
 	var err error
+	var ns string
 	if isGH {
 		defer r.Body.Close()
 		body, err = ioutil.ReadAll(r.Body)
@@ -109,7 +110,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("Could not parse GH payload: %s", err)))
 			return
 		}
-		ns, err := p.GetUser(gh)
+		ns, err = p.GetUser(gh)
 		if err != nil {
 			log.Error(err)
 			w.WriteHeader(http.StatusNotFound)
@@ -153,9 +154,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte(""))
 			return
-		} else {
-			vs := p.VisitStats 
-			(*vs)[ns]=time.Now().UTC()
 		}
 	} else {
 		redirect := true
@@ -211,7 +209,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			ns, err := p.tenant.GetNamespaceByType(ti, "jenkins")
+			namespace, err := p.tenant.GetNamespaceByType(ti, "jenkins")
 			if err != nil {
 				log.Error(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -219,9 +217,11 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			log.Info(fmt.Sprintf("Extracted Tenant Info: %s", ns.Name))
+			ns = namespace.Name
 
-			scheme, route, err := p.idler.GetRoute(ns.Name)
+			log.Info(fmt.Sprintf("Extracted Tenant Info: %s", ns))
+
+			scheme, route, err := p.idler.GetRoute(ns)
 			if err != nil {
 				log.Error(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -229,7 +229,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			osoToken, err := GetOSOToken(fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(p.authURL, "/"), ns.ClusterURL), tokenJSON.AccessToken)
+			osoToken, err := GetOSOToken(fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(p.authURL, "/"), namespace.ClusterURL), tokenJSON.AccessToken)
 			if err != nil {
 				log.Error(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -252,14 +252,14 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 						url.Scheme = scheme
 						url.Host = route
 						p.ProxyCache.SetDefault(cookie.Value, url)
-						log.Info("Cached Jenkins route %s", route)
+						log.Info(fmt.Sprintf("Cached Jenkins route %s", route))
 						cached = true
 					}
 				}
 				if cached {
 					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 				} else {
-					err = fmt.Errorf("Could not find cookie JSESSIONID for %s", ns.Name)
+					err = fmt.Errorf("Could not find cookie JSESSIONID for %s", namespace.Name)
 					log.Error(err)
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte(err.Error()))
@@ -290,6 +290,10 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			log.Info(fmt.Sprintf("Redirecting to %s", redir))
 			http.Redirect(w, r, redir, 301)
 		}
+	}
+	vs := p.VisitStats
+	if _, ok := (*vs)[ns]; ok {
+		(*vs)[ns]=time.Now().UTC()
 	}
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
