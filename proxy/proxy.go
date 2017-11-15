@@ -292,9 +292,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	vs := p.VisitStats
-	if _, ok := (*vs)[ns]; ok {
-		(*vs)[ns]=time.Now().UTC()
-	}
+	(*vs)[ns]=time.Now().UTC()
+
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			if len(body) > 0 {
