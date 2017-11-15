@@ -159,16 +159,23 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		redirect := true
+
+		redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), r.URL.Path))
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
 		//fmt.Printf("Query: %s", r.URL)
 
 		if _, ok := r.Header["Authorization"]; ok { //FIXME Do we need this?
 			redirect = false
-			w.Write([]byte(fmt.Sprintf("%+v\n", r.Header)))
 		}
-
 
 		//FIXME Refactor error handling!
 		if tj, ok := r.URL.Query()["token_json"]; ok {
+			log.Info("Found token info in query")
 			if err != nil {
 				log.Error(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -184,6 +191,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(err.Error()))
 				return
 			}
+			log.Info("Extracted JWT token")
 
 			uid, err := GetTokenUID(tokenJSON.AccessToken, p.publicKey)
 			if err != nil {
@@ -192,6 +200,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(err.Error()))
 				return
 			}
+
+			log.Info("Extracted UID from JWT token")
 
 			ti, err := p.tenant.GetTenantInfo(uid)
 			if err != nil {
@@ -209,6 +219,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			log.Info(fmt.Sprintf("Extracted Tenant Info: %s", ns.Name))
+
 			scheme, route, err := p.idler.GetRoute(ns.Name)
 			if err != nil {
 				log.Error(err)
@@ -225,11 +237,14 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			log.Info("Loaded OSO token")
+
 			nr, _ := http.NewRequest("GET", fmt.Sprintf("%s://%s/", scheme, route), nil)
 			nr.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
 			c := http.DefaultClient
 			nresp, _ := c.Do(nr)
 			if nresp.StatusCode == http.StatusOK {
+				cached := false
 				for _, cookie := range nresp.Cookies() {
 					http.SetCookie(w, cookie)
 					if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
@@ -237,11 +252,20 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 						url.Scheme = scheme
 						url.Host = route
 						p.ProxyCache.SetDefault(cookie.Value, url)
+						log.Info("Cached Jenkins route %s", route)
+						cached = true
 					}
 				}
-				http.Redirect(w, r, p.redirect, http.StatusFound)
+				if cached {
+					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+				} else {
+					err = fmt.Errorf("Could not find cookie JSESSIONID for %s", ns.Name)
+					log.Error(err)
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte(err.Error()))
+				}
 				return
-			}
+			} //FIXME what about else?
 
 		}
 		if len(r.Cookies()) > 0 {
@@ -262,14 +286,16 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if redirect {
-			redir := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), p.redirect)
+			redir := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), redirectURL.String())
 			log.Info(fmt.Sprintf("Redirecting to %s", redir))
 			http.Redirect(w, r, redir, 301)
 		}
 	}
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req.Body = ioutil.NopCloser(bytes.NewReader(body))
+			if len(body) > 0 {
+				req.Body = ioutil.NopCloser(bytes.NewReader(body))
+			}
 		},
 	}).ServeHTTP(w, r)
 }

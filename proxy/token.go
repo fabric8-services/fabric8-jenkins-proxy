@@ -16,14 +16,12 @@ func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
 
-		fmt.Printf("%+v\n", pk)
 		return pk, nil
 	})
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("%+v\n", t.Raw)
 	claims, ok := t.Claims.(jwt.MapClaims)
 	if ok && t.Valid {
 		if claims["sub"].(string) == "" {
@@ -97,7 +95,6 @@ func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
 	if err != nil {
 		return
 	}
-	//pk = 
 
 	return
 }
