@@ -84,7 +84,10 @@ func main() {
 	w := clients.NewWIT(witApiURL, authToken)
 	il := clients.NewIdler(apiURL)
 
-	prx := proxy.NewProxy(t, w, il, keycloakURL, authURL, redirURL)
+	prx, err := proxy.NewProxy(t, w, il, keycloakURL, authURL, redirURL)
+	if err != nil {
+		log.Fatal(err)
+	}
 	api := api.NewAPI(&prx)
 	proxyMux := http.NewServeMux()	
 
