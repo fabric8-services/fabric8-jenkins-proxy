@@ -3,6 +3,8 @@
 package main
 
 import (
+	"os"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"strings"
 	"net/http"
@@ -74,6 +76,13 @@ func main() {
 	if len(authURL) == 0 || err != nil {
 		missingParam = true
 		log.Error("You need to provide Auth service URL")
+	}
+
+	dryRUN := v.GetBool("dry.run")
+
+	if dryRUN {
+		testutils.Run()
+		os.Exit(0)
 	}
 
 	if missingParam {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	ic "github.com/fabric8-services/fabric8-jenkins-idler/clients"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -174,13 +175,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		//FIXME Refactor error handling!
 		if tj, ok := r.URL.Query()["token_json"]; ok {
 			log.Info("Found token info in query")
-			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
-				return
-			}
-			redirect = false
 			tokenJSON := &TokenJSON{}
 			err = json.Unmarshal([]byte(tj[0]), tokenJSON)
 			if err != nil {
@@ -221,14 +215,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 			log.Info(fmt.Sprintf("Extracted Tenant Info: %s", ns))
 
-			scheme, route, err := p.idler.GetRoute(ns)
-			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
-				return
-			}
-
 			osoToken, err := GetOSOToken(fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(p.authURL, "/"), namespace.ClusterURL), tokenJSON.AccessToken)
 			if err != nil {
 				log.Error(err)
@@ -237,26 +223,46 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			oc := ic.NewOpenShift(namespace.ClusterURL, osoToken)
+			route, tls, err := oc.GetRoute(namespace.Name, "jenkins")
+			if err != nil {
+				log.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+			scheme := "https"
+			if !tls {
+				scheme = "http"
+			}
+
 			log.Info("Loaded OSO token")
 
-			nr, _ := http.NewRequest("GET", fmt.Sprintf("%s://%s/", scheme, route), nil)
+			jenkinsURL := fmt.Sprintf("%s://%s/", scheme, route)
+			log.Info(fmt.Sprintf("Logging in %s", jenkinsURL))
+			nr, _ := http.NewRequest("GET", jenkinsURL, nil)
 			nr.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
 			c := http.DefaultClient
-			nresp, _ := c.Do(nr)
+			nresp, err := c.Do(nr)
+			if err != nil {
+				log.Error(err)
+			}
 			if nresp.StatusCode == http.StatusOK {
 				cached := false
 				for _, cookie := range nresp.Cookies() {
 					http.SetCookie(w, cookie)
 					if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
 						url := url.URL{}
+						url.Path = ns
 						url.Scheme = scheme
 						url.Host = route
 						p.ProxyCache.SetDefault(cookie.Value, url)
-						log.Info(fmt.Sprintf("Cached Jenkins route %s", route))
+						log.Info(fmt.Sprintf("Cached Jenkins route %s in %s", route, cookie.Value))
 						cached = true
 					}
 				}
 				if cached {
+					log.Info(fmt.Sprintf("Redirecting to %s", redirectURL.String()))
 					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 				} else {
 					err = fmt.Errorf("Could not find cookie JSESSIONID for %s", namespace.Name)
@@ -269,28 +275,30 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 		}
 		if len(r.Cookies()) > 0 {
-			session := ""
 			for _, cookie := range r.Cookies() {
 				if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
-					session = cookie.Value
-					break
+					if cacheVal, ok := p.ProxyCache.Get(cookie.Value); ok {
+						url := cacheVal.(url.URL)
+						//log.Info(fmt.Sprintf("Cache hit %s", url.Host))
+						r.Host = url.Host
+						r.URL.Host = url.Host
+						r.URL.Scheme = url.Scheme
+						ns = url.Path
+						redirect = false
+						break
+					}
 				}
-			}
-			if cacheVal, ok := p.ProxyCache.Get(session); ok {
-					url := cacheVal.(url.URL)
-					r.Host = url.Host
-					r.URL.Host = url.Host
-					r.URL.Scheme = url.Scheme
-					redirect = false
 			}
 		}
 
 		if redirect {
-			redir := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), redirectURL.String())
+			redir := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), url.PathEscape(redirectURL.String()))
 			log.Info(fmt.Sprintf("Redirecting to %s", redir))
 			http.Redirect(w, r, redir, 301)
+			return
 		}
 	}
+	//log.Info("Updating visit stats for ", ns)
 	vs := p.VisitStats
 	(*vs)[ns]=time.Now().UTC()
 
