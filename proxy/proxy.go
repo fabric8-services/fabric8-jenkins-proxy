@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/satori/go.uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	ic "github.com/fabric8-services/fabric8-jenkins-idler/clients"
@@ -53,6 +54,23 @@ type TokenJSON struct {
 	TokenType string `json:"token_type"`
 	ExpiresIn int `json:"expires_in"`
 	RefreshExpiresIn int `json:"refresh_expires_in"`
+}
+
+type ProxyError struct {
+	Errors []ProxyErrorInfo
+}
+
+type ProxyErrorInfo struct{
+	Code int `json:"code"`
+	Detail string `json:"detail"`
+}
+
+type ProxyCacheItem struct {
+	ClusterURL string
+	NS string
+	Route string
+	TLS bool
+	OsoToken string
 }
 
 func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string) (Proxy, error) {
@@ -98,31 +116,23 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		body, err = ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Error("Could not load request body: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("Could not load request body: %s", err)))
+			p.HandleError(w, fmt.Errorf("Could not load request body: %s", err))
 			return
 		}
 		gh := GHHookStruct{}
 		err = json.Unmarshal(body, &gh)
 		if err != nil {
-			log.Error("Could not parse GH payload: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("Could not parse GH payload: %s", err)))
+			p.HandleError(w, fmt.Errorf("Could not parse GH payload: %s", err))
 			return
 		}
 		ns, err = p.GetUser(gh)
 		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(""))
+			p.HandleError(w, err)
 			return
 		}
 		scheme, route, err := p.idler.GetRoute(ns)
 		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(""))
+			p.HandleError(w, err)
 			return
 		}
 		r.URL.Scheme = scheme
@@ -131,9 +141,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 		isIdle, err := p.idler.IsIdle(ns)
 		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(""))
+			p.HandleError(w, err)
 			return
 		}
 
@@ -161,9 +169,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 		redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), r.URL.Path))
 		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			p.HandleError(w, err)
 			return
 		}
 		//fmt.Printf("Query: %s", r.URL)
@@ -172,24 +178,60 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			redirect = false
 		}
 
+		if len(r.Cookies()) > 0 {
+			for _, cookie := range r.Cookies() {
+				if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
+					if cacheVal, ok := p.ProxyCache.Get(cookie.Value); ok {
+						pci := cacheVal.(ProxyCacheItem)
+						//log.Info(fmt.Sprintf("Cache hit %s", url.Host))
+						r.Host = pci.Route
+						r.URL.Host = pci.Route
+						r.URL.Scheme = "https"
+						if !pci.TLS {
+							r.URL.Scheme = "http"
+						}
+						ns = pci.NS
+
+						redirect = false
+						break
+					}
+				} else if cookie.Name == "JenkinsIdled" {
+					if c, ok := p.ProxyCache.Get(cookie.Value); ok {
+						pci := c.(ProxyCacheItem)
+						oc := ic.NewOpenShift(pci.ClusterURL, pci.OsoToken)
+						isIdle, err := oc.IsIdle(pci.NS, "jenkins") 
+						if err != nil {
+							log.Error(fmt.Sprintf("%s %s %s", pci.ClusterURL, pci.OsoToken, pci.NS))
+							p.HandleError(w, err)
+							return
+						}
+						if isIdle != ic.JenkinsStates["Running"] {
+							w.WriteHeader(http.StatusAccepted)
+							w.Write([]byte(fmt.Sprintf("Jenkins idled...Please wait...%s", pci.ClusterURL)))
+						} else {
+							cookie.Expires = time.Unix(0, 0)
+							http.SetCookie(w, cookie)
+						}
+						return
+					}
+				}
+			}
+		}
+
 		//FIXME Refactor error handling!
 		if tj, ok := r.URL.Query()["token_json"]; ok {
 			log.Info("Found token info in query")
 			tokenJSON := &TokenJSON{}
 			err = json.Unmarshal([]byte(tj[0]), tokenJSON)
 			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
+				p.HandleError(w, err)
 				return
 			}
 			log.Info("Extracted JWT token")
 
 			uid, err := GetTokenUID(tokenJSON.AccessToken, p.publicKey)
 			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
+				p.HandleError(w, err)
 				return
 			}
 
@@ -197,43 +239,58 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 			ti, err := p.tenant.GetTenantInfo(uid)
 			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
+				p.HandleError(w, err)
 				return
 			}
 
 			namespace, err := p.tenant.GetNamespaceByType(ti, "jenkins")
 			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
+				p.HandleError(w, err)
 				return
 			}
 
 			ns = namespace.Name
-
 			log.Info(fmt.Sprintf("Extracted Tenant Info: %s", ns))
 
 			osoToken, err := GetOSOToken(fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(p.authURL, "/"), namespace.ClusterURL), tokenJSON.AccessToken)
 			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
+				p.HandleError(w, err)
 				return
 			}
 
 			oc := ic.NewOpenShift(namespace.ClusterURL, osoToken)
-			route, tls, err := oc.GetRoute(namespace.Name, "jenkins")
+			route, tls, err := oc.GetRoute(ns, "jenkins")
 			if err != nil {
-				log.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
+				p.HandleError(w, err)
 				return
 			}
 			scheme := "https"
 			if !tls {
 				scheme = "http"
+			}
+
+			pci := ProxyCacheItem{}
+			pci.NS = namespace.Name
+			pci.TLS = tls
+			pci.Route = route
+			pci.ClusterURL = namespace.ClusterURL
+			pci.OsoToken = osoToken
+
+			isIdle, err := oc.IsIdle(ns, "jenkins")
+			if err != nil {
+				p.HandleError(w, err)
+				return
+			}
+			if isIdle != ic.JenkinsStates["Running"] {
+				c := &http.Cookie{}
+				u1 := uuid.NewV4().String()
+				c.Name = "JenkinsIdled"
+				c.Value = u1
+				p.ProxyCache.SetDefault(u1, pci)
+				http.SetCookie(w, c)
+				log.Info("Redirecting to remove token from URL")
+				http.Redirect(w, r, redirectURL.String(), http.StatusFound) //Redirect to get rid of token in URL
+				return
 			}
 
 			log.Info("Loaded OSO token")
@@ -245,18 +302,18 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			c := http.DefaultClient
 			nresp, err := c.Do(nr)
 			if err != nil {
-				log.Error(err)
+				p.HandleError(w, err)
+				return
 			}
 			if nresp.StatusCode == http.StatusOK {
 				cached := false
 				for _, cookie := range nresp.Cookies() {
+					if cookie.Name == "JenkinsIdled" {
+						continue
+					}
 					http.SetCookie(w, cookie)
 					if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
-						url := url.URL{}
-						url.Path = ns
-						url.Scheme = scheme
-						url.Host = route
-						p.ProxyCache.SetDefault(cookie.Value, url)
+						p.ProxyCache.SetDefault(cookie.Value, pci)
 						log.Info(fmt.Sprintf("Cached Jenkins route %s in %s", route, cookie.Value))
 						cached = true
 					}
@@ -265,36 +322,17 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 					log.Info(fmt.Sprintf("Redirecting to %s", redirectURL.String()))
 					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 				} else {
-					err = fmt.Errorf("Could not find cookie JSESSIONID for %s", namespace.Name)
-					log.Error(err)
-					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte(err.Error()))
+					p.HandleError(w, fmt.Errorf("Could not find cookie JSESSIONID for %s", namespace.Name))
 				}
 				return
 			} //FIXME what about else?
 
 		}
-		if len(r.Cookies()) > 0 {
-			for _, cookie := range r.Cookies() {
-				if strings.HasPrefix(cookie.Name, "JSESSIONID") { //FIXME magic const
-					if cacheVal, ok := p.ProxyCache.Get(cookie.Value); ok {
-						url := cacheVal.(url.URL)
-						//log.Info(fmt.Sprintf("Cache hit %s", url.Host))
-						r.Host = url.Host
-						r.URL.Host = url.Host
-						r.URL.Scheme = url.Scheme
-						ns = url.Path
-						redirect = false
-						break
-					}
-				}
-			}
-		}
 
 		if redirect {
-			redir := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), url.PathEscape(redirectURL.String()))
-			log.Info(fmt.Sprintf("Redirecting to %s", redir))
-			http.Redirect(w, r, redir, 301)
+			redirAuth := fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(p.authURL, "/"), url.PathEscape(redirectURL.String()))
+			log.Info(fmt.Sprintf("Redirecting to %s", redirAuth))
+			http.Redirect(w, r, redirAuth, 301)
 			return
 		}
 	}
@@ -309,6 +347,26 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			}
 		},
 	}).ServeHTTP(w, r)
+}
+
+func (p *Proxy) HandleError(w http.ResponseWriter, err error) {
+	log.Error(err)
+	w.WriteHeader(http.StatusInternalServerError)
+
+	pei := ProxyErrorInfo{
+		Code: http.StatusInternalServerError,
+		Detail: err.Error(),
+	}
+	e := ProxyError{
+		Errors: make([]ProxyErrorInfo, 1),
+	}
+	e.Errors[0] = pei
+
+	eb, err := json.Marshal(e)
+	if err != nil {
+		log.Error(err)
+	}
+	w.Write(eb)
 }
 
 type GHHookStruct struct {
