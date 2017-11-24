@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net/url"
 	"strings"
 	"crypto/rsa"
 	"encoding/json"
@@ -35,8 +36,9 @@ func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
 	return
 }
 
-func GetOSOToken(authURL, token string) (osoToken string, err error) {
-	req, err := http.NewRequest("GET", authURL, nil)
+func GetOSOToken(authURL string, clusterURL string, token string) (osoToken string, err error) {
+	url := fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(authURL, "/"), clusterURL)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return
 	}
@@ -60,7 +62,16 @@ func GetOSOToken(authURL, token string) (osoToken string, err error) {
 		return
 	}
 
-	osoToken = tj.AccessToken
+	if len(tj.Errors) > 0 {
+		err = fmt.Errorf(tj.Errors[0].Detail)
+		return
+	}
+
+	if len(tj.AccessToken) > 0 {
+		osoToken = tj.AccessToken
+	} else {
+		err = fmt.Errorf("OSO access token empty for %s", authURL)
+	}
 	return
 }
 
@@ -97,4 +108,8 @@ func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
 	}
 
 	return
+}
+
+func GetAuthURI(authURL string, redirectURL string) string {
+	return fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(authURL, "/"), url.PathEscape(redirectURL))
 }
