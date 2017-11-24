@@ -1,15 +1,91 @@
 package testutils
 
 import (
+	"strconv"
+	"io/ioutil"
+	"fmt"
+	"strings"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func MockServer(b []byte) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
 		w.Write(b)
 		w.Header().Set("Content-Type", "application/json")
 	}))
+}
+
+func MockRedirect(url string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+		if _, ok := req.URL.Query()["for"]; ok {
+			log.Info("Return OSO Token info")
+			w.Write([]byte(AuthDataOSO()))
+			return
+		}
+		if redir, ok := req.URL.Query()["redirect"]; ok {
+			log.Info(fmt.Sprintf("MockRedirect to %s/toke-info...", redir[0]))
+			http.Redirect(w, req, fmt.Sprintf("%s%s", redir[0], AuthData1()), 301)
+			return
+		}
+	}))
+}
+
+func MockJenkins() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+		c, _ := JenkinsStatus()
+		log.Info(fmt.Sprintf("Replying to Jenkins requests with %d", c))
+		cookie := &http.Cookie{}
+		if c == 200 {
+			cookie.Name = "JSESSIONID.local"
+			cookie.Value = "local-testing"
+			http.SetCookie(w, cookie)
+		}
+		w.WriteHeader(c)
+		w.Write([]byte(fmt.Sprintf("Returning %d", c)))
+		return
+	}))
+}
+
+func MockOpenShift(url string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+		if strings.Contains(req.URL.Path, "routes") {
+			w.WriteHeader(http.StatusOK)
+			w.Write(OpenShiftDataRoute(url))
+		} else if strings.Contains(req.URL.Path, "deploymentconfigs") {
+			w.WriteHeader(http.StatusOK)
+			_, r := JenkinsStatus()
+			w.Write(OpenShiftIdle(r))
+		}
+	}))
+}
+
+func JenkinsStatus() (c int, r int) {
+	code, err :=  ioutil.ReadFile("code.txt")
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	c, err = strconv.Atoi(string(code))
+	if err != nil {
+		log.Error(err)
+	}
+
+	if c == 200 {
+		r = 1
+	} else {
+		r = 0
+	}
+
+	return
 }
 
 func WITData1() []byte {
@@ -172,13 +248,18 @@ func WITData1() []byte {
 	}`)
 }
 
-func IdlerData1() []byte {
-	return []byte(`{
+func IdlerData1(url string) []byte {
+	tls := false
+	if len(url) == 0 {
+		url = "jenkins-vpavlin-jenkins.d800.free-int.openshiftapps.com"
+		tls = true
+	}
+	return []byte(fmt.Sprintf(`{
 		"service": "jenkins",
-		"route": "jenkins-vpavlin-jenkins.d800.free-int.openshiftapps.com",
-		"tls": true,
+		"route": "%s",
+		"tls": %t,
 		"is_idle": false
-		}`)
+		}`, url, tls))
 }
 
 func IdlerData2() []byte {
@@ -190,15 +271,19 @@ func IdlerData2() []byte {
 		}`)
 }
 
-func TenantData1() []byte {
-	return []byte(`{  
+func TenantData1(url string) []byte {
+	if len(url) == 0 {
+		url = "https://api.free-int.openshift.com"
+	}
+
+	return []byte(fmt.Sprintf(`{
 		"data":{  
 			"attributes":{  
 					"created-at":"2017-10-11T18:47:27.69333Z",
 					"email":"vpavlin@redhat.com",
 					"namespaces":[  
 						{  
-								"cluster-url":"https://api.free-int.openshift.com",
+								"cluster-url":"%s",
 								"created-at":"2017-10-11T18:47:28.491233Z",
 								"name":"vpavlin-jenkins",
 								"state":"created",
@@ -207,7 +292,7 @@ func TenantData1() []byte {
 								"version":"2.0.6"
 						},
 						{  
-								"cluster-url":"https://api.free-int.openshift.com",
+								"cluster-url":"%s",
 								"created-at":"2017-10-11T18:47:28.513893Z",
 								"name":"vpavlin-che",
 								"state":"created",
@@ -216,7 +301,7 @@ func TenantData1() []byte {
 								"version":"2.0.6"
 						},
 						{  
-								"cluster-url":"https://api.free-int.openshift.com",
+								"cluster-url":"%s",
 								"created-at":"2017-10-11T18:47:28.56173Z",
 								"name":"vpavlin-run",
 								"state":"created",
@@ -225,7 +310,7 @@ func TenantData1() []byte {
 								"version":"2.0.6"
 						},
 						{  
-								"cluster-url":"https://api.free-int.openshift.com",
+								"cluster-url":"%s",
 								"created-at":"2017-10-11T18:47:28.604475Z",
 								"name":"vpavlin",
 								"state":"created",
@@ -234,7 +319,7 @@ func TenantData1() []byte {
 								"version":"1.0.91"
 						},
 						{  
-								"cluster-url":"https://api.free-int.openshift.com",
+								"cluster-url":"%s",
 								"created-at":"2017-10-11T18:47:28.763171Z",
 								"name":"vpavlin-stage",
 								"state":"created",
@@ -247,7 +332,7 @@ func TenantData1() []byte {
 			"id":"2e15e957-0366-4802-bf1e-0d6fe3f11bb6",
 			"type":"tenants"
 		}
-}`)
+}`, url, url, url, url, url))
 }
 
 func TenantData2() []byte {
@@ -437,4 +522,37 @@ func GetGHData() []byte {
 			"site_admin": false
 		}
 	}`)
+}
+
+func AuthData1() string {
+	return `?token_json=%7B"access_token"%3A"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ6RC01N29CRklNVVpzQVdxVW5Jc1Z1X3g3MVZJamQxaXJHa0dVT2lUc0w4In0.eyJqdGkiOiI5Y2NkNDAxYy1kMjk2LTQxYWYtYjA3Ni0wYjBhMjg5ZTNiNWYiLCJleHAiOjE1MTM0MzEzMDMsIm5iZiI6MCwiaWF0IjoxNTEwODM5MzAzLCJpc3MiOiJodHRwczovL3Nzby5wcm9kLXByZXZpZXcub3BlbnNoaWZ0LmlvL2F1dGgvcmVhbG1zL2ZhYnJpYzgiLCJhdWQiOiJmYWJyaWM4LW9ubGluZS1wbGF0Zm9ybSIsInN1YiI6IjJlMTVlOTU3LTAzNjYtNDgwMi1iZjFlLTBkNmZlM2YxMWJiNiIsInR5cCI6IkJlYXJlciIsImF6cCI6ImZhYnJpYzgtb25saW5lLXBsYXRmb3JtIiwiYXV0aF90aW1lIjoxNTEwODM4ODE5LCJzZXNzaW9uX3N0YXRlIjoiMTJmNDMyYzUtZTQ4NS00YWY4LTgzZWItNjQ0ZWE4ODEwYzEwIiwiYWNyIjoiMCIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwczovL3Byb2QtcHJldmlldy5vcGVuc2hpZnQuaW8iLCJodHRwczovL2F1dGgucHJvZC1wcmV2aWV3Lm9wZW5zaGlmdC5pbyIsImh0dHA6Ly9jb3JlLXdpdC4xOTIuMTY4LjQyLjY5Lm5pcC5pbyIsImh0dHA6Ly9sb2NhbGhvc3Q6ODA4MCIsIioiLCJodHRwczovL2NvcmUtd2l0LjE5Mi4xNjguNDIuNjkubmlwLmlvIiwiaHR0cHM6Ly9hcGkucHJvZC1wcmV2aWV3Lm9wZW5zaGlmdC5pbyIsImh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsImh0dHA6Ly9hdXRoLXdpdC4xOTIuMTY4LjQyLjY5Lm5pcC5pbyIsImh0dHBzOi8vYXV0aC13aXQuMTkyLjE2OC40Mi42OS5uaXAuaW8iLCJodHRwOi8vbG9jYWxob3N0OjgwODkiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYnJva2VyIjp7InJvbGVzIjpbInJlYWQtdG9rZW4iXX0sImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sImFwcHJvdmVkIjp0cnVlLCJuYW1lIjoiVmFjbGF2IFBhdmxpbiIsImNvbXBhbnkiOiJSZWQgSGF0IiwicHJlZmVycmVkX3VzZXJuYW1lIjoidnBhdmxpbkByZWRoYXQuY29tIiwiZ2l2ZW5fbmFtZSI6IlZhY2xhdiIsImZhbWlseV9uYW1lIjoiUGF2bGluIiwiZW1haWwiOiJ2cGF2bGluQHJlZGhhdC5jb20ifQ.H5ePOZTsjgcTy-Ykpfz4WifteMVmzB0UjY2PyNI6wcL5hCInYZ1Z9ly8Mo9rjPqU8n8v8uTNy__Z8enlXIktapcywVX9qpsyn17Y1xiejsFZIGtYFcO78pkwVZeZHGAYW_K8JSCbodRB3wrEJSWKwwQp_MgJBzrzd782zXNWUYAqo65sZasFXyBJck_B2zG_7gXBohiUfpgL1Rts35xd1ZBNOVnBIgL7FELmxsswWjQhuTWSCy_uNSPRQS_O--8Ou-pDRwGt8XxVYhsC-4nbsU3B6sQGHqLyIdN_G2xgET2ob1JIC99X7XaXfCqUfMwBI4ndeSSIyrGILXguA5_LZg"%2C"expires_in"%3A2592000%2C"not-before-policy"%3Anull%2C"refresh_expires_in"%3A2592000%2C"refresh_token"%3A"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ6RC01N29CRklNVVpzQVdxVW5Jc1Z1X3g3MVZJamQxaXJHa0dVT2lUc0w4In0.eyJqdGkiOiJmZmZiMGMwNC05YzEzLTQxYzMtOTUyMS1lODlhNmU1YTRmMTYiLCJleHAiOjE1MTM0MzEzMDMsIm5iZiI6MCwiaWF0IjoxNTEwODM5MzAzLCJpc3MiOiJodHRwczovL3Nzby5wcm9kLXByZXZpZXcub3BlbnNoaWZ0LmlvL2F1dGgvcmVhbG1zL2ZhYnJpYzgiLCJhdWQiOiJmYWJyaWM4LW9ubGluZS1wbGF0Zm9ybSIsInN1YiI6IjJlMTVlOTU3LTAzNjYtNDgwMi1iZjFlLTBkNmZlM2YxMWJiNiIsInR5cCI6IlJlZnJlc2giLCJhenAiOiJmYWJyaWM4LW9ubGluZS1wbGF0Zm9ybSIsImF1dGhfdGltZSI6MCwic2Vzc2lvbl9zdGF0ZSI6IjEyZjQzMmM1LWU0ODUtNGFmOC04M2ViLTY0NGVhODgxMGMxMCIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImJyb2tlciI6eyJyb2xlcyI6WyJyZWFkLXRva2VuIl19LCJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19fQ.GmHL_45cc6VJlk1HhQDR91Fb8Xx8MZy4To7l568CYgk-1JqjfP8X3TtoYsGzj0NOFriIGK4TlOzjXnfGhvjiV9izVcde6R8Z0aFkAI4bNmeDAYnJFiBV17VJaISOsKcxt3NpUkPuId2uDkwbI5RXAfnnl5BOq61367652WXV_MT8-A4DnyvaLXFDurm1HKsxXfiqawgimsh6lqymt0fPeXt_Y5o1B2nW_tZ1wC-cF020yKrD-_-L4F-a0RtajRebgYvilfFg3OBPMBNBa2bqR9p0D-YheIHIg0mC07q3rkpudiNkqLPmP71e8rIUrJN-yTc5gOMEH6B58YhLvHbd2g"%2C"token_type"%3A"bearer"%7D`
+}
+
+func AuthDataOSO() string {
+	return `{"access_token":"ZvOLzEbQ1Ml0AtT_q7HIl4SEM_qnbZ7WrlUNEmDhPsQ","scope":"user:full","token_type":"Bearer"}`
+}
+
+func OpenShiftIdle(i int) []byte {
+	return []byte(fmt.Sprintf(`
+		{
+			"status": {
+				"replicas": %d,
+				"readyReplicas": %d
+			}
+		}
+	`, i, i))
+}
+
+func OpenShiftDataRoute(h string) []byte {
+	u, err := url.ParseRequestURI(h)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return []byte(fmt.Sprintf(`
+		{
+			"spec": {
+				"host": "%s"
+			}
+		}
+	`, u.Host))
 }

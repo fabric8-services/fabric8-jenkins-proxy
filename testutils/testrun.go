@@ -9,16 +9,24 @@ import (
 )
 
 func Run() {
-	ts := MockServer(TenantData1())
+	js := MockJenkins()
+	defer js.Close()
+	os := MockOpenShift(js.URL)
+	defer os.Close()
+	ts := MockServer(TenantData1(os.URL))
 	defer ts.Close()
-	is := MockServer(IdlerData1())
+	is := MockServer(IdlerData1(js.URL))
 	defer is.Close()
 	ws := MockServer(WITData1())
+	defer ws.Close()
+	as := MockRedirect(AuthData1())
+	defer as.Close()
+
 
 	tc := clients.NewTenant(ts.URL, "xxx")
 	i := clients.NewIdler(is.URL)
 	w := clients.NewWIT(ws.URL, "xxx")
-	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io",  "https://auth.prod-preview.openshift.io", "https://localhost:8443/")
+	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", as.URL, "https://localhost:8443/")
 	if err != nil {
 		log.Fatal(err)
 	}
