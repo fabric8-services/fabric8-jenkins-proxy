@@ -1,7 +1,6 @@
 package api
 
 import (
-	"time"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	"encoding/json"
 	"net/http"
@@ -22,8 +21,8 @@ func NewAPI(storageService *storage.DBService) ProxyAPI {
 type APIResponse struct {
 	Namespace string `json:"namespace"`
 	Requests int `json:"requests"`
-	LastVisit time.Time `json:"last_visit"`
-	LastRequest time.Time `json:"last_request"`
+	LastVisit int64 `json:"last_visit"`
+	LastRequest int64 `json:"last_request"`
 }
 
 func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter.Params) {
@@ -41,8 +40,8 @@ func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter
 	resp := APIResponse{
 		Namespace: ns,
 		Requests: c,
-		LastRequest: time.Unix(s.LastBufferedRequest, 0),
-		LastVisit: time.Unix(s.LastAccessed, 0),
+		LastRequest: s.LastBufferedRequest,
+		LastVisit: s.LastAccessed,
 	}
 
 	json.NewEncoder(w).Encode(resp)
