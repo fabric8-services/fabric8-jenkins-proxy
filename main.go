@@ -41,7 +41,7 @@ func main() {
 	db := connect(config)
 	defer db.Close()
 
-	storageService := storage.NewDBService(nil)
+	storageService := storage.NewDBService(db)
 
 	t := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
 	w := clients.NewWIT(config.GetWitURL(), config.GetAuthToken())
