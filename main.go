@@ -41,7 +41,6 @@ func main() {
 	db := connect(config)
 	defer db.Close()
 
-
 	storageService := storage.NewDBService(nil)
 
 	t := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
@@ -89,5 +88,9 @@ func connect(config *configuration.Data) *gorm.DB {
 		log.Infof("Configured connection pool max open %v", config.GetPostgresConnectionMaxOpen())
 		db.DB().SetMaxOpenConns(config.GetPostgresConnectionMaxOpen())
 	}
+
+	db.CreateTable(&storage.Request{})
+	db.CreateTable(&storage.Statistics{})
+
 	return db
 }
