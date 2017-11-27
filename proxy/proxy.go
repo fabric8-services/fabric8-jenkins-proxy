@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"io"
 	"crypto/rsa"
 	"time"
 	"bytes"
@@ -18,6 +17,7 @@ import (
 	"github.com/satori/go.uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	ic "github.com/fabric8-services/fabric8-jenkins-idler/clients"
 	log "github.com/sirupsen/logrus"
 )
@@ -31,8 +31,6 @@ const (
 )
 
 type Proxy struct {
-	RequestBuffer map[string]*BufferedReuqests
-	VisitStats *map[string]time.Time
 	TenantCache *cache.Cache
 	ProxyCache *cache.Cache
 	bufferLock *sync.Mutex
@@ -45,6 +43,8 @@ type Proxy struct {
 	redirect string
 	publicKey *rsa.PublicKey
 	authURL string
+	storageService *storage.DBService
+	indexPath string
 }
 
 type BufferedReuqests struct {
@@ -76,12 +76,8 @@ type ProxyErrorInfo struct{
 	Detail string `json:"detail"`
 }
 
-func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string) (Proxy, error) {
-	rb := make(map[string]*BufferedReuqests)
-	vs := make(map[string]time.Time)
+func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string, storageService *storage.DBService, indexPath string) (Proxy, error) {
 	p := Proxy{
-		RequestBuffer: rb,
-		VisitStats: &vs,
 		TenantCache: cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache: cache.New(15*time.Minute, 10*time.Minute),
 		bufferLock: &sync.Mutex{},
@@ -92,6 +88,8 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL stri
 		bufferCheckSleep: 5,
 		redirect: redirect,
 		authURL: authURL,
+		storageService: storageService,
+		indexPath: indexPath,
 	}
 	
 	pk, err := GetPublicKey(keycloakURL)
@@ -120,9 +118,18 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	var reqURL url.URL
 	if isGH {
 		gh := GHHookStruct{}
-		err = json.NewDecoder(r.Body).Decode(gh)
-		io.Copy(ioutil.Discard, r.Body)
-		r.Body.Close()
+		defer r.Body.Close()
+		body, err = ioutil.ReadAll(r.Body)
+		if err != nil {
+			p.HandleError(w, err)
+			return
+		}
+		err = json.Unmarshal(body, &gh)
+		if err != nil {
+			p.HandleError(w, err)
+			return
+		}
+
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Could not parse GH payload: %s", err))
 			return
@@ -149,22 +156,22 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 		if isIdle {
 			w.Header().Set("Server", "Webhook-Proxy")
-			p.bufferLock.Lock()
-			if _, exist := p.RequestBuffer[ns]; !exist {
-				brs := &BufferedReuqests{
-					LastRequest: time.Now().UTC(),
-					Requests: make([]BufferedReuqest, 0, 50),
-				}
-				p.RequestBuffer[ns] = brs
+			sr, err := storage.NewRequest(r, ns)
+			if err != nil {
+				p.HandleError(w, err)
+				return
 			}
-			brs := p.RequestBuffer[ns]
-			(*brs).Requests = append((*brs).Requests, BufferedReuqest{Request: r, Body: body})
-			(*brs).LastRequest = time.Now().UTC()
-			p.bufferLock.Unlock()
+			err = p.storageService.CreateRequest(sr)
+			if err != nil {
+				p.HandleError(w, err)
+				return
+			}
 			log.Info("Webhook request buffered for ", ns)
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte(""))
 			return
+		} else {
+			log.Info(fmt.Sprintf("Passing through %s", r.URL.String()))
 		}
 	} else {
 		redirect := true
@@ -208,7 +215,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 						}
 						if isIdle != ic.JenkinsRunning {
 							w.WriteHeader(http.StatusAccepted)
-							tmplt, err := template.ParseFiles("static/html/index.html")
+							tmplt, err := template.ParseFiles(p.indexPath)
 							if err != nil {
 								p.HandleError(w, err)
 								return
@@ -356,14 +363,24 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	//log.Info("Updating visit stats for ", ns)
 
 	//Needs to go database
-	p.visitLock.Lock()
-	vs := p.VisitStats
-	(*vs)[ns]=time.Now().UTC()
-	p.visitLock.Unlock()
+	go func() {
+		s := &storage.Statistics{
+			User: ns,
+			LastAccessed: time.Now().Unix(),
+		}
+		p.visitLock.Lock()
+		err = p.storageService.CreateStatistics(s)
+		p.visitLock.Unlock()
+		if err != nil {
+			p.HandleError(w, err)
+			return
+		}
+	}()
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			if len(body) > 0 {
+				log.Info("Adding body back to request.")
 				req.Body = ioutil.NopCloser(bytes.NewReader(body))
 			}
 		},
@@ -441,78 +458,56 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 
 func (p *Proxy) ProcessBuffer() {
 	for {
-		for namespace, rbs := range p.RequestBuffer {
-			reqs := (*rbs).Requests 
-			for i:=0;i<len(reqs);i=i {
-				rb := reqs[i]
-				log.Info("Retrying request for ", namespace)
-				isIdle, err := p.idler.IsIdle(namespace)
+		namespaces, err := p.storageService.GetUsers()
+		if err != nil {
+			log.Error(err)
+		} else {
+			for _, ns := range namespaces {
+				reqs, err := p.storageService.GetRequests(ns)
 				if err != nil {
 					log.Error(err)
-					break
+					continue
 				}
-				if !isIdle {
-					req, err := p.prepareRequest(rb.Request, rb.Body)
+				for _, r := range reqs {
+					log.Info("Retrying request for ", ns)
+					isIdle, err := p.idler.IsIdle(ns)
 					if err != nil {
-						log.Error("Error generating request: ", err)
+						log.Error(err)
 						break
 					}
-					client := &http.Client{}
-					resp, err := client.Do(req)
-					if err != nil {
-						log.Error("Error: ", err)
+					if !isIdle {
+						req, err := r.GetHTTPRequest()
+						if err != nil {
+							log.Error(err)
+							break
+						}
+						client := http.DefaultClient
+						resp, err := client.Do(req)
+						if err != nil {
+							log.Error("Error: ", err)
+							break
+						}
+
+						if resp.StatusCode != 200 && resp.StatusCode != 404 {
+							log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
+							break
+						} else if resp.StatusCode == 404 {
+							log.Warn(fmt.Sprintf("Got status %s after retrying request on %s, throwing away the request", resp.Status, req.URL))
+						}
+
+						log.Info(fmt.Sprintf("Request for %s to %s forwarded.", ns, req.Host))
+
+						err = p.storageService.DeleteRequest(&r)
+						if err != nil {
+							log.Error(err)
+						}
+					} else {
+						//Do not try other requests for user if Jenkins is not running
 						break
 					}
-
-					if resp.StatusCode != 200 && resp.StatusCode != 404 {
-						log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
-						break
-					} else if resp.StatusCode == 404 {
-						log.Warn(fmt.Sprintf("Got status %s after retrying request on %s, throwing away the request", resp.Status, req.URL))
-					}
-
-					log.Info(fmt.Sprintf("Request for %s to %s forwarded.", namespace, req.Host))
-
-					p.bufferLock.Lock()
-					reqs = append((*rbs).Requests[:i], (*rbs).Requests[i+1:]...)
-					(*rbs).Requests = reqs
-					p.bufferLock.Unlock()
-				} else {
-					//Do not try other requests for user if Jenkins is not running
-					break
 				}
 			}
 		}
 		time.Sleep(p.bufferCheckSleep*time.Second)
 	}
-}
-
-func (p *Proxy) prepareRequest(src *http.Request, body []byte) (dst *http.Request, err error) {
-	b := ioutil.NopCloser(bytes.NewReader(body))
-	dst, err = http.NewRequest(src.Method, src.URL.String(), b)
-	for k, v := range src.Header {
-		for _, vv := range v {
-			dst.Header.Add(k, vv)
-		}
-	}
-	dst.Header["Server"] = []string{"Webhook-Proxy"}
-	return
-}
-
-func (p *Proxy) GetBufferInfo(namespace string) (int, string) {
-	l := 0
-	t := time.Time{}
-	p.bufferLock.Lock()
-	if rb, ok := p.RequestBuffer[namespace]; ok {
-		l = len((*rb).Requests)
-		t = (*rb).LastRequest
-	}
-	p.bufferLock.Unlock()
-
-	return l, t.Format(time.RFC3339)
-}
-
-func (p *Proxy) GetLastVisitString(namespace string) string {
-	vs := p.VisitStats
-	return (*vs)[namespace].Format(time.RFC3339)
 }

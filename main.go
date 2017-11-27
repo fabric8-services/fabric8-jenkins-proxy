@@ -3,18 +3,19 @@
 package main
 
 import (
-	"os"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
-	"strings"
 	"net/http"
-	"net/url"
+	"os"
+	"time"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 
+	"github.com/jinzhu/gorm"
 	"github.com/julienschmidt/httprouter"
-	viper "github.com/spf13/viper"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,81 +24,33 @@ func init() {
 }
 
 func main() {
-
-	v := viper.New()
-	v.SetEnvPrefix("JC")
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.SetTypeByDefaultValue(true)
-
-	missingParam := false
-	apiURL := v.GetString("idler.api.url")
-	_, err := url.ParseRequestURI(apiURL)
-	if len(apiURL) == 0 || err != nil {
-		missingParam = true
-		log.Error("You need to provide URL to Idler API endpoint in JC_IDLER_API_URL environment variable")
+	config, err := configuration.NewData()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	authToken := v.GetString("auth.token")
-	if len(authToken) == 0 {
-		missingParam = true
-		log.Error("You need to provide fabric8-auth token")
-	}
-	tenantApiURL := v.GetString("f8tenant.api.url")
-	_, err = url.ParseRequestURI(tenantApiURL)
-	if len(tenantApiURL) == 0 || err != nil {
-		missingParam = true
-		log.Error("You need to provide fabric8-tenant service URL")
-	}
-
-	witApiURL := v.GetString("wit.api.url")
-	_, err = url.ParseRequestURI(witApiURL)
-	if len(witApiURL) == 0 || err != nil {
-		missingParam = true
-		log.Error("You need to provide WIT API service URL")
-	}
-
-	redirURL := v.GetString("redirect.url")
-	_, err = url.ParseRequestURI(redirURL)
-	if len(redirURL) == 0 || err != nil {
-		missingParam = true
-		log.Error("You need to provide redirect URL")
-	}
-
-	keycloakURL := v.GetString("keycloak.url")
-	_, err = url.ParseRequestURI(keycloakURL)
-	if len(keycloakURL) == 0 || err != nil {
-		missingParam = true
-		log.Error("You need to provide Keycloak URL")
-	}
-
-	authURL := v.GetString("auth.url")
-	_, err = url.ParseRequestURI(authURL)
-	if len(authURL) == 0 || err != nil {
-		missingParam = true
-		log.Error("You need to provide Auth service URL")
-	}
-
-	dryRUN := v.GetBool("dry.run")
-
-	if dryRUN {
+	if config.GetLocalDevEnv() {
 		testutils.Run()
 		os.Exit(0)
 	}
 
-	if missingParam {
-		log.Fatal("A value for envinronment variable(s) is missing")
-	}
+	config.VerifyConfig()
 
-	t := clients.NewTenant(tenantApiURL, authToken)
-	w := clients.NewWIT(witApiURL, authToken)
-	il := clients.NewIdler(apiURL)
+	db := connect(config)
+	defer db.Close()
 
-	prx, err := proxy.NewProxy(t, w, il, keycloakURL, authURL, redirURL)
+
+	storageService := storage.NewDBService(nil)
+
+	t := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+	w := clients.NewWIT(config.GetWitURL(), config.GetAuthToken())
+	il := clients.NewIdler(config.GetIdlerURL())
+
+	prx, err := proxy.NewProxy(t, w, il, config.GetKeycloakURL(), config.GetAuthURL(), config.GetRedirectURL(), storageService, config.GetIndexPath())
 	if err != nil {
 		log.Fatal(err)
 	}
-	api := api.NewAPI(&prx)
+	api := api.NewAPI(storageService)
 	proxyMux := http.NewServeMux()	
 
 	prxRouter := httprouter.New()
@@ -110,4 +63,29 @@ func main() {
 	proxyMux.HandleFunc("/", prx.Handle)
 
 	http.ListenAndServe(":8080", proxyMux)
+}
+
+func connect(config *configuration.Data) *gorm.DB {
+	var err error
+	var db *gorm.DB
+	for {
+		db, err = gorm.Open("postgres", config.GetPostgresConfigString())
+		if err != nil {
+			log.Errorf("ERROR: Unable to open connection to database %v", err)
+			log.Infof("Retrying to connect in %v...", config.GetPostgresConnectionRetrySleep())
+			time.Sleep(config.GetPostgresConnectionRetrySleep())
+		} else {
+			break
+		}
+	}
+
+	if config.GetPostgresConnectionMaxIdle() > 0 {
+		log.Infof("Configured connection pool max idle %v", config.GetPostgresConnectionMaxIdle())
+		db.DB().SetMaxIdleConns(config.GetPostgresConnectionMaxIdle())
+	}
+	if config.GetPostgresConnectionMaxOpen() > 0 {
+		log.Infof("Configured connection pool max open %v", config.GetPostgresConnectionMaxOpen())
+		db.DB().SetMaxOpenConns(config.GetPostgresConnectionMaxOpen())
+	}
+	return db
 }

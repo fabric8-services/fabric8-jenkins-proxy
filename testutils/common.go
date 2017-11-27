@@ -249,10 +249,13 @@ func WITData1() []byte {
 }
 
 func IdlerData1(url string) []byte {
+	fmt.Printf(url)
 	tls := false
 	if len(url) == 0 {
 		url = "jenkins-vpavlin-jenkins.d800.free-int.openshiftapps.com"
 		tls = true
+	} else if strings.HasPrefix(url, "http") {
+		url = url[7:]
 	}
 	return []byte(fmt.Sprintf(`{
 		"service": "jenkins",

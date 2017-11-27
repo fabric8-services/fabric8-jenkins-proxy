@@ -72,6 +72,7 @@ func (i Idler) GetRoute(n string) (scheme string, rt string, err error) {
 	}
 
 	rt = r.Route
+	fmt.Printf(rt)
 
 	return
 }

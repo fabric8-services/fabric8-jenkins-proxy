@@ -1,10 +1,14 @@
 package testutils
 
 import (
+	"fmt"
 	"net/http"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 
+	"github.com/jinzhu/gorm"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,11 +26,25 @@ func Run() {
 	as := MockRedirect(AuthData1())
 	defer as.Close()
 
+	log.Warn(fmt.Sprintf("JS: %s, OS: %s, TS: %s, IS: %s, WS: %s, AS: %s", js.URL, os.URL, ts.URL, is.URL, ws.URL, as.URL))
+
 
 	tc := clients.NewTenant(ts.URL, "xxx")
 	i := clients.NewIdler(is.URL)
 	w := clients.NewWIT(ws.URL, "xxx")
-	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", as.URL, "https://localhost:8443/")
+
+	db, err := gorm.Open("sqlite3", "/tmp/proxy_test.db")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer db.Close()
+
+	db.CreateTable(&storage.Request{})
+	db.CreateTable(&storage.Statistics{})
+
+	storageService := storage.NewDBService(db)
+
+	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", as.URL, "https://localhost:8443/", storageService, "static/html/index.html")
 	if err != nil {
 		log.Fatal(err)
 	}

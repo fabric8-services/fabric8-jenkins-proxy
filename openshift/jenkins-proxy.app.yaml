@@ -64,6 +64,31 @@ objects:
               secretKeyRef:
                 name: jenkins-proxy
                 key: proxy.auth.token
+          - name: JC_POSTGRES_HOST
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: postgres.host
+          - name: JC_POSTGRES_PORT
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: postgres.port
+          - name: JC_POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: postgres.user
+          - name: JC_POSTGRES_DATABASE
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: postgres.database
+          - name: JC_POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: postgres.password
           image: ${IMAGE}:${IMAGE_TAG}
           imagePullPolicy: Always
           name: jenkins-proxy

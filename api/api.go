@@ -1,36 +1,48 @@
 package api
 
 import (
+	"time"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	"encoding/json"
 	"net/http"
 	"github.com/julienschmidt/httprouter"
-	proxy "github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
+	log "github.com/sirupsen/logrus"
 )
 
 type ProxyAPI struct {
-	Proxy *proxy.Proxy
+	storageService *storage.DBService
 }
 
-func NewAPI(prx *proxy.Proxy) ProxyAPI {
+func NewAPI(storageService *storage.DBService) ProxyAPI {
 	return ProxyAPI{
-		Proxy: prx,
+		storageService: storageService,
 	}
 }
 
 type APIResponse struct {
 	Namespace string `json:"namespace"`
 	Requests int `json:"requests"`
-	LastVisit string `json:"last_visit"`
-	LastRequest string `json:"last_request"`
+	LastVisit time.Time `json:"last_visit"`
+	LastRequest time.Time `json:"last_request"`
 }
 
 func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter.Params) {
-	l, t := api.Proxy.GetBufferInfo(ps.ByName("namespace"))
+	ns := ps.ByName("namespace")
+	s, err := api.storageService.GetStatisticsUser(ns)
+	if err != nil {
+		log.Error(err) //FIXME
+		return
+	}
+	c, err := api.storageService.GetRequestsCount(ns)
+	if err != nil {
+		log.Error(err) //FIXME
+		return
+	}
 	resp := APIResponse{
-		Namespace: ps.ByName("namespace"),
-		Requests: l,
-		LastRequest: t,
-		LastVisit: api.Proxy.GetLastVisitString(ps.ByName("namespace")),
+		Namespace: ns,
+		Requests: c,
+		LastRequest: time.Unix(s.LastBufferedRequest, 0),
+		LastVisit: time.Unix(s.LastAccessed, 0),
 	}
 
 	json.NewEncoder(w).Encode(resp)
