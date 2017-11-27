@@ -14,6 +14,8 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 
+	_ "github.com/lib/pq"
+
 	"github.com/jinzhu/gorm"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
