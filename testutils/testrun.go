@@ -1,15 +1,17 @@
 package testutils
 
 import (
+	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"fmt"
 	"net/http"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 
-	"github.com/jinzhu/gorm"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
 	log "github.com/sirupsen/logrus"
+	"github.com/julienschmidt/httprouter"
 )
 
 func Run() {
@@ -33,16 +35,27 @@ func Run() {
 	i := clients.NewIdler(is.URL)
 	w := clients.NewWIT(ws.URL, "xxx")
 
-	db, err := gorm.Open("sqlite3", "/tmp/proxy_test.db")
+	config, err := configuration.NewData()
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
+
+	log.Info(config.GetPostgresConfigString())
+
+	db := storage.Connect(config)
 	defer db.Close()
 
-	db.CreateTable(&storage.Request{})
-	db.CreateTable(&storage.Statistics{})
-
 	storageService := storage.NewDBService(db)
+	// db, err := gorm.Open("sqlite3", "/tmp/proxy_test.db")
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
+	// defer db.Close()
+
+	// db.CreateTable(&storage.Request{})
+	// db.CreateTable(&storage.Statistics{})
+
+	// storageService := storage.NewDBService(db)
 
 	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", as.URL, "https://localhost:8443/", storageService, "static/html/index.html")
 	if err != nil {
@@ -51,12 +64,21 @@ func Run() {
 
 	log.Info("Starting test proxy..")
 
-	proxyMux := http.NewServeMux()	
+	proxyMux := http.NewServeMux()
+	prxRouter := httprouter.New()
+	
+	api := api.NewAPI(storageService)
+	prxRouter.GET("/papi/info/:namespace", api.Info)
+
+	go func() {
+		http.ListenAndServe(":9091", prxRouter)
+	}()
 
 	proxyMux.HandleFunc("/", p.Handle)
 	err = http.ListenAndServeTLS(":8443", "server.crt", "server.key", proxyMux)
 	if err != nil {
 		log.Error(err)
 	}
+
 	log.Info("Proxy finished..")
 }

@@ -365,7 +365,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	//Needs to go database
 	go func() {
 		s := &storage.Statistics{
-			User: ns,
+			Namespace: ns,
 			LastAccessed: time.Now().Unix(),
 		}
 		p.visitLock.Lock()

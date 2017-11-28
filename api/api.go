@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	"encoding/json"
 	"net/http"
@@ -27,14 +28,20 @@ type APIResponse struct {
 
 func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter.Params) {
 	ns := ps.ByName("namespace")
-	s, err := api.storageService.GetStatisticsUser(ns)
+	s, notFound, err := api.storageService.GetStatisticsUser(ns)
 	if err != nil {
 		log.Error(err) //FIXME
-		return
+		if notFound {
+			log.Infof("Did not find data for %s", ns)
+		} else {
+			fmt.Fprintf(w, "{'error': '%s'}", err)
+			return
+		}
 	}
 	c, err := api.storageService.GetRequestsCount(ns)
 	if err != nil {
 		log.Error(err) //FIXME
+		fmt.Fprintf(w, "{'error': '%s'}", err)
 		return
 	}
 	resp := APIResponse{
