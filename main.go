@@ -5,7 +5,6 @@ package main
 import (
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
@@ -14,9 +13,6 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 
-	_ "github.com/lib/pq"
-
-	"github.com/jinzhu/gorm"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 )
@@ -38,7 +34,7 @@ func main() {
 
 	config.VerifyConfig()
 
-	db := connect(config)
+	db := storage.Connect(config)
 	defer db.Close()
 
 	storageService := storage.NewDBService(db)
@@ -66,31 +62,3 @@ func main() {
 	http.ListenAndServe(":8080", proxyMux)
 }
 
-func connect(config *configuration.Data) *gorm.DB {
-	var err error
-	var db *gorm.DB
-	for {
-		db, err = gorm.Open("postgres", config.GetPostgresConfigString())
-		if err != nil {
-			log.Errorf("ERROR: Unable to open connection to database %v", err)
-			log.Infof("Retrying to connect in %v...", config.GetPostgresConnectionRetrySleep())
-			time.Sleep(config.GetPostgresConnectionRetrySleep())
-		} else {
-			break
-		}
-	}
-
-	if config.GetPostgresConnectionMaxIdle() > 0 {
-		log.Infof("Configured connection pool max idle %v", config.GetPostgresConnectionMaxIdle())
-		db.DB().SetMaxIdleConns(config.GetPostgresConnectionMaxIdle())
-	}
-	if config.GetPostgresConnectionMaxOpen() > 0 {
-		log.Infof("Configured connection pool max open %v", config.GetPostgresConnectionMaxOpen())
-		db.DB().SetMaxOpenConns(config.GetPostgresConnectionMaxOpen())
-	}
-
-	db.CreateTable(&storage.Request{})
-	db.CreateTable(&storage.Statistics{})
-
-	return db
-}
