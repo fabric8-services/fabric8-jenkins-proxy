@@ -233,6 +233,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 								p.HandleError(w, err)
 								return
 							}
+							p.RecordStatistics(ns) //FIXME - maybe do this at the beginning?
 						} else {
 							cookie.Expires = time.Unix(0, 0)
 							http.SetCookie(w, cookie)
@@ -361,20 +362,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//log.Info("Updating visit stats for ", ns)
-
-	//Needs to go database
 	go func() {
-		s := &storage.Statistics{
-			Namespace: ns,
-			LastAccessed: time.Now().Unix(),
-		}
-		p.visitLock.Lock()
-		err = p.storageService.CreateStatistics(s)
-		p.visitLock.Unlock()
-		if err != nil {
-			p.HandleError(w, err)
-			return
-		}
+		p.RecordStatistics(ns)
 	}()
 
 	(&httputil.ReverseProxy{
@@ -453,6 +442,22 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 	}
 	res = n.Name
 	p.TenantCache.SetDefault(pl.Repository.CloneURL, res)
+	return
+}
+
+func (p *Proxy) RecordStatistics(ns string) (err error) {
+	//Needs to go database
+	s := &storage.Statistics{
+		Namespace: ns,
+		LastAccessed: time.Now().Unix(),
+	}
+	p.visitLock.Lock()
+	err = p.storageService.CreateStatistics(s)
+	p.visitLock.Unlock()
+	if err != nil {
+		log.Errorf("Could not record statistics for %s: %s", ns, err)
+	}
+
 	return
 }
 
