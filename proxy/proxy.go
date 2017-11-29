@@ -233,7 +233,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 								p.HandleError(w, err)
 								return
 							}
-							p.RecordStatistics(ns) //FIXME - maybe do this at the beginning?
+							p.RecordStatistics(pci.NS) //FIXME - maybe do this at the beginning?
 						} else {
 							cookie.Expires = time.Unix(0, 0)
 							http.SetCookie(w, cookie)
