@@ -168,6 +168,12 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				p.HandleError(w, err)
 				return
 			}
+			err = p.RecordStatistics(ns, 0, time.Now().Unix())
+			if err != nil {
+				p.HandleError(w, err)
+				return
+			}
+
 			log.Info("Webhook request buffered for ", ns)
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte(""))
@@ -235,7 +241,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 								p.HandleError(w, err)
 								return
 							}
-							p.RecordStatistics(pci.NS) //FIXME - maybe do this at the beginning?
+							p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
 						} else {
 							cookie.Expires = time.Unix(0, 0)
 							http.SetCookie(w, cookie)
@@ -365,7 +371,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	//log.Info("Updating visit stats for ", ns)
 	go func() {
-		p.RecordStatistics(ns)
+		p.RecordStatistics(ns, time.Now().Unix(), 0)
 	}()
 
 	(&httputil.ReverseProxy{
@@ -447,14 +453,23 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 	return
 }
 
-func (p *Proxy) RecordStatistics(ns string) (err error) {
+func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	//Needs to go database
-	s := &storage.Statistics{
-		Namespace: ns,
-		LastAccessed: time.Now().Unix(),
+	s, notFound, err := p.storageService.GetStatisticsUser(ns)
+	if err != nil {
+		if !notFound {
+			log.Errorf("Could not load statistics for %s: %s", ns, err)
+			return
+		}
+	}
+	if la != 0 {
+		s.LastAccessed = la
+	}
+	if lbf != 0 {
+		s.LastBufferedRequest = lbf
 	}
 	p.visitLock.Lock()
-	err = p.storageService.CreateStatistics(s)
+	err = p.storageService.CreateStatistics(&s)
 	p.visitLock.Unlock()
 	if err != nil {
 		log.Errorf("Could not record statistics for %s: %s", ns, err)
@@ -481,6 +496,10 @@ func (p *Proxy) ProcessBuffer() {
 					if err != nil {
 						log.Error(err)
 						break
+					}
+					err = p.RecordStatistics(ns, 0, time.Now().Unix())
+					if err != nil {
+						log.Error(err)
 					}
 					if !isIdle {
 						req, err := r.GetHTTPRequest()
