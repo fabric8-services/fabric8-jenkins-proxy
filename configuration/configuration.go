@@ -29,6 +29,7 @@ const (
 	varWitURL                          = "wit.api.url"
 	varRedirectURL                     = "redirect.url"
 	varKeycloakURL                     = "keycloak.url"
+	varMaxRequestRetry                 = "max.request.retry"
 
 	varIndexPath                       = "index.path"
 
@@ -71,6 +72,8 @@ func (c *Data) setConfigDefaults() {
 
 	// Number of seconds to wait before trying to connect again
 	c.v.SetDefault(varPostgresConnectionRetrySleep, time.Duration(time.Second))
+
+	c.v.SetDefault(varMaxRequestRetry, 10)
 
 	c.v.SetDefault(varIndexPath, "/opt/fabric8-jenkins-proxy/index.html")
 }
@@ -234,6 +237,12 @@ func (c *Data) GetRedirectURL() string {
 // GetIndexPath returns the path to loading page template as set via default, config file, or environment variable
 func (c *Data) GetIndexPath() string {
 	return c.v.GetString(varIndexPath)
+}
+
+// GetMaxRequestretry returns the number of retries for webhook request forwarding as set via default, config file,
+// or environment variable
+func (c *Data) GetMaxRequestretry() int {
+	return c.v.GetInt(varMaxRequestRetry)
 }
 
 // GetLocalDevEnv returns if it is local development env as set via default, config file, or environment variable

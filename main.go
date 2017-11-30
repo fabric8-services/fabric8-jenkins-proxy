@@ -43,7 +43,8 @@ func main() {
 	w := clients.NewWIT(config.GetWitURL(), config.GetAuthToken())
 	il := clients.NewIdler(config.GetIdlerURL())
 
-	prx, err := proxy.NewProxy(t, w, il, config.GetKeycloakURL(), config.GetAuthURL(), config.GetRedirectURL(), storageService, config.GetIndexPath())
+	prx, err := proxy.NewProxy(t, w, il, config.GetKeycloakURL(), config.GetAuthURL(), config.GetRedirectURL(),
+															storageService, config.GetIndexPath(), config.GetMaxRequestretry())
 	if err != nil {
 		log.Fatal(err)
 	}

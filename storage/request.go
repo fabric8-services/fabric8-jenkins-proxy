@@ -10,6 +10,10 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const (
+	ErrorFailedDelete = "Failed to delete request for %s (%s): %s"
+)
+
 type Request struct {
 	ID uuid.UUID `sql:"type:uuid" gorm:"primary_key"` // This is the ID PK field
 	Method string
@@ -19,28 +23,25 @@ type Request struct {
 	Scheme string
 	Path string
 	Namespace string
+	Retries int
 }
 
-func NewRequest(r *http.Request, ns string) (*Request, error) {
+func NewRequest(r *http.Request, ns string, body []byte) (*Request, error) {
 	h, err := json.Marshal(r.Header)
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
 	return &Request{
 		ID: uuid.NewV4(),
 		Method: r.Method,
 		Headers: h,
-		Payload: b,
+		Payload: body,
 		Host: r.Host,
 		Scheme: r.URL.Scheme,
 		Path: r.URL.Path,
 		Namespace: ns,
+		Retries: 0,
 	}, nil
 }
 

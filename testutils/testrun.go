@@ -57,7 +57,7 @@ func Run() {
 
 	// storageService := storage.NewDBService(db)
 
-	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", as.URL, "https://localhost:8443/", storageService, "static/html/index.html")
+	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", as.URL, "https://localhost:8443/", storageService, "static/html/index.html", config.GetMaxRequestretry())
 	if err != nil {
 		log.Fatal(err)
 	}
