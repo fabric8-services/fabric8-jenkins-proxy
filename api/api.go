@@ -30,10 +30,10 @@ func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter
 	ns := ps.ByName("namespace")
 	s, notFound, err := api.storageService.GetStatisticsUser(ns)
 	if err != nil {
-		log.Error(err) //FIXME
 		if notFound {
-			log.Infof("Did not find data for %s", ns)
+			log.Debugf("Did not find data for %s", ns)
 		} else {
+			log.Error(err) //FIXME
 			fmt.Fprintf(w, "{'error': '%s'}", err)
 			return
 		}

@@ -224,7 +224,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 								Message string
 								Retry int
 							}{
-								Message: "Jenkins is starting. Please wait..",
+								Message: "Jenkins has been idled. It is starting now, please wait...",
 								Retry: 10,
 							}
 							log.Info("Templating index.html")
