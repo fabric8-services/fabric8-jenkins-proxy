@@ -45,6 +45,7 @@ type Proxy struct {
 	authURL string
 	storageService *storage.DBService
 	indexPath string
+	maxRequestRetry int
 }
 
 type BufferedReuqests struct {
@@ -76,7 +77,7 @@ type ProxyErrorInfo struct{
 	Detail string `json:"detail"`
 }
 
-func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string, storageService *storage.DBService, indexPath string) (Proxy, error) {
+func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string, storageService *storage.DBService, indexPath string, maxRequestRetry int) (Proxy, error) {
 	p := Proxy{
 		TenantCache: cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache: cache.New(15*time.Minute, 10*time.Minute),
@@ -90,6 +91,7 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL stri
 		authURL: authURL,
 		storageService: storageService,
 		indexPath: indexPath,
+		maxRequestRetry: maxRequestRetry,
 	}
 	
 	pk, err := GetPublicKey(keycloakURL)
@@ -156,12 +158,12 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 		if isIdle {
 			w.Header().Set("Server", "Webhook-Proxy")
-			sr, err := storage.NewRequest(r, ns)
+			sr, err := storage.NewRequest(r, ns, body)
 			if err != nil {
 				p.HandleError(w, err)
 				return
 			}
-			err = p.storageService.CreateRequest(sr)
+			err = p.storageService.CreateOrUpdateRequest(sr)
 			if err != nil {
 				p.HandleError(w, err)
 				return
@@ -483,28 +485,45 @@ func (p *Proxy) ProcessBuffer() {
 					if !isIdle {
 						req, err := r.GetHTTPRequest()
 						if err != nil {
-							log.Error(err)
+							log.Errorf("Could not format request %s (%s): %s - deleting", r.ID, r.Namespace, err)
+							err = p.storageService.DeleteRequest(&r)
+							if err != nil {
+								log.Errorf(storage.ErrorFailedDelete, r.ID, r.Namespace, err)
+							}
 							break
 						}
 						client := http.DefaultClient
 						resp, err := client.Do(req)
 						if err != nil {
 							log.Error("Error: ", err)
-							break
+							if resp.StatusCode != 400 {
+								break
+							}
 						}
 
-						if resp.StatusCode != 200 && resp.StatusCode != 404 {
-							log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
-							break
-						} else if resp.StatusCode == 404 {
-							log.Warn(fmt.Sprintf("Got status %s after retrying request on %s, throwing away the request", resp.Status, req.URL))
-						}
+						if r.Retries < p.maxRequestRetry { //Delete request if we tried too many times
+							if resp.StatusCode != 200 && resp.StatusCode != 404 {
+								log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
+								r.Retries++
+								err = p.storageService.CreateOrUpdateRequest(&r)
+								if err != nil {
+									log.Errorf("Could not update request for %s (%s) - deleting: %s", r.ID, r.Namespace, err)
+									err = p.storageService.DeleteRequest(&r)
+									if err != nil {
+										log.Errorf(storage.ErrorFailedDelete, r.ID, r.Namespace, err)
+									}
+								}
+								break
+							} else if resp.StatusCode == 404 || resp.StatusCode == 400 { //400 - missing payload
+								log.Warn(fmt.Sprintf("Got status %s after retrying request on %s, throwing away the request", resp.Status, req.URL))
+							}
 
-						log.Info(fmt.Sprintf("Request for %s to %s forwarded.", ns, req.Host))
+							log.Info(fmt.Sprintf("Request for %s to %s forwarded.", ns, req.Host))
+						}
 
 						err = p.storageService.DeleteRequest(&r)
 						if err != nil {
-							log.Error(err)
+							log.Error(storage.ErrorFailedDelete, r.ID, r.Namespace, err)
 						}
 					} else {
 						//Do not try other requests for user if Jenkins is not running

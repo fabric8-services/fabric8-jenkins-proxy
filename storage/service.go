@@ -47,7 +47,7 @@ type DBService struct {
 	db *gorm.DB
 }
 
-func (s *DBService) CreateRequest(r *Request) (error) {
+func (s *DBService) CreateOrUpdateRequest(r *Request) (error) {
 	return s.db.Save(r).Error
 }
 
