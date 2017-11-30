@@ -261,7 +261,7 @@ func IdlerData1(url string) []byte {
 		"service": "jenkins",
 		"route": "%s",
 		"tls": %t,
-		"is_idle": true
+		"is_idle": false
 		}`, url, tls))
 }
 

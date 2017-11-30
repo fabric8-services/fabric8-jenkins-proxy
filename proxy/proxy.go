@@ -86,7 +86,7 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL stri
 		tenant: t,
 		wit: w,
 		idler: i,
-		bufferCheckSleep: 5,
+		bufferCheckSleep: 30,
 		redirect: redirect,
 		authURL: authURL,
 		storageService: storageService,
@@ -493,24 +493,25 @@ func (p *Proxy) ProcessBuffer() {
 							break
 						}
 						client := http.DefaultClient
-						resp, err := client.Do(req)
-						if err != nil {
-							log.Error("Error: ", err)
-							if resp.StatusCode != 400 {
+						if r.Retries < p.maxRequestRetry { //Delete request if we tried too many times
+							resp, err := client.Do(req)
+							if err != nil {
+								log.Error("Error: ", err)
+								errs := p.storageService.IncRequestRetry(&r)
+								if len(errs) > 0 {
+									for _, e := range errs {
+										log.Error(e)
+									}
+								}
 								break
 							}
-						}
 
-						if r.Retries < p.maxRequestRetry { //Delete request if we tried too many times
 							if resp.StatusCode != 200 && resp.StatusCode != 404 {
 								log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
-								r.Retries++
-								err = p.storageService.CreateOrUpdateRequest(&r)
-								if err != nil {
-									log.Errorf("Could not update request for %s (%s) - deleting: %s", r.ID, r.Namespace, err)
-									err = p.storageService.DeleteRequest(&r)
-									if err != nil {
-										log.Errorf(storage.ErrorFailedDelete, r.ID, r.Namespace, err)
+								errs := p.storageService.IncRequestRetry(&r)
+								if len(errs) > 0 {
+									for _, e := range errs {
+										log.Error(e)
 									}
 								}
 								break

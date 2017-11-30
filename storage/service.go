@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"time"
 	"github.com/jinzhu/gorm"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
@@ -57,6 +58,19 @@ func (s *DBService) GetRequests(ns string) (result []Request, err error) {
 	return 
 }
 
+func (s *DBService) IncRequestRetry(r *Request) (errs []error) {
+	r.Retries++
+	err := s.CreateOrUpdateRequest(r)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("Could not update request for %s (%s) - deleting: %s", r.ID, r.Namespace, err))
+		err = s.DeleteRequest(r)
+		if err != nil {
+			errs = append(errs, fmt.Errorf(ErrorFailedDelete, r.ID, r.Namespace, err))
+		}
+	}
+
+	return
+}
 
 func (s *DBService) GetUsers() (result []string, err error) {
 	var r Request
