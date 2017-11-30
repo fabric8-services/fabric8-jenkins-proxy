@@ -53,7 +53,7 @@ func (s *DBService) CreateRequest(r *Request) (error) {
 
 func (s *DBService) GetRequests(ns string) (result []Request, err error) {
 	var r Request
-	err = s.db.Table(r.TableName()).Where("namespace = '?'", ns).Find(&result).Error
+	err = s.db.Table(r.TableName()).Where("namespace = ?", ns).Find(&result).Error
 	return 
 }
 
