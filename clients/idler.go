@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+//Idler is a simple client for Idler
 type Idler struct {
 	idlerApi string
 }
@@ -21,6 +22,7 @@ type Status struct {
 	IsIdle bool `json:"is_idle"`
 }
 
+//IsIdle returns true if Jenkins is idled for a given namespace
 func (i Idler) IsIdle(namespace string) (bool, error) {
 	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/isidle/%s", i.idlerApi, namespace))
 	if err != nil {
@@ -41,6 +43,7 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 	return s.IsIdle, nil
 }
 
+//GetRoute returns sheme and route for a given namespace
 func (i Idler) GetRoute(n string) (scheme string, rt string, err error) {
 	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/route/%s", i.idlerApi, n))
 	if err != nil {

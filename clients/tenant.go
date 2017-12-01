@@ -43,11 +43,13 @@ type Namespace struct {
 	Type string
 }
 
+//Tenant is a simple client for fabric8-tenant
 type Tenant struct {
 	tenantServiceURL string
 	authToken string
 }
 
+//GetTenantInfo returns a tenant information based on tenant id
 func (t Tenant) GetTenantInfo(tenantId string) (ti TenantInfo, err error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantId), nil)
 	if err != nil {
@@ -75,6 +77,7 @@ func (t Tenant) GetTenantInfo(tenantId string) (ti TenantInfo, err error) {
 	return
 }
 
+//GetNamespaceByType searches tenant namespaces for a given type
 func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err error) {
 	for i:=0;i<len(ti.Data.Attributes.Namespaces);i++ {
 		n := ti.Data.Attributes.Namespaces[i]

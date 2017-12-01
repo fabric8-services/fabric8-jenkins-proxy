@@ -11,6 +11,15 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
+type TokenJSON struct {
+	AccessToken string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType string `json:"token_type"`
+	ExpiresIn int `json:"expires_in"`
+	RefreshExpiresIn int `json:"refresh_expires_in"`
+	Errors []ProxyErrorInfo
+}
+
 func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
 	t, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
