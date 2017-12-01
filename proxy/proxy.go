@@ -30,42 +30,30 @@ const (
 	SessionCookie = "JSESSIONID"
 )
 
+//Proxy handles requests, verifies authentication and proxies to Jenkins.
+//If the request comes from Github, it bufferes it and replayes if Jenkins
+//is not available.
 type Proxy struct {
+	//TenantCache is used as a temporary cache to optimize number of requests
+	//going to tenant and wit services
 	TenantCache *cache.Cache
+
+	//ProxyCache is used as a cache for session ids passed by Jenkins in cookies
 	ProxyCache *cache.Cache
 	bufferLock *sync.Mutex
 	visitLock *sync.Mutex
-	service string
 	bufferCheckSleep time.Duration
 	tenant clients.Tenant
 	wit clients.WIT
 	idler clients.Idler
+
+	//redirect is a base URL of the proxy
 	redirect string
 	publicKey *rsa.PublicKey
 	authURL string
 	storageService *storage.DBService
 	indexPath string
 	maxRequestRetry int
-}
-
-type BufferedReuqests struct {
-	LastRequest time.Time
-	Requests []BufferedReuqest
-	Targets []string
-}
-
-type BufferedReuqest struct {
-	Request *http.Request
-	Body []byte
-}
-
-type TokenJSON struct {
-	AccessToken string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	TokenType string `json:"token_type"`
-	ExpiresIn int `json:"expires_in"`
-	RefreshExpiresIn int `json:"refresh_expires_in"`
-	Errors []ProxyErrorInfo
 }
 
 type ProxyError struct {
@@ -93,22 +81,26 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL stri
 		indexPath: indexPath,
 		maxRequestRetry: maxRequestRetry,
 	}
-	
+
+	//Collect and parse public key from Keycloak
 	pk, err := GetPublicKey(keycloakURL)
 	if err != nil {
 		return p, err
 	}
-
 	p.publicKey = pk
 
+	//Spawn a routine to process buffered requests
 	go func() {
 		p.ProcessBuffer()
 	}()
 	return p, nil
 }
 
+//Handle handles requests coming to the proxy and performs action based on 
+//the type of request and state of Jenkins.
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	isGH := false
+	//Is the request coming from Github Webhook? FIXME - should we only care about push?
 	if ua, exist := r.Header[GHHeader]; exist {
 		isGH = strings.HasPrefix(ua[0], GHAgent)
 	}
@@ -119,6 +111,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	var cacheKey string
 	var reqURL url.URL
 	if isGH {
+		//Load request body if it's GH webhok
 		gh := GHHookStruct{}
 		defer r.Body.Close()
 		body, err = ioutil.ReadAll(r.Body)
@@ -156,6 +149,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		//If Jenkins is idle, we need to cache the request and return success
 		if isIdle {
 			w.Header().Set("Server", "Webhook-Proxy")
 			sr, err := storage.NewRequest(r, ns, body)
@@ -178,18 +172,21 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte(""))
 			return
-		} else {
+		} else { //If Jenkins is up, we can simply proxy through
 			log.Info(fmt.Sprintf("Passing through %s", r.URL.String()))
 		}
-	} else {
+	} else { //If this is no Github traffic (e.g. user accessing UI)
+		//redirect determines if we need to redirect to auth service
 		redirect := true
 
+		//redirectURL is used for auth service as a target of successful auth redirect
 		redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), r.URL.Path))
 		if err != nil {
 			p.HandleError(w, err)
 			return
 		}
 
+		//If the user provides OSO token, we can directly proxy
 		if _, ok := r.Header["Authorization"]; ok { //FIXME Do we need this?
 			redirect = false
 		}
@@ -199,7 +196,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		if len(r.Cookies()) > 0 { //Check cookies and proxy cache to find user info
 			for _, cookie := range r.Cookies() {
 				if strings.HasPrefix(cookie.Name, SessionCookie) {
-					if cacheVal, ok := p.ProxyCache.Get(cookie.Value); ok {
+					if cacheVal, ok := p.ProxyCache.Get(cookie.Value); ok { //We found a session cookie in cache
 						pci := cacheVal.(ProxyCacheItem)
 						r.Host = pci.Route
 						r.URL.Host = pci.Route
@@ -208,11 +205,11 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 							r.URL.Scheme = "http"
 						}
 						ns = pci.NS
-						redirect = false
+						redirect = false //user is probably logged in, do not redirect
 						cacheKey = cookie.Value
 						break
 					}
-				} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled
+				} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
 					if c, ok := p.ProxyCache.Get(cookie.Value); ok {
 						pci := c.(ProxyCacheItem)
 						oc := ic.NewOpenShiftWithClient(http.DefaultClient, pci.ClusterURL, pci.OsoToken)
@@ -221,7 +218,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 							p.HandleError(w, err)
 							return
 						}
-						if isIdle != ic.JenkinsRunning {
+						if isIdle != ic.JenkinsRunning { //If jenkins is not running, return loading page and status 202
 							w.WriteHeader(http.StatusAccepted)
 							tmplt, err := template.ParseFiles(p.indexPath)
 							if err != nil {
@@ -242,11 +239,11 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 								return
 							}
 							p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
-						} else {
+						} else { //If Jenkins is running, remove the cookie
 							cookie.Expires = time.Unix(0, 0)
 							http.SetCookie(w, cookie)
 						}
-						return
+						return //Do not proceed furter - everything is written to ResponseWriter
 					}
 				}
 			}
@@ -311,7 +308,9 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			//Prepare an item for proxyCache - Jenkins info and OSO token
 			pci := NewProxyCacheItem(namespace.Name, tls, route, namespace.ClusterURL, osoToken)
+			//Break the process if the Jenkins is idled, set a cookie and redirect to self
 			if isIdle != ic.JenkinsRunning {
 				c := &http.Cookie{}
 				u1 := uuid.NewV4().String()
@@ -326,6 +325,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 			log.Info("Loaded OSO token")
 
+			//Login to Jenkins with OSO token to get cookies
 			jenkinsURL := fmt.Sprintf("%s://%s/", scheme, route)
 			log.Info(fmt.Sprintf("Logging in %s", jenkinsURL))
 			nr, _ := http.NewRequest("GET", jenkinsURL, nil)
@@ -349,6 +349,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 						cached = true
 					}
 				}
+				//If all good, redirect to self to remove token from url
 				if cached {
 					log.Info(fmt.Sprintf("Redirecting to %s", redirectURL.String()))
 					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
@@ -362,6 +363,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		//Check if we need to redirec tto auth service
 		if redirect {
 			redirAuth := GetAuthURI(p.authURL, redirectURL.String())
 			log.Info(fmt.Sprintf("Redirecting to %s", redirAuth))
@@ -369,20 +371,21 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//log.Info("Updating visit stats for ", ns)
+	//Write usage stats to DB, run in a goroutine to not slow down the proxy
 	go func() {
 		p.RecordStatistics(ns, time.Now().Unix(), 0)
 	}()
 
 	(&httputil.ReverseProxy{
 		Director: func(req *http.Request) {
+			//Add body back if it has been read (for GH)
 			if len(body) > 0 {
 				log.Info("Adding body back to request.")
 				req.Body = ioutil.NopCloser(bytes.NewReader(body))
 			}
 		},
 		ModifyResponse: func(resp *http.Response) (error) {
-			//log.Info("Modifying response")
+			//Check response from Jenkins and redirect if it got idled in the meantime
 			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout  {
 				if len(cacheKey) > 0 { //Delete cache entry to force new check whethe Jenkins is idled
 					log.Info(fmt.Sprintf("Deleting cache Key: %s", cacheKey))
@@ -398,6 +401,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	}).ServeHTTP(w, r)
 }
 
+//HandleError creates a JSON response with a given error and writes it to ResponseWriter
 func (p *Proxy) HandleError(w http.ResponseWriter, err error) {
 	log.Error(err)
 	w.WriteHeader(http.StatusInternalServerError)
@@ -418,6 +422,8 @@ func (p *Proxy) HandleError(w http.ResponseWriter, err error) {
 	w.Write(eb)
 }
 
+//GHHookStruct a simplified structure to get info from
+//a webhook request
 type GHHookStruct struct {
 	Repository struct {
 		Name string `json:"name"`
@@ -427,10 +433,11 @@ type GHHookStruct struct {
 	} `json:"repository"`
 }
 
-func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
+//GetUser returns a namespace name based on Github repository URL
+func (p *Proxy) GetUser(pl GHHookStruct) (namespace string, err error) {
 	if n, found := p.TenantCache.Get(pl.Repository.CloneURL); found {
 		log.Info("Cache hit")
-		res = n.(string)
+		namespace = n.(string)
 		return
 	}
 	log.Info("Cache miss")
@@ -448,11 +455,12 @@ func (p *Proxy) GetUser(pl GHHookStruct) (res string, err error) {
 	if err != nil {
 		return
 	}
-	res = n.Name
-	p.TenantCache.SetDefault(pl.Repository.CloneURL, res)
+	namespace = n.Name
+	p.TenantCache.SetDefault(pl.Repository.CloneURL, namespace)
 	return
 }
 
+//RecordStatistics writes usage statistics to a database
 func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	//Needs to go database
 	s, notFound, err := p.storageService.GetStatisticsUser(ns)
@@ -478,6 +486,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	return
 }
 
+//ProcessBuffer is a loop running through buffered webhook requests trying to replay them
 func (p *Proxy) ProcessBuffer() {
 	for {
 		namespaces, err := p.storageService.GetUsers()
@@ -512,7 +521,7 @@ func (p *Proxy) ProcessBuffer() {
 							break
 						}
 						client := http.DefaultClient
-						if r.Retries < p.maxRequestRetry { //Delete request if we tried too many times
+						if r.Retries < p.maxRequestRetry { //Check how many times we retired (since the Jenkins started)
 							resp, err := client.Do(req)
 							if err != nil {
 								log.Error("Error: ", err)
@@ -525,7 +534,7 @@ func (p *Proxy) ProcessBuffer() {
 								break
 							}
 
-							if resp.StatusCode != 200 && resp.StatusCode != 404 {
+							if resp.StatusCode != 200 && resp.StatusCode != 404 { //Retry later if the response is not 200
 								log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
 								errs := p.storageService.IncRequestRetry(&r)
 								if len(errs) > 0 {
@@ -541,6 +550,7 @@ func (p *Proxy) ProcessBuffer() {
 							log.Info(fmt.Sprintf("Request for %s to %s forwarded.", ns, req.Host))
 						}
 
+						//Delete request if we tried too many times or the replay was successful
 						err = p.storageService.DeleteRequest(&r)
 						if err != nil {
 							log.Error(storage.ErrorFailedDelete, r.ID, r.Namespace, err)

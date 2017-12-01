@@ -22,25 +22,32 @@ func init() {
 }
 
 func main() {
+	//Init configuration
 	config, err := configuration.NewData()
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	//Run mock services if this is local dev env
 	if config.GetLocalDevEnv() {
 		testutils.Run()
 		os.Exit(0)
 	}
 
+	//Check if we have all we need
 	config.VerifyConfig()
 
+	//Connect to db
 	db := storage.Connect(config)
 	defer db.Close()
 
 	storageService := storage.NewDBService(db)
 
+	//Create tenant client
 	t := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+	//Create WorkItemTracker client
 	w := clients.NewWIT(config.GetWitURL(), config.GetAuthToken())
+	//Create Idler client
 	il := clients.NewIdler(config.GetIdlerURL())
 
 	prx, err := proxy.NewProxy(t, w, il, config.GetKeycloakURL(), config.GetAuthURL(), config.GetRedirectURL(),
@@ -48,18 +55,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	//Create Proxy API
 	api := api.NewAPI(storageService)
 	proxyMux := http.NewServeMux()	
 
+	//Creare router for API
 	prxRouter := httprouter.New()
 	prxRouter.GET("/papi/info/:namespace", api.Info)
 
+	//Listen for API
 	go func() {
 		http.ListenAndServe(":9091", prxRouter)
 	}()
 	
 	proxyMux.HandleFunc("/", prx.Handle)
 
+	//Listen for Proxy
 	http.ListenAndServe(":8080", proxyMux)
 }
 

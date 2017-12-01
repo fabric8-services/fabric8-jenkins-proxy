@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//ProxyAPI is an API to serve user statistics
 type ProxyAPI struct {
 	storageService *storage.DBService
 }
@@ -26,6 +27,7 @@ type APIResponse struct {
 	LastRequest int64 `json:"last_request"`
 }
 
+//Info returns JSON including information about Proxy usage statistics for a given namespace
 func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter.Params) {
 	ns := ps.ByName("namespace")
 	s, notFound, err := api.storageService.GetStatisticsUser(ns)
