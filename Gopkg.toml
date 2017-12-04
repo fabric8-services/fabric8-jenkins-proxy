@@ -1,0 +1,56 @@
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#  name = "github.com/x/y"
+#  version = "2.4.0"
+
+[[constraint]]
+  name = "github.com/fabric8-services/fabric8-jenkins-idler"
+  revision = "413cabf8235e77475a75fcccfd0d2a486c0222ea"
+
+[[constraint]]
+  name = "github.com/julienschmidt/httprouter"
+  version = "=v1.1"
+
+[[constraint]]
+  name = "github.com/satori/go.uuid"
+  version = "=v1.1.0"
+
+[[constraint]]
+  name = "github.com/patrickmn/go-cache"
+  version = "=v2.1.0"
+
+[[constraint]]
+  name = "github.com/dgrijalva/jwt-go"
+  version = "v3.1.0"
+
+[[constraint]]
+  name = "github.com/jinzhu/gorm"
+  version = "v1.0"
+
+[[constraint]]
+  name = "github.com/lib/pq"
+  revision = "83612a56d3dd153a94a629cd64925371c9adad78"
+
+[[constraint]]
+  name = "github.com/spf13/viper"
+  version = "v1.0.0"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "=v1.0.0"

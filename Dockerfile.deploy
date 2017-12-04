@@ -5,7 +5,7 @@ EXPOSE 8080
 
 RUN yum -y install postgresql && yum clean all
 
-COPY /go-binary/fabric8-jenkins-proxy /usr/local/bin/fabric8-jenkins-proxy
-COPY /static/html/index.html /opt/fabric8-jenkins-proxy/index.html
+COPY out/fabric8-jenkins-proxy /usr/local/bin/fabric8-jenkins-proxy
+COPY static/html/index.html /opt/fabric8-jenkins-proxy/index.html
 
 ENTRYPOINT [ "fabric8-jenkins-proxy" ]

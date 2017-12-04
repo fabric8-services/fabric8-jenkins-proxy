@@ -4,7 +4,6 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"fmt"
 	"net/http"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
