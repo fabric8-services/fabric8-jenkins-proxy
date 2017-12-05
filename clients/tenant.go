@@ -16,6 +16,12 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	}
 }
 
+type TenantInfoList struct {
+	Data []TenantInfoData
+	Meta struct{
+		TotalCount int
+	}
+}
 type TenantInfo struct {
 	Data TenantInfoData
 	Errors []struct{
@@ -88,5 +94,30 @@ func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err
 	}
 
 	err = errors.New(fmt.Sprintf("Could not find tenant %s Jenkins namespace.", ti.Data.Attributes.Email))
+	return
+}
+
+func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoList, err error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/search/codebases", t.tenantServiceURL), nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.authToken))
+
+	q := req.URL.Query()
+	q.Add("master_url", api)
+	q.Add("namespace", ns)
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(body, &ti)
+
 	return
 }
