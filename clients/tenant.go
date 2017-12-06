@@ -21,13 +21,16 @@ type TenantInfoList struct {
 	Meta struct{
 		TotalCount int
 	}
+	Errors []Error `json:"errors"`
 }
 type TenantInfo struct {
 	Data TenantInfoData
-	Errors []struct{
-		Code string `json:"code"`
-		Detail string `json:"detail"`
-	} `json:"errors"`
+	Errors []Error `json:"errors"`
+}
+
+type Error struct {
+	Code string `json:"code"`
+	Detail string `json:"detail"`
 }
 
 type TenantInfoData struct {
