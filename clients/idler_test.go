@@ -7,7 +7,6 @@ import (
 	tu "github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 )
 
-
 func TestIdler(t *testing.T) {
 	ts := tu.MockServer(tu.IdlerData1())
 	defer ts.Close()

@@ -1,16 +1,16 @@
 package testutils
 
 import (
-	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"fmt"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"net/http"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
-	log "github.com/sirupsen/logrus"
 	"github.com/julienschmidt/httprouter"
+	log "github.com/sirupsen/logrus"
 )
 
 func Run() {
@@ -28,7 +28,6 @@ func Run() {
 	defer as.Close()
 
 	log.Warn(fmt.Sprintf("JS: %s, OS: %s, TS: %s, IS: %s, WS: %s, AS: %s", js.URL, os.URL, ts.URL, is.URL, ws.URL, as.URL))
-
 
 	tc := clients.NewTenant(ts.URL, "xxx")
 	i := clients.NewIdler(is.URL)
@@ -65,7 +64,7 @@ func Run() {
 
 	proxyMux := http.NewServeMux()
 	prxRouter := httprouter.New()
-	
+
 	api := api.NewAPI(storageService)
 	prxRouter.GET("/papi/info/:namespace", api.Info)
 

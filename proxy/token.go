@@ -1,23 +1,23 @@
 package proxy
 
 import (
-	"net/url"
-	"strings"
 	"crypto/rsa"
 	"encoding/json"
-	"io/ioutil"
 	"fmt"
-	"net/http"
 	jwt "github.com/dgrijalva/jwt-go"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
 )
 
 type TokenJSON struct {
-	AccessToken string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	TokenType string `json:"token_type"`
-	ExpiresIn int `json:"expires_in"`
-	RefreshExpiresIn int `json:"refresh_expires_in"`
-	Errors []ProxyErrorInfo
+	AccessToken      string `json:"access_token"`
+	RefreshToken     string `json:"refresh_token"`
+	TokenType        string `json:"token_type"`
+	ExpiresIn        int    `json:"expires_in"`
+	RefreshExpiresIn int    `json:"refresh_expires_in"`
+	Errors           []ProxyErrorInfo
 }
 
 func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
@@ -85,7 +85,7 @@ func GetOSOToken(authURL string, clusterURL string, token string) (osoToken stri
 }
 
 func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
-	resp, err := http.Get(fmt.Sprintf("%s/auth/realms/fabric8/", strings.TrimRight(kcURL,"/")))
+	resp, err := http.Get(fmt.Sprintf("%s/auth/realms/fabric8/", strings.TrimRight(kcURL, "/")))
 	if err != nil {
 		return
 	}

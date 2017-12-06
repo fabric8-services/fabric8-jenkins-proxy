@@ -1,12 +1,12 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
-	"encoding/json"
-	"net/http"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 //ProxyAPI is an API to serve user statistics
@@ -21,14 +21,14 @@ func NewAPI(storageService *storage.DBService) ProxyAPI {
 }
 
 type APIResponse struct {
-	Namespace string `json:"namespace"`
-	Requests int `json:"requests"`
-	LastVisit int64 `json:"last_visit"`
-	LastRequest int64 `json:"last_request"`
+	Namespace   string `json:"namespace"`
+	Requests    int    `json:"requests"`
+	LastVisit   int64  `json:"last_visit"`
+	LastRequest int64  `json:"last_request"`
 }
 
 //Info returns JSON including information about Proxy usage statistics for a given namespace
-func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter.Params) {
+func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	ns := ps.ByName("namespace")
 	s, notFound, err := api.storageService.GetStatisticsUser(ns)
 	if err != nil {
@@ -47,10 +47,10 @@ func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request,  ps httprouter
 		return
 	}
 	resp := APIResponse{
-		Namespace: ns,
-		Requests: c,
+		Namespace:   ns,
+		Requests:    c,
 		LastRequest: s.LastBufferedRequest,
-		LastVisit: s.LastAccessed,
+		LastVisit:   s.LastAccessed,
 	}
 
 	json.NewEncoder(w).Encode(resp)

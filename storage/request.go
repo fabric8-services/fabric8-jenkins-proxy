@@ -1,13 +1,13 @@
 package storage
 
 import (
-	"net/url"
 	"bytes"
-	"io"
 	"encoding/json"
-	"net/http"
-	"io/ioutil"
 	uuid "github.com/satori/go.uuid"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 )
 
 const (
@@ -15,15 +15,15 @@ const (
 )
 
 type Request struct {
-	ID uuid.UUID `sql:"type:uuid" gorm:"primary_key"` // This is the ID PK field
-	Method string
-	Headers []byte
-	Payload []byte
-	Host string
-	Scheme string
-	Path string
+	ID        uuid.UUID `sql:"type:uuid" gorm:"primary_key"` // This is the ID PK field
+	Method    string
+	Headers   []byte
+	Payload   []byte
+	Host      string
+	Scheme    string
+	Path      string
 	Namespace string
-	Retries int
+	Retries   int
 }
 
 func NewRequest(r *http.Request, ns string, body []byte) (*Request, error) {
@@ -33,15 +33,15 @@ func NewRequest(r *http.Request, ns string, body []byte) (*Request, error) {
 	}
 
 	return &Request{
-		ID: uuid.NewV4(),
-		Method: r.Method,
-		Headers: h,
-		Payload: body,
-		Host: r.Host,
-		Scheme: r.URL.Scheme,
-		Path: r.URL.Path,
+		ID:        uuid.NewV4(),
+		Method:    r.Method,
+		Headers:   h,
+		Payload:   body,
+		Host:      r.Host,
+		Scheme:    r.URL.Scheme,
+		Path:      r.URL.Path,
 		Namespace: ns,
-		Retries: 0,
+		Retries:   0,
 	}, nil
 }
 
@@ -51,11 +51,11 @@ func (m Request) TableName() string {
 
 func (m Request) GetHeaders() (result map[string][]string, err error) {
 	result = make(map[string][]string)
-	err = json.Unmarshal(m.Headers, &result) 
+	err = json.Unmarshal(m.Headers, &result)
 	return
 }
 
-func (m Request) GetPayloadReader() (io.ReadCloser) {
+func (m Request) GetPayloadReader() io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader(m.Payload))
 }
 
@@ -78,6 +78,6 @@ func (m Request) GetHTTPRequest() (r *http.Request, err error) {
 			r.Header.Add(k, v)
 		}
 	}
-	
+
 	return
 }
