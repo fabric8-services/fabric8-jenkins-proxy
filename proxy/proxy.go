@@ -470,6 +470,9 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 			return
 		}
 	}
+	if notFound {
+		s.Namespace = ns
+	}
 	if la != 0 {
 		s.LastAccessed = la
 	}
