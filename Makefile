@@ -42,7 +42,8 @@ push: image ## Pushes the container image to the registry
 	$(call check_defined, REGISTRY_PASSWORD, "You need to pass the registry password via REGISTRY_PASSWORD.")
 	docker login -u $(REGISTRY_USER) -p $(REGISTRY_PASSWORD) $(REGISTRY_URI)
 	docker push $(REGISTRY_URL):latest
-	docker push $(REGISTRY_URL):IMAGE_TAG
+	docker tag $(REGISTRY_URL):latest $(REGISTRY_URL):$(IMAGE_TAG)
+	docker push $(REGISTRY_URL):$(IMAGE_TAG)
 
 tools: tools.timestamp
 
@@ -51,7 +52,7 @@ tools.timestamp:
 	go get -u github.com/golang/lint/golint
 	@touch tools.timestamp
 
-vendor: tools ## Runs dep to vendor project dependencies
+vendor: tools.timestamp Gopkg.lock ## Runs dep to vendor project dependencies
 	dep ensure -v
 
 .PHONY: test

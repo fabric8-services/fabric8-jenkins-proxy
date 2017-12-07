@@ -61,8 +61,7 @@ cd $GOPATH/src/github.com/fabric8-services/fabric8-jenkins-proxy
 echo "HEAD of repository `git rev-parse --short HEAD`"
 make image
 
-echo "$JOB_NAME"
 if [[ "$JOB_NAME" = "devtools-fabric8-jenkins-proxy-build-master" ]]; then
     TAG=$(echo ${GIT_COMMIT} | cut -c1-${DEVSHIFT_TAG_LEN})
-    make push REGISTRY_USER=${DEVSHIFT_USERNAME} REGISTRY_PASSWORD=${DEVSHIFT_PASSWORD} IMAGE_TAG=TAG
+    make push REGISTRY_USER=${DEVSHIFT_USERNAME} REGISTRY_PASSWORD=${DEVSHIFT_PASSWORD} IMAGE_TAG=${TAG}
 fi
