@@ -1,61 +1,61 @@
 package clients
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"time"
 	"net/http"
+	"time"
 )
 
 func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	return Tenant{
-		authToken: authToken,
+		authToken:        authToken,
 		tenantServiceURL: tenantServiceURL,
 	}
 }
 
 type TenantInfoList struct {
 	Data []TenantInfoData
-	Meta struct{
+	Meta struct {
 		TotalCount int
 	}
 	Errors []Error `json:"errors"`
 }
 type TenantInfo struct {
-	Data TenantInfoData
+	Data   TenantInfoData
 	Errors []Error `json:"errors"`
 }
 
 type Error struct {
-	Code string `json:"code"`
+	Code   string `json:"code"`
 	Detail string `json:"detail"`
 }
 
 type TenantInfoData struct {
 	Attributes Attributes
-	Id string
-	Type string
+	Id         string
+	Type       string
 }
 
 type Attributes struct {
-	CreatedAt time.Time `json:"created-at"`
-	Email string
+	CreatedAt  time.Time `json:"created-at"`
+	Email      string
 	Namespaces []Namespace
 }
 
 type Namespace struct {
 	ClusterURL string `json:"cluster-url"`
-	Name string
-	State string
-	Type string
+	Name       string
+	State      string
+	Type       string
 }
 
 //Tenant is a simple client for fabric8-tenant
 type Tenant struct {
 	tenantServiceURL string
-	authToken string
+	authToken        string
 }
 
 //GetTenantInfo returns a tenant information based on tenant id
@@ -80,7 +80,7 @@ func (t Tenant) GetTenantInfo(tenantId string) (ti TenantInfo, err error) {
 	}
 
 	if len(ti.Errors) > 0 {
-		err = errors.New(fmt.Sprintf("%+v",ti.Errors))
+		err = errors.New(fmt.Sprintf("%+v", ti.Errors))
 	}
 
 	return
@@ -88,7 +88,7 @@ func (t Tenant) GetTenantInfo(tenantId string) (ti TenantInfo, err error) {
 
 //GetNamespaceByType searches tenant namespaces for a given type
 func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err error) {
-	for i:=0;i<len(ti.Data.Attributes.Namespaces);i++ {
+	for i := 0; i < len(ti.Data.Attributes.Namespaces); i++ {
 		n := ti.Data.Attributes.Namespaces[i]
 		if n.Type == typ {
 			r = &n
@@ -101,7 +101,7 @@ func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err
 }
 
 func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoList, err error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants", t.tenantServiceURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/search/codebases", t.tenantServiceURL), nil)
 	if err != nil {
 		return
 	}

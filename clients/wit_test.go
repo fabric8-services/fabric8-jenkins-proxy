@@ -21,5 +21,5 @@ func TestWIT(t *testing.T) {
 	if wi.OwnedBy != "2e15e957-0366-4802-bf1e-0d6fe3f11bb6" {
 		t.Error("Could not find tenant id: ", wi.OwnedBy)
 	}
-	
+
 }

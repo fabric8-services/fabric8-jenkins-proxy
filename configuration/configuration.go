@@ -2,38 +2,38 @@ package configuration
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
-	"net/url"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 const (
-	varPostgresHost                    = "postgres.host"
-	varPostgresPort                    = "postgres.port"
-	varPostgresUser                    = "postgres.user"
-	varPostgresDatabase                = "postgres.database"
-	varPostgresPassword                = "postgres.password"
-	varPostgresSSLMode                 = "postgres.sslmode"
-	varPostgresConnectionTimeout       = "postgres.connection.timeout"
-	varPostgresConnectionRetrySleep    = "postgres.connection.retrysleep"
-	varPostgresConnectionMaxIdle       = "postgres.connection.maxidle"
-	varPostgresConnectionMaxOpen       = "postgres.connection.maxopen"
+	varPostgresHost                 = "postgres.host"
+	varPostgresPort                 = "postgres.port"
+	varPostgresUser                 = "postgres.user"
+	varPostgresDatabase             = "postgres.database"
+	varPostgresPassword             = "postgres.password"
+	varPostgresSSLMode              = "postgres.sslmode"
+	varPostgresConnectionTimeout    = "postgres.connection.timeout"
+	varPostgresConnectionRetrySleep = "postgres.connection.retrysleep"
+	varPostgresConnectionMaxIdle    = "postgres.connection.maxidle"
+	varPostgresConnectionMaxOpen    = "postgres.connection.maxopen"
 
-	varIdlerURL                        = "idler.api.url"
-	varAuthToken                       = "auth.token"
-	varAuthURL                         = "auth.url"
-	varTenantURL                       = "f8tenant.api.url"
-	varWitURL                          = "wit.api.url"
-	varRedirectURL                     = "redirect.url"
-	varKeycloakURL                     = "keycloak.url"
-	varMaxRequestRetry                 = "max.request.retry"
+	varIdlerURL        = "idler.api.url"
+	varAuthToken       = "auth.token"
+	varAuthURL         = "auth.url"
+	varTenantURL       = "f8tenant.api.url"
+	varWitURL          = "wit.api.url"
+	varRedirectURL     = "redirect.url"
+	varKeycloakURL     = "keycloak.url"
+	varMaxRequestRetry = "max.request.retry"
 
-	varIndexPath                       = "index.path"
+	varIndexPath = "index.path"
 
-	varLocalDevEnv                     = "local.dev.env"
+	varLocalDevEnv = "local.dev.env"
 )
 
 // Data encapsulates the Viper configuration object which stores the configuration data in-memory.
@@ -41,7 +41,7 @@ type Data struct {
 	v *viper.Viper
 }
 
-// NewData creates a configuration reader object 
+// NewData creates a configuration reader object
 func NewData() (*Data, error) {
 	c := Data{
 		v: viper.New(),
@@ -127,7 +127,6 @@ func (c *Data) VerifyConfig() {
 		log.Error("You need to provide Auth service URL")
 	}
 
-
 	if missingParam {
 		log.Fatal("A value for envinronment variable(s) is missing")
 	}
@@ -153,7 +152,7 @@ func (c *Data) GetPostgresHost() string {
 
 // GetPostgresPort returns the postgres port as set via default, config file, or environment variable
 func (c *Data) GetPostgresPort() int {
-	return c.v.GetInt(varPostgresPort)	
+	return c.v.GetInt(varPostgresPort)
 }
 
 // GetPostgresUser returns the postgres user as set via default, config file, or environment variable

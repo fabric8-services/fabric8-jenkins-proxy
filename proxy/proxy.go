@@ -1,9 +1,8 @@
 package proxy
 
 import (
-	"crypto/rsa"
-	"time"
 	"bytes"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -13,21 +12,22 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/satori/go.uuid"
-	"github.com/patrickmn/go-cache"
+	ic "github.com/fabric8-services/fabric8-jenkins-idler/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
-	ic "github.com/fabric8-services/fabric8-jenkins-idler/clients"
+	"github.com/patrickmn/go-cache"
+	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	GHHeader = "User-Agent"
-	GHAgent = "GitHub-Hookshot"
+	GHHeader           = "User-Agent"
+	GHAgent            = "GitHub-Hookshot"
 	CookieJenkinsIdled = "JenkinsIdled"
-	ServiceName = "jenkins"
-	SessionCookie = "JSESSIONID"
+	ServiceName        = "jenkins"
+	SessionCookie      = "JSESSIONID"
 )
 
 //Proxy handles requests, verifies authentication and proxies to Jenkins.
@@ -39,20 +39,20 @@ type Proxy struct {
 	TenantCache *cache.Cache
 
 	//ProxyCache is used as a cache for session ids passed by Jenkins in cookies
-	ProxyCache *cache.Cache
-	bufferLock *sync.Mutex
-	visitLock *sync.Mutex
+	ProxyCache       *cache.Cache
+	bufferLock       *sync.Mutex
+	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
-	tenant clients.Tenant
-	wit clients.WIT
-	idler clients.Idler
+	tenant           clients.Tenant
+	wit              clients.WIT
+	idler            clients.Idler
 
 	//redirect is a base URL of the proxy
-	redirect string
-	publicKey *rsa.PublicKey
-	authURL string
-	storageService *storage.DBService
-	indexPath string
+	redirect        string
+	publicKey       *rsa.PublicKey
+	authURL         string
+	storageService  *storage.DBService
+	indexPath       string
 	maxRequestRetry int
 }
 
@@ -60,26 +60,26 @@ type ProxyError struct {
 	Errors []ProxyErrorInfo
 }
 
-type ProxyErrorInfo struct{
-	Code string `json:"code"`
+type ProxyErrorInfo struct {
+	Code   string `json:"code"`
 	Detail string `json:"detail"`
 }
 
 func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string, storageService *storage.DBService, indexPath string, maxRequestRetry int) (Proxy, error) {
 	p := Proxy{
-		TenantCache: cache.New(30*time.Minute, 40*time.Minute),
-		ProxyCache: cache.New(15*time.Minute, 10*time.Minute),
-		bufferLock: &sync.Mutex{},
-		visitLock: &sync.Mutex{},
-		tenant: t,
-		wit: w,
-		idler: i,
+		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
+		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
+		bufferLock:       &sync.Mutex{},
+		visitLock:        &sync.Mutex{},
+		tenant:           t,
+		wit:              w,
+		idler:            i,
 		bufferCheckSleep: 30,
-		redirect: redirect,
-		authURL: authURL,
-		storageService: storageService,
-		indexPath: indexPath,
-		maxRequestRetry: maxRequestRetry,
+		redirect:         redirect,
+		authURL:          authURL,
+		storageService:   storageService,
+		indexPath:        indexPath,
+		maxRequestRetry:  maxRequestRetry,
 	}
 
 	//Collect and parse public key from Keycloak
@@ -96,7 +96,7 @@ func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL stri
 	return p, nil
 }
 
-//Handle handles requests coming to the proxy and performs action based on 
+//Handle handles requests coming to the proxy and performs action based on
 //the type of request and state of Jenkins.
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	isGH := false
@@ -213,7 +213,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 					if c, ok := p.ProxyCache.Get(cookie.Value); ok {
 						pci := c.(ProxyCacheItem)
 						oc := ic.NewOpenShiftWithClient(http.DefaultClient, pci.ClusterURL, pci.OsoToken)
-						isIdle, err := oc.IsIdle(pci.NS, ServiceName) 
+						isIdle, err := oc.IsIdle(pci.NS, ServiceName)
 						if err != nil {
 							p.HandleError(w, err)
 							return
@@ -227,10 +227,10 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 							}
 							data := struct {
 								Message string
-								Retry int
+								Retry   int
 							}{
 								Message: "Jenkins has been idled. It is starting now, please wait...",
-								Retry: 10,
+								Retry:   10,
 							}
 							log.Info("Templating index.html")
 							err = tmplt.Execute(w, data)
@@ -384,9 +384,9 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				req.Body = ioutil.NopCloser(bytes.NewReader(body))
 			}
 		},
-		ModifyResponse: func(resp *http.Response) (error) {
+		ModifyResponse: func(resp *http.Response) error {
 			//Check response from Jenkins and redirect if it got idled in the meantime
-			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout  {
+			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
 				if len(cacheKey) > 0 { //Delete cache entry to force new check whethe Jenkins is idled
 					log.Info(fmt.Sprintf("Deleting cache Key: %s", cacheKey))
 					p.ProxyCache.Delete(cacheKey)
@@ -407,7 +407,7 @@ func (p *Proxy) HandleError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 
 	pei := ProxyErrorInfo{
-		Code: fmt.Sprintf("%d", http.StatusInternalServerError),
+		Code:   fmt.Sprintf("%d", http.StatusInternalServerError),
 		Detail: err.Error(),
 	}
 	e := ProxyError{
@@ -426,9 +426,9 @@ func (p *Proxy) HandleError(w http.ResponseWriter, err error) {
 //a webhook request
 type GHHookStruct struct {
 	Repository struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
 		FullName string `json:"full_name"`
-		GitURL string `json:"git_url"`
+		GitURL   string `json:"git_url"`
 		CloneURL string `json:"clone_url"`
 	} `json:"repository"`
 }
@@ -562,6 +562,6 @@ func (p *Proxy) ProcessBuffer() {
 				}
 			}
 		}
-		time.Sleep(p.bufferCheckSleep*time.Second)
+		time.Sleep(p.bufferCheckSleep * time.Second)
 	}
 }

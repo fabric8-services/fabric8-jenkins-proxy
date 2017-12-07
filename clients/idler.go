@@ -31,7 +31,7 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-			return false, err
+		return false, err
 	}
 
 	s := &Status{}
@@ -53,13 +53,13 @@ func (i Idler) GetRoute(n string) (scheme string, rt string, err error) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-			return
+		return
 	}
 
 	type route struct {
 		Service string
-		Route string
-		TLS bool
+		Route   string
+		TLS     bool
 	}
 	r := route{}
 

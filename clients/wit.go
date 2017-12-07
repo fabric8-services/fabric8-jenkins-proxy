@@ -8,13 +8,13 @@ import (
 )
 
 type WIT struct {
-	witURL string
+	witURL    string
 	authToken string
 }
 
 func NewWIT(url string, token string) WIT {
 	return WIT{
-		witURL: url,
+		witURL:    url,
 		authToken: token,
 	}
 }
@@ -45,15 +45,14 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 	}
 
 	type included struct {
-		Id string
-		Type string
+		Id            string
+		Type          string
 		Relationships relationships
 	}
 
-
 	type Info struct {
 		Included []included
-		Data []data
+		Data     []data
 	}
 
 	i := Info{}

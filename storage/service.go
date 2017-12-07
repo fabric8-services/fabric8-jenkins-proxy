@@ -2,9 +2,9 @@ package storage
 
 import (
 	"fmt"
-	"time"
-	"github.com/jinzhu/gorm"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
+	"github.com/jinzhu/gorm"
+	"time"
 
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -48,14 +48,14 @@ type DBService struct {
 	db *gorm.DB
 }
 
-func (s *DBService) CreateOrUpdateRequest(r *Request) (error) {
+func (s *DBService) CreateOrUpdateRequest(r *Request) error {
 	return s.db.Save(r).Error
 }
 
 func (s *DBService) GetRequests(ns string) (result []Request, err error) {
 	var r Request
 	err = s.db.Table(r.TableName()).Where("namespace = ?", ns).Find(&result).Error
-	return 
+	return
 }
 
 func (s *DBService) IncRequestRetry(r *Request) (errs []error) {
@@ -74,7 +74,7 @@ func (s *DBService) IncRequestRetry(r *Request) (errs []error) {
 
 func (s *DBService) GetUsers() (result []string, err error) {
 	var r Request
-	
+
 	err = s.db.Table(r.TableName()).Pluck("DISTINCT namespace", &result).Error
 	return
 }
@@ -89,7 +89,7 @@ func (s *DBService) DeleteRequest(r *Request) error {
 	return s.db.Delete(r).Error
 }
 
-func (s *DBService) CreateStatistics(o *Statistics) (error) {
+func (s *DBService) CreateStatistics(o *Statistics) error {
 	return s.db.Save(o).Error
 }
 

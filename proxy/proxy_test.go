@@ -1,11 +1,11 @@
 package proxy_test
 
 import (
-	"strings"
 	"bytes"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"io/ioutil"
 	"net/http"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"strings"
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
@@ -22,12 +22,12 @@ func TestGHData(t *testing.T) {
 	tc := clients.NewTenant(ts.URL, "xxx")
 	i := clients.NewIdler(is.URL)
 	w := clients.NewWIT(ws.URL, "xxx")
-	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io",  "https://auth.prod-preview.openshift.io", "https://localhost:8443/")
+	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", "https://auth.prod-preview.openshift.io", "https://localhost:8443/")
 	if err != nil {
 		t.Error(err)
 	}
 
-	proxyMux := http.NewServeMux()	
+	proxyMux := http.NewServeMux()
 
 	proxyMux.HandleFunc("/", p.Handle)
 	http.ListenAndServeTLS(":8443", "../server.crt", "../server.key", proxyMux)

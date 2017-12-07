@@ -1,19 +1,19 @@
 package testutils
 
 import (
-	"strconv"
-	"io/ioutil"
 	"fmt"
-	"strings"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
 
 func MockServer(b []byte) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		w.Write(b)
 		w.Header().Set("Content-Type", "application/json")
@@ -21,7 +21,7 @@ func MockServer(b []byte) *httptest.Server {
 }
 
 func MockRedirect(url string) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		if _, ok := req.URL.Query()["for"]; ok {
 			log.Info("Return OSO Token info")
@@ -37,7 +37,7 @@ func MockRedirect(url string) *httptest.Server {
 }
 
 func MockJenkins() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		c, _ := JenkinsStatus()
 		log.Info(fmt.Sprintf("Replying to Jenkins requests with %d", c))
@@ -54,7 +54,7 @@ func MockJenkins() *httptest.Server {
 }
 
 func MockOpenShift(url string) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		if strings.Contains(req.URL.Path, "routes") {
 			w.WriteHeader(http.StatusOK)
@@ -68,7 +68,7 @@ func MockOpenShift(url string) *httptest.Server {
 }
 
 func JenkinsStatus() (c int, r int) {
-	code, err :=  ioutil.ReadFile("code.txt")
+	code, err := ioutil.ReadFile("code.txt")
 	if err != nil {
 		log.Error(err)
 		return
@@ -89,7 +89,7 @@ func JenkinsStatus() (c int, r int) {
 }
 
 func WITData1() []byte {
-  return []byte(`{
+	return []byte(`{
 		"data": [
 				{
 						"attributes": {
