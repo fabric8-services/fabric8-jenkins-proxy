@@ -101,7 +101,7 @@ func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err
 }
 
 func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoList, err error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/search/codebases", t.tenantServiceURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants", t.tenantServiceURL), nil)
 	if err != nil {
 		return
 	}
