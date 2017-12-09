@@ -465,8 +465,8 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	log.Infof("Recording stats for %s", ns)
 	s, notFound, err := p.storageService.GetStatisticsUser(ns)
 	if err != nil {
+		log.Warningf("Could not load statistics for %s: %s", ns, err)
 		if !notFound {
-			log.Errorf("Could not load statistics for %s: %s", ns, err)
 			return
 		}
 	}
