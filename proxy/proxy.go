@@ -465,14 +465,14 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	log.Infof("Recording stats for %s", ns)
 	s, notFound, err := p.storageService.GetStatisticsUser(ns)
 	if err != nil {
-		log.Warningf("Could not load statistics for %s: %s", ns, err)
+		log.Warningf("Could not load statistics for %s: %s (%v)", ns, err, s)
 		if !notFound {
 			return
 		}
 	}
 	if notFound {
 		log.Info("New user %s", ns)
-		s.Namespace = ns
+		s = storage.NewStatistics(ns, la, lbf)
 	}
 	if la != 0 {
 		s.LastAccessed = la
@@ -481,7 +481,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 		s.LastBufferedRequest = lbf
 	}
 	p.visitLock.Lock()
-	err = p.storageService.CreateStatistics(&s)
+	err = p.storageService.CreateStatistics(s)
 	p.visitLock.Unlock()
 	if err != nil {
 		log.Errorf("Could not record statistics for %s: %s", ns, err)
