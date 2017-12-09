@@ -462,7 +462,7 @@ func (p *Proxy) GetUser(pl GHHookStruct) (namespace string, err error) {
 
 //RecordStatistics writes usage statistics to a database
 func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
-	//Needs to go database
+	log.Infof("Recording stats for %s", ns)
 	s, notFound, err := p.storageService.GetStatisticsUser(ns)
 	if err != nil {
 		if !notFound {
@@ -471,6 +471,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 		}
 	}
 	if notFound {
+		log.Info("New user %s", ns)
 		s.Namespace = ns
 	}
 	if la != 0 {
