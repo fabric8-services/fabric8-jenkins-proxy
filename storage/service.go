@@ -94,6 +94,7 @@ func (s *DBService) CreateStatistics(o *Statistics) error {
 }
 
 func (s *DBService) GetStatisticsUser(ns string) (o *Statistics, notFound bool, err error) {
+	o = &Statistics{}
 	d := s.db.Table(o.TableName()).Find(
 		o, "namespace = ?", ns)
 	err = d.Error
