@@ -89,6 +89,8 @@ objects:
               secretKeyRef:
                 name: jenkins-proxy
                 key: postgres.password
+          - name: JC_DEBUG
+            value: true
           - name: GODEBUG
             value: gctrace=1
           image: ${IMAGE}:${IMAGE_TAG}

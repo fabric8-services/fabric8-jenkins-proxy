@@ -34,6 +34,9 @@ func Connect(config *configuration.Data) *gorm.DB {
 		db.DB().SetMaxOpenConns(config.GetPostgresConnectionMaxOpen())
 	}
 
+	if config.GetDebugMode() {
+		db = db.Debug()
+	}
 	db.CreateTable(&Request{})
 	db.CreateTable(&Statistics{})
 

@@ -471,7 +471,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 		}
 	}
 	if notFound {
-		log.Info("New user %s", ns)
+		log.Infof("New user %s", ns)
 		s = storage.NewStatistics(ns, la, lbf)
 	}
 	if la != 0 {
