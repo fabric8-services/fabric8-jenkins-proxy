@@ -288,7 +288,7 @@ func TenantData1(url string) []byte {
 						{  
 								"cluster-url":"%s",
 								"created-at":"2017-10-11T18:47:28.491233Z",
-								"name":"vpavlin-jenkins",
+								"name":"vpavlin-osiotest1-jenkins",
 								"state":"created",
 								"type":"jenkins",
 								"updated-at":"2017-10-11T18:47:28.491233Z",

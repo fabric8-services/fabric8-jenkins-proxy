@@ -28,6 +28,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if config.GetDebugMode() {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	//Run mock services if this is local dev env
 	if config.GetLocalDevEnv() {
 		testutils.Run()

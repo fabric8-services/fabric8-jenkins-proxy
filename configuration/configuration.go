@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	varDebugMode                    = "debug"
 	varPostgresHost                 = "postgres.host"
 	varPostgresPort                 = "postgres.port"
 	varPostgresUser                 = "postgres.user"
@@ -247,4 +248,9 @@ func (c *Data) GetMaxRequestretry() int {
 // GetLocalDevEnv returns if it is local development env as set via default, config file, or environment variable
 func (c *Data) GetLocalDevEnv() bool {
 	return c.v.GetBool(varLocalDevEnv)
+}
+
+// GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
+func (c *Data) GetDebugMode() bool {
+	return c.v.GetBool(varDebugMode)
 }
