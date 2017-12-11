@@ -51,7 +51,11 @@ type DBService struct {
 	db *gorm.DB
 }
 
-func (s *DBService) CreateOrUpdateRequest(r *Request) error {
+func (s *DBService) CreateRequest(r *Request) error {
+	return s.db.Create(r).Error
+}
+
+func (s *DBService) UpdateRequest(r *Request) error {
 	return s.db.Save(r).Error
 }
 
@@ -63,7 +67,7 @@ func (s *DBService) GetRequests(ns string) (result []Request, err error) {
 
 func (s *DBService) IncRequestRetry(r *Request) (errs []error) {
 	r.Retries++
-	err := s.CreateOrUpdateRequest(r)
+	err := s.UpdateRequest(r)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("Could not update request for %s (%s) - deleting: %s", r.ID, r.Namespace, err))
 		err = s.DeleteRequest(r)
@@ -93,6 +97,10 @@ func (s *DBService) DeleteRequest(r *Request) error {
 }
 
 func (s *DBService) CreateStatistics(o *Statistics) error {
+	return s.db.Create(o).Error
+}
+
+func (s *DBService) UpdateStatistics(o *Statistics) error {
 	return s.db.Save(o).Error
 }
 

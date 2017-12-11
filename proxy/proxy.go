@@ -157,7 +157,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				p.HandleError(w, err)
 				return
 			}
-			err = p.storageService.CreateOrUpdateRequest(sr)
+			err = p.storageService.CreateRequest(sr)
 			if err != nil {
 				p.HandleError(w, err)
 				return
@@ -473,6 +473,11 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	if notFound {
 		log.Infof("New user %s", ns)
 		s = storage.NewStatistics(ns, la, lbf)
+		p.storageService.CreateStatistics(s)
+		if err != nil {
+			log.Errorf("Could not record statistics for %s: %s", ns, err)
+		}
+		return
 	}
 	if la != 0 {
 		s.LastAccessed = la
@@ -481,7 +486,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 		s.LastBufferedRequest = lbf
 	}
 	p.visitLock.Lock()
-	err = p.storageService.CreateStatistics(s)
+	err = p.storageService.UpdateStatistics(s)
 	p.visitLock.Unlock()
 	if err != nil {
 		log.Errorf("Could not record statistics for %s: %s", ns, err)
