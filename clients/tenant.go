@@ -64,13 +64,17 @@ type Namespace struct {
 
 //GetTenantInfo returns a tenant information based on tenant id
 func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
+	if len(tenantID) == 0 {
+		err = fmt.Errorf("Tenant ID cannot be empty string")
+		return
+	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantID), nil)
 	if err != nil {
 		return
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.authToken))
 
-	log.Info("Tenant client: %s", req.URL)
+	log.Infof("Tenant by id: %s", req.URL)
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return
@@ -117,7 +121,7 @@ func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoLi
 	q.Add("namespace", ns)
 	req.URL.RawQuery = q.Encode()
 
-	log.Info("Tenant client: %s", req.URL)
+	log.Infof("Tenant by namespace: %s", req.URL)
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return

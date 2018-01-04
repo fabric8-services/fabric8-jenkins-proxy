@@ -447,6 +447,7 @@ func (p *Proxy) GetUser(pl GHHookStruct) (namespace string, err error) {
 		return
 	}
 
+	log.Infof("Found id %s for repo %s", wi.OwnedBy, pl.Repository.CloneURL)
 	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
 	if err != nil {
 		return
