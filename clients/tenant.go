@@ -2,18 +2,28 @@ package clients
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
+//NewTenant returns new Tenant client
 func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	return Tenant{
 		authToken:        authToken,
 		tenantServiceURL: tenantServiceURL,
+		client:           &http.Client{},
 	}
+}
+
+//Tenant is a simple client for fabric8-tenant
+type Tenant struct {
+	tenantServiceURL string
+	authToken        string
+	client           *http.Client
 }
 
 type TenantInfoList struct {
@@ -52,22 +62,16 @@ type Namespace struct {
 	Type       string
 }
 
-//Tenant is a simple client for fabric8-tenant
-type Tenant struct {
-	tenantServiceURL string
-	authToken        string
-}
-
 //GetTenantInfo returns a tenant information based on tenant id
-func (t Tenant) GetTenantInfo(tenantId string) (ti TenantInfo, err error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantId), nil)
+func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantID), nil)
 	if err != nil {
 		return
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.authToken))
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	log.Info("Tenant client: %s", req.URL)
+	resp, err := t.client.Do(req)
 	if err != nil {
 		return
 	}
@@ -80,7 +84,7 @@ func (t Tenant) GetTenantInfo(tenantId string) (ti TenantInfo, err error) {
 	}
 
 	if len(ti.Errors) > 0 {
-		err = errors.New(fmt.Sprintf("%+v", ti.Errors))
+		err = fmt.Errorf("%+v", ti.Errors)
 	}
 
 	return
@@ -96,10 +100,11 @@ func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err
 		}
 	}
 
-	err = errors.New(fmt.Sprintf("Could not find tenant %s Jenkins namespace.", ti.Data.Attributes.Email))
+	err = fmt.Errorf("Could not find tenant %s Jenkins namespace", ti.Data.Attributes.Email)
 	return
 }
 
+//GetTenantInfoByNamespace returns tenant information based on OpenShift cluster URL and namespace
 func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoList, err error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants", t.tenantServiceURL), nil)
 	if err != nil {
@@ -112,14 +117,17 @@ func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoLi
 	q.Add("namespace", ns)
 	req.URL.RawQuery = q.Encode()
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	log.Info("Tenant client: %s", req.URL)
+	resp, err := t.client.Do(req)
 	if err != nil {
 		return
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
 	err = json.Unmarshal(body, &ti)
 
 	return

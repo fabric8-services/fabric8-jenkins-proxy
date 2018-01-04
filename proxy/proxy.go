@@ -129,6 +129,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			p.HandleError(w, fmt.Errorf("Could not parse GH payload: %s", err))
 			return
 		}
+		log.Info("Processing request from %s", gh.Repository.CloneURL)
 		ns, err = p.GetUser(gh)
 		if err != nil {
 			p.HandleError(w, err)
@@ -473,9 +474,9 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	if notFound {
 		log.Infof("New user %s", ns)
 		s = storage.NewStatistics(ns, la, lbf)
-		p.storageService.CreateStatistics(s)
+		err = p.storageService.CreateStatistics(s)
 		if err != nil {
-			log.Errorf("Could not record statistics for %s: %s", ns, err)
+			log.Errorf("Could not create statistics for %s: %s", ns, err)
 		}
 		return
 	}
@@ -489,7 +490,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	err = p.storageService.UpdateStatistics(s)
 	p.visitLock.Unlock()
 	if err != nil {
-		log.Errorf("Could not record statistics for %s: %s", ns, err)
+		log.Errorf("Could not update statistics for %s: %s", ns, err)
 	}
 
 	return
