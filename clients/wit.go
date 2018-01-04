@@ -5,17 +5,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type WIT struct {
 	witURL    string
 	authToken string
+	client    *http.Client
 }
 
 func NewWIT(url string, token string) WIT {
 	return WIT{
 		witURL:    url,
 		authToken: token,
+		client:    &http.Client{},
 	}
 }
 
@@ -85,8 +89,8 @@ func (w WIT) SearchCodebase(repo string) (*WITInfo, error) {
 	q.Add("url", repo)
 	req.URL.RawQuery = q.Encode()
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	log.Info("WIT Client: %s", req.URL)
+	resp, err := w.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
