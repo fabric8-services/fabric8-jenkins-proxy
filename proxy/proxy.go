@@ -354,6 +354,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				if cached {
 					log.Info(fmt.Sprintf("Redirecting to %s", redirectURL.String()))
 					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+					return
 				} else {
 					p.HandleError(w, fmt.Errorf("Could not find cookie %s for %s", SessionCookie, namespace.Name))
 				}
