@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
 //Idler is a simple client for Idler
@@ -39,6 +41,8 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	log.Debugf("Jenkins is idle (%s) in %s", s.IsIdle, namespace)
 
 	return s.IsIdle, nil
 }

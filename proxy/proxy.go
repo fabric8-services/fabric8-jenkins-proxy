@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	ic "github.com/fabric8-services/fabric8-jenkins-idler/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
 	"github.com/patrickmn/go-cache"
@@ -201,10 +200,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 						pci := cacheVal.(ProxyCacheItem)
 						r.Host = pci.Route
 						r.URL.Host = pci.Route
-						r.URL.Scheme = "https"
-						if !pci.TLS {
-							r.URL.Scheme = "http"
-						}
+						r.URL.Scheme = pci.Scheme
 						ns = pci.NS
 						redirect = false //user is probably logged in, do not redirect
 						cacheKey = cookie.Value
@@ -213,13 +209,12 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
 					if c, ok := p.ProxyCache.Get(cookie.Value); ok {
 						pci := c.(ProxyCacheItem)
-						oc := ic.NewOpenShiftWithClient(http.DefaultClient, pci.ClusterURL, pci.OsoToken)
-						isIdle, err := oc.IsIdle(pci.NS, ServiceName)
+						isIdle, err := p.idler.IsIdle(pci.NS)
 						if err != nil {
 							p.HandleError(w, err)
 							return
 						}
-						if isIdle != ic.JenkinsRunning { //If jenkins is not running, return loading page and status 202
+						if isIdle { //If jenkins is idled, return loading page and status 202
 							w.WriteHeader(http.StatusAccepted)
 							tmplt, err := template.ParseFiles(p.indexPath)
 							if err != nil {
@@ -295,24 +290,22 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			oc := ic.NewOpenShiftWithClient(http.DefaultClient, namespace.ClusterURL, osoToken)
-			route, tls, err := oc.GetRoute(ns, ServiceName)
+			scheme, route, err := p.idler.GetRoute(ns)
 			if err != nil {
 				p.HandleError(w, err)
 				return
 			}
-			scheme := oc.GetScheme(tls)
 
-			isIdle, err := oc.IsIdle(ns, ServiceName)
+			isIdle, err := p.idler.IsIdle(ns)
 			if err != nil {
 				p.HandleError(w, err)
 				return
 			}
 
 			//Prepare an item for proxyCache - Jenkins info and OSO token
-			pci := NewProxyCacheItem(namespace.Name, tls, route, namespace.ClusterURL, osoToken)
+			pci := NewProxyCacheItem(namespace.Name, scheme, route, namespace.ClusterURL, osoToken)
 			//Break the process if the Jenkins is idled, set a cookie and redirect to self
-			if isIdle != ic.JenkinsRunning {
+			if isIdle {
 				c := &http.Cookie{}
 				u1 := uuid.NewV4().String()
 				c.Name = CookieJenkinsIdled
