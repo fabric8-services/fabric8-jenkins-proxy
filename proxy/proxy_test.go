@@ -2,59 +2,58 @@ package proxy_test
 
 import (
 	"bytes"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
 	tu "github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
 )
 
-func TestGHData(t *testing.T) {
-	ts := tu.MockServer(tu.TenantData1())
-	defer ts.Close()
-	is := tu.MockServer(tu.IdlerData1())
-	defer is.Close()
-	ws := tu.MockServer(tu.WITData1())
-
-	tc := clients.NewTenant(ts.URL, "xxx")
-	i := clients.NewIdler(is.URL)
-	w := clients.NewWIT(ws.URL, "xxx")
-	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", "https://auth.prod-preview.openshift.io", "https://localhost:8443/")
-	if err != nil {
-		t.Error(err)
-	}
-
-	proxyMux := http.NewServeMux()
-
-	proxyMux.HandleFunc("/", p.Handle)
-	http.ListenAndServeTLS(":8443", "../server.crt", "../server.key", proxyMux)
-	//http.ListenAndServe(":8080", proxyMux)
-
-	js := http.NewServeMux()
-	js.HandleFunc("/", HandleJenkins)
-	http.ListenAndServe(":8888", js)
-
-	resp, err := http.Get("http://localhost:8080/")
-	if err != nil {
-		t.Error(err)
-	}
-	if resp.StatusCode != 200 {
-		t.Error(resp.Status)
-		defer resp.Body.Close()
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			t.Error(err)
-		}
-		t.Error(string(b))
-	}
-
-	client := &http.Client{}
-	WebhookHit(t, client)
-	WebhookHit(t, client)
-}
+// TODO - Update or delete test. See https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/72 (HF)
+//func TestGHData(t *testing.T) {
+//	ts := tu.MockServer(tu.TenantData1(""))
+//	defer ts.Close()
+//	is := tu.MockServer(tu.IdlerData1(""))
+//	defer is.Close()
+//	ws := tu.MockServer(tu.WITData1())
+//
+//	tc := clients.NewTenant(ts.URL, "xxx")
+//	i := clients.NewIdler(is.URL)
+//	w := clients.NewWIT(ws.URL, "xxx")
+//	p, err := proxy.NewProxy(tc, w, i, "https://sso.prod-preview.openshift.io", "https://auth.prod-preview.openshift.io", "https://localhost:8443/")
+//	if err != nil {
+//		t.Error(err)
+//	}
+//
+//	proxyMux := http.NewServeMux()
+//
+//	proxyMux.HandleFunc("/", p.Handle)
+//	http.ListenAndServeTLS(":8443", "../server.crt", "../server.key", proxyMux)
+//	//http.ListenAndServe(":8080", proxyMux)
+//
+//	js := http.NewServeMux()
+//	js.HandleFunc("/", HandleJenkins)
+//	http.ListenAndServe(":8888", js)
+//
+//	resp, err := http.Get("http://localhost:8080/")
+//	if err != nil {
+//		t.Error(err)
+//	}
+//	if resp.StatusCode != 200 {
+//		t.Error(resp.Status)
+//		defer resp.Body.Close()
+//		b, err := ioutil.ReadAll(resp.Body)
+//		if err != nil {
+//			t.Error(err)
+//		}
+//		t.Error(string(b))
+//	}
+//
+//	client := &http.Client{}
+//	WebhookHit(t, client)
+//	WebhookHit(t, client)
+//}
 
 func WebhookHit(t *testing.T, client *http.Client) {
 	b := ioutil.NopCloser(bytes.NewReader(tu.GetGHData()))

@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetTenant(t *testing.T) {
-	ts := tu.MockServer(tu.TenantData1())
+	ts := tu.MockServer(tu.TenantData1(""))
 	defer ts.Close()
 
 	ct := clients.NewTenant(ts.URL, "aaa")
