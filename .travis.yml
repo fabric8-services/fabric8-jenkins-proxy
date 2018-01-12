@@ -28,4 +28,4 @@ install:
 - export PATH=$PATH:/tmp/godep/
 
 script:
-- make image
+- make all

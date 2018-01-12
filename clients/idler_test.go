@@ -8,7 +8,7 @@ import (
 )
 
 func TestIdler(t *testing.T) {
-	ts := tu.MockServer(tu.IdlerData1())
+	ts := tu.MockServer(tu.IdlerData1(""))
 	defer ts.Close()
 
 	il := clients.NewIdler(ts.URL)

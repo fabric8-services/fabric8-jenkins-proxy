@@ -23,7 +23,7 @@ __check_defined = \
     $(if $(value $1),, \
       $(error Undefined $1$(if $2, ($2))))
 
-all: tools build fmtcheck vet image_build ## Compiles fabric8-jenkins-proxy and runs format and style checks
+all: tools build test fmtcheck vet image ## Compiles fabric8-jenkins-proxy and runs format and style checks
 
 build: vendor ## Builds the fabric8-jenkins-proxy into $GOPATH/bin
 	go install .
@@ -52,7 +52,7 @@ tools.timestamp:
 	go get -u github.com/golang/lint/golint
 	@touch tools.timestamp
 
-vendor: tools.timestamp Gopkg.lock ## Runs dep to vendor project dependencies
+vendor: tools.timestamp ## Runs dep to vendor project dependencies
 	dep ensure -v
 
 .PHONY: test
