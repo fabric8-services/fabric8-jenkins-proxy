@@ -59,7 +59,7 @@ setup_workspace
 
 cd $GOPATH/src/github.com/fabric8-services/fabric8-jenkins-proxy
 echo "HEAD of repository `git rev-parse --short HEAD`"
-make image
+make all
 
 if [[ "$JOB_NAME" = "devtools-fabric8-jenkins-proxy-build-master" ]]; then
     TAG=$(echo ${GIT_COMMIT} | cut -c1-${DEVSHIFT_TAG_LEN})
