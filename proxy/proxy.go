@@ -284,12 +284,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			ns = namespace.Name
 			log.Info(fmt.Sprintf("Extracted Tenant Info: %s", ns))
 
-			osoToken, err := GetOSOToken(p.authURL, namespace.ClusterURL, tokenJSON.AccessToken)
-			if err != nil {
-				p.HandleError(w, err)
-				return
-			}
-
 			scheme, route, err := p.idler.GetRoute(ns)
 			if err != nil {
 				p.HandleError(w, err)
@@ -303,7 +297,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			}
 
 			//Prepare an item for proxyCache - Jenkins info and OSO token
-			pci := NewProxyCacheItem(namespace.Name, scheme, route, namespace.ClusterURL, osoToken)
+			pci := NewProxyCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
 			//Break the process if the Jenkins is idled, set a cookie and redirect to self
 			if isIdle {
 				c := &http.Cookie{}
@@ -318,6 +312,12 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			}
 
 			log.Info("Loaded OSO token")
+
+			osoToken, err := GetOSOToken(p.authURL, pci.ClusterURL, tokenJSON.AccessToken)
+			if err != nil {
+				p.HandleError(w, err)
+				return
+			}
 
 			//Login to Jenkins with OSO token to get cookies
 			jenkinsURL := fmt.Sprintf("%s://%s/", scheme, route)
