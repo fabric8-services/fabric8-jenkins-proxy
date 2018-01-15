@@ -5,7 +5,7 @@ REGISTRY_URL = ${REGISTRY_URI}/${REGISTRY_NS}/${REGISTRY_IMAGE}
 IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
 
 BUILD_DIR = out
-PACKAGES = $(shell go list ./...)
+PACKAGES = $(shell go list ./... | grep -v vendor/)
 SOURCE_DIRS = $(shell echo $(PACKAGES) | awk 'BEGIN{FS="/"; RS=" "}{print $$4}' | uniq)
 
 .DEFAULT_GOAL := help
