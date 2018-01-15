@@ -20,10 +20,6 @@
 #  version = "2.4.0"
 
 [[constraint]]
-  name = "github.com/fabric8-services/fabric8-jenkins-idler"
-  revision = "413cabf8235e77475a75fcccfd0d2a486c0222ea"
-
-[[constraint]]
   name = "github.com/julienschmidt/httprouter"
   version = "=v1.1"
 
