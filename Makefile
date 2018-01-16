@@ -53,6 +53,7 @@ tools.timestamp:
 	@touch tools.timestamp
 
 vendor: tools.timestamp ## Runs dep to vendor project dependencies
+	docker login -u $(REGISTRY_USER) -p $(REGISTRY_PASSWORD) $(REGISTRY_URI)
 	dep ensure -v
 
 .PHONY: test
