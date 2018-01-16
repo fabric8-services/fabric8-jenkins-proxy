@@ -3,14 +3,15 @@
 <!-- MarkdownTOC -->
 
 - [What is it?](#what-is-it)
-- [How to build](#how-to-build)
-	- [Prerequisites](#prerequisites)
-	- [Make usage](#make-usage)
-		- [Compile the code](#compile-the-code)
-		- [Build the container image](#build-the-container-image)
-		- [Run the tests](#run-the-tests)
-		- [Clean up](#clean-up)
-	- [Dependency management](#dependency-management)
+- [Data flow diagrams](#data-flow-diagrams)
+- [How to build?](#how-to-build)
+  - [Prerequisites](#prerequisites)
+  - [Make usage](#make-usage)
+    - [Compile the code](#compile-the-code)
+    - [Build the container image](#build-the-container-image)
+    - [Run the tests](#run-the-tests)
+    - [Clean up](#clean-up)
+  - [Dependency management](#dependency-management)
 
 <!-- /MarkdownTOC -->
 
@@ -24,8 +25,17 @@ For more information refer to the Idler [README](https://github.com/fabric8-serv
 
 ![Architectural Diagram](https://camo.githubusercontent.com/0761536bd1260ce502604e4d2ff2592a79f56485/68747470733a2f2f646f63732e676f6f676c652e636f6d2f64726177696e67732f642f652f32504143582d31765268743172674e45533636663732395155634e356f475378745453475667554c5f38725f632d4b5f4a722d694b304657654844616b354933326c31794d69592d744e2d6e715168495259766f31472f7075623f773d34323626683d343431)
 
+<a name="data-flow-diagrams"></a>
+# Data flow diagrams
+
+The following diagrams describe the data flow within the proxy for a received GitHub webhook respectively a direct user interaction with the Jenkins service:
+
+[![GitHub Webhook](./docs/github-webhook.png)](./docs/github-webhook.png)
+
+[![Jenkins UI](./docs/jenkins-ui.png)](./docs/jenkins-ui.png)
+
 <a name="how-to-build"></a>
-# How to build
+# How to build?
 
 The following paragraphs describe how to build and work with the source.
 

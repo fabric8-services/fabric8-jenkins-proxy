@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
-	tu "github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
+	tu "github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
 )
 
 func TestGetTenant(t *testing.T) {

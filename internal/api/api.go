@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"net/http"

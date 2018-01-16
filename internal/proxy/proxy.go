@@ -16,7 +16,7 @@ import (
 
 	"errors"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/patrickmn/go-cache"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"

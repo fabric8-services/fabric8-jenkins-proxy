@@ -2,13 +2,13 @@ package testutils
 
 import (
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
 	"net/http"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 )

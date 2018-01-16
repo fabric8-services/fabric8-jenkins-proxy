@@ -7,6 +7,7 @@ IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
 BUILD_DIR = out
 PACKAGES = $(shell go list ./... | grep -v vendor/)
 SOURCE_DIRS = $(shell echo $(PACKAGES) | awk 'BEGIN{FS="/"; RS=" "}{print $$4}' | uniq)
+LD_FLAGS := -X github.com/fabric8-services/fabric8-jenkins-proxy/internal/version.version=$(IMAGE_TAG)
 
 .DEFAULT_GOAL := help
 
@@ -26,13 +27,13 @@ __check_defined = \
 all: tools build test fmtcheck vet image ## Compiles fabric8-jenkins-proxy and runs format and style checks
 
 build: vendor ## Builds the fabric8-jenkins-proxy into $GOPATH/bin
-	go install .
+	 go install -ldflags="$(LD_FLAGS)" ./cmd/fabric8-jenkins-proxy
 
 $(BUILD_DIR):
 	mkdir $(BUILD_DIR)
 
 $(BUILD_DIR)/fabric8-jenkins-proxy: vendor $(BUILD_DIR) ## Builds the Linux binary for the container image $BUILD_DIR
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -o $(BUILD_DIR)/fabric8-jenkins-proxy .
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build  -ldflags="$(LD_FLAGS)" -o $(BUILD_DIR)/$(REGISTRY_IMAGE) ./cmd/fabric8-jenkins-proxy
 
 image: $(BUILD_DIR)/fabric8-jenkins-proxy ## Builds the fabric8-jenkins-proxy container image
 	docker build -t $(REGISTRY_URL) -f Dockerfile.deploy .
@@ -57,7 +58,7 @@ vendor: tools.timestamp ## Runs dep to vendor project dependencies
 
 .PHONY: test
 test: vendor ## Runs unit tests
-	go test -v $(PACKAGES)
+	go test $(PACKAGES)
 
 .PHONY: fmtcheck
 fmtcheck: ## Runs gofmt and returns error in case of violations
