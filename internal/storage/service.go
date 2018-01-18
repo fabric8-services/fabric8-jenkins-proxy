@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/jinzhu/gorm"
 	"time"
 

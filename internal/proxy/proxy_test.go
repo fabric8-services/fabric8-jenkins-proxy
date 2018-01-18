@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	tu "github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
+	tu "github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
 )
 
 // TODO - Update or delete test. See https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/72 (HF)

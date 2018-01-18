@@ -6,22 +6,40 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/configuration"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/proxy"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/storage"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/testutils"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 )
 
 func init() {
-  log.SetFormatter(&log.JSONFormatter{})
+	log.SetFormatter(&log.JSONFormatter{})
+
+	level := log.InfoLevel
+	switch levelStr, _ := os.LookupEnv("JC_LOG_LEVEL"); levelStr {
+	case "info":
+		level = log.InfoLevel
+	case "debug":
+		level = log.DebugLevel
+	case "warning":
+		level = log.WarnLevel
+	case "error":
+		level = log.ErrorLevel
+	default:
+		level = log.InfoLevel
+	}
+	log.SetLevel(level)
 }
 
 func main() {
+	log.Infof("Proxy version: %s", version.GetVersion())
+
 	//Init configuration
 	config, err := configuration.NewData()
 	if err != nil {
@@ -55,13 +73,13 @@ func main() {
 	il := clients.NewIdler(config.GetIdlerURL())
 
 	prx, err := proxy.NewProxy(t, w, il, config.GetKeycloakURL(), config.GetAuthURL(), config.GetRedirectURL(),
-															storageService, config.GetIndexPath(), config.GetMaxRequestretry())
+		storageService, config.GetIndexPath(), config.GetMaxRequestretry())
 	if err != nil {
 		log.Fatal(err)
 	}
 	//Create Proxy API
 	api := api.NewAPI(storageService)
-	proxyMux := http.NewServeMux()	
+	proxyMux := http.NewServeMux()
 
 	//Creare router for API
 	prxRouter := httprouter.New()
@@ -71,10 +89,9 @@ func main() {
 	go func() {
 		http.ListenAndServe(":9091", prxRouter)
 	}()
-	
+
 	proxyMux.HandleFunc("/", prx.Handle)
 
 	//Listen for Proxy
 	http.ListenAndServe(":8080", proxyMux)
 }
-
