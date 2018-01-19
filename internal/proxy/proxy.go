@@ -198,12 +198,16 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request) (
 					err = p.processTemplate(w, ns)
 					p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
 				} else { //If Jenkins is running, remove the cookie
-					var resp *http.Response
 					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
 					//so even if the pod is up, route might still return 500 - i.e. we need to check the route
 					//before claiming Jenkins is up
-					resp, err = p.loginJenkins(pci, "")
-					if resp.StatusCode == 200 || resp.StatusCode == 403 {
+					var statusCode int
+					statusCode, _, err = p.loginJenkins(pci, "")
+					if err != nil {
+						p.HandleError(w, err)
+						return
+					}
+					if statusCode == 200 || statusCode == 403 {
 						cookie.Expires = time.Unix(0, 0)
 						http.SetCookie(w, cookie)
 					} else {
@@ -259,13 +263,13 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request) (
 			return
 		}
 
-		nresp, err := p.loginJenkins(pci, osoToken)
+		statusCode, cookies, err := p.loginJenkins(pci, osoToken)
 		if err != nil {
 			p.HandleError(w, err)
 			return
 		}
-		if nresp.StatusCode == http.StatusOK {
-			for _, cookie := range nresp.Cookies() {
+		if statusCode == http.StatusOK {
+			for _, cookie := range cookies {
 				if cookie.Name == CookieJenkinsIdled {
 					continue
 				}
@@ -296,19 +300,23 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request) (
 	return
 }
 
-func (p *Proxy) loginJenkins(pci ProxyCacheItem, osoToken string) (*http.Response, error) {
+func (p *Proxy) loginJenkins(pci ProxyCacheItem, osoToken string) (int, []*http.Cookie, error) {
 	//Login to Jenkins with OSO token to get cookies
 	jenkinsURL := fmt.Sprintf("%s://%s/", pci.Scheme, pci.Route)
-	nr, _ := http.NewRequest("GET", jenkinsURL, nil)
+	req, _ := http.NewRequest("GET", jenkinsURL, nil)
 	if len(osoToken) > 0 {
 		log.WithField("ns", pci.NS).Infof("Logging in %s", jenkinsURL)
-		nr.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
 	} else {
 		log.WithField("ns", pci.NS).Infof("Hitting Jenkins route %s", jenkinsURL)
 	}
 	c := http.DefaultClient
-	nresp, err := c.Do(nr)
-	return nresp, err
+	resp, err := c.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, resp.Cookies(), err
 }
 
 func (p *Proxy) setIdledCookie(w http.ResponseWriter, pci ProxyCacheItem) {
