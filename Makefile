@@ -29,6 +29,9 @@ all: tools build test fmtcheck vet image ## Compiles fabric8-jenkins-proxy and r
 build: vendor ## Builds the fabric8-jenkins-proxy into $GOPATH/bin
 	 go install -ldflags="$(LD_FLAGS)" ./cmd/fabric8-jenkins-proxy
 
+osio: vendor ## Builds the oio CLI into $GOPATH/bin
+	 go install -ldflags="$(LD_FLAGS)" ./cmd/osio
+
 $(BUILD_DIR):
 	mkdir $(BUILD_DIR)
 

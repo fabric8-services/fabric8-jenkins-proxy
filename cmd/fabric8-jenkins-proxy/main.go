@@ -77,11 +77,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	//Create Proxy API
 	api := api.NewAPI(storageService)
 	proxyMux := http.NewServeMux()
 
-	//Creare router for API
+	//Create router for API
 	prxRouter := httprouter.New()
 	prxRouter.GET("/papi/info/:namespace", api.Info)
 
