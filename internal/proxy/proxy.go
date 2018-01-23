@@ -43,15 +43,15 @@ type Proxy struct {
 	bufferLock       *sync.Mutex
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
-	tenant           clients.Tenant
-	wit              clients.WIT
-	idler            clients.Idler
+	tenant           *clients.Tenant
+	wit              *clients.WIT
+	idler            *clients.Idler
 
 	//redirect is a base URL of the proxy
 	redirect        string
 	publicKey       *rsa.PublicKey
 	authURL         string
-	storageService  *storage.DBService
+	storageService  storage.Store
 	indexPath       string
 	maxRequestRetry int
 }
@@ -65,7 +65,7 @@ type ProxyErrorInfo struct {
 	Detail string `json:"detail"`
 }
 
-func NewProxy(t clients.Tenant, w clients.WIT, i clients.Idler, keycloakURL string, authURL string, redirect string, storageService *storage.DBService, indexPath string, maxRequestRetry int) (Proxy, error) {
+func NewProxy(t *clients.Tenant, w *clients.WIT, i *clients.Idler, keycloakURL string, authURL string, redirect string, storageService storage.Store, indexPath string, maxRequestRetry int) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
