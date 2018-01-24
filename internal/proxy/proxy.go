@@ -40,7 +40,6 @@ type Proxy struct {
 
 	//ProxyCache is used as a cache for session ids passed by Jenkins in cookies
 	ProxyCache       *cache.Cache
-	bufferLock       *sync.Mutex
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
 	tenant           *clients.Tenant
@@ -69,7 +68,6 @@ func NewProxy(t *clients.Tenant, w *clients.WIT, i *clients.Idler, keycloakURL s
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
-		bufferLock:       &sync.Mutex{},
 		visitLock:        &sync.Mutex{},
 		tenant:           t,
 		wit:              w,
