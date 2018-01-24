@@ -245,11 +245,6 @@ func (c *Data) GetMaxRequestretry() int {
 	return c.v.GetInt(varMaxRequestRetry)
 }
 
-// GetLocalDevEnv returns if it is local development env as set via default, config file, or environment variable
-func (c *Data) GetLocalDevEnv() bool {
-	return c.v.GetBool(varLocalDevEnv)
-}
-
 // GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
 func (c *Data) GetDebugMode() bool {
 	return c.v.GetBool(varDebugMode)

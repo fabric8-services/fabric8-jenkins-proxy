@@ -11,10 +11,10 @@ import (
 
 //ProxyAPI is an API to serve user statistics
 type ProxyAPI struct {
-	storageService *storage.DBService
+	storageService storage.Store
 }
 
-func NewAPI(storageService *storage.DBService) ProxyAPI {
+func NewAPI(storageService storage.Store) ProxyAPI {
 	return ProxyAPI{
 		storageService: storageService,
 	}
