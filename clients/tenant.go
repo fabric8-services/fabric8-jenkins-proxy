@@ -7,15 +7,24 @@ import (
 	"net/http"
 	"time"
 
+	"errors"
 	log "github.com/sirupsen/logrus"
 )
 
-//NewTenant returns new Tenant client
+// NewTenant returns new Tenant client
 func NewTenant(tenantServiceURL string, authToken string) Tenant {
+	logger := log.WithFields(
+		log.Fields{
+			"component": "tenant",
+			"url":       tenantServiceURL,
+		},
+	)
+
 	return Tenant{
 		authToken:        authToken,
 		tenantServiceURL: tenantServiceURL,
 		client:           &http.Client{},
+		logger:           logger,
 	}
 }
 
@@ -24,6 +33,7 @@ type Tenant struct {
 	tenantServiceURL string
 	authToken        string
 	client           *http.Client
+	logger           *log.Entry
 }
 
 type TenantInfoList struct {
@@ -65,7 +75,7 @@ type Namespace struct {
 //GetTenantInfo returns a tenant information based on tenant id
 func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 	if len(tenantID) == 0 {
-		err = fmt.Errorf("Tenant ID cannot be empty string")
+		err = errors.New("Tenant ID cannot be empty string")
 		return
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantID), nil)
@@ -74,7 +84,10 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.authToken))
 
-	log.Infof("Tenant by id: %s", req.URL)
+	t.logger.WithFields(log.Fields{
+		"type": "id",
+		"id":   tenantID,
+	}).Info("Tenant by id")
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return
@@ -121,7 +134,10 @@ func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoLi
 	q.Add("namespace", ns)
 	req.URL.RawQuery = q.Encode()
 
-	log.Infof("Tenant by namespace: %s", req.URL)
+	t.logger.WithFields(log.Fields{
+		"type":      "namespace",
+		"namespace": ns,
+	}).Info("Tenant by namespace")
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return
