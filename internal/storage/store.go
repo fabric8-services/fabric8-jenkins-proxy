@@ -66,8 +66,16 @@ func Connect(config *configuration.Data) *gorm.DB {
 	if config.GetDebugMode() {
 		db = db.Debug()
 	}
-	db.CreateTable(&Request{})
-	db.CreateTable(&Statistics{})
+
+	request := &Request{}
+	if !db.HasTable(request) {
+		db.CreateTable(request)
+	}
+
+	stats := &Statistics{}
+	if !db.HasTable(stats) {
+		db.CreateTable(stats)
+	}
 
 	return db
 }
