@@ -288,7 +288,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request) (
 		}
 	}
 
-	//Check if we need to redirec tto auth service
+	//Check if we need to redirect to auth service
 	if needsAuth {
 		redirAuth := GetAuthURI(p.authURL, redirectURL.String())
 		log.Infof("Redirecting to auth: %s", redirAuth)
