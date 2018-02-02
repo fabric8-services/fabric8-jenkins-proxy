@@ -7,17 +7,23 @@ import (
 )
 
 const (
-	envPrefix = "OIO"
+	envPrefix = "OSIO"
 )
 
-var RootCmd *cobra.Command
+var (
+	RootCmd   *cobra.Command
+	targetEnv string
+)
 
 func init() {
 	RootCmd = &cobra.Command{
 		Use:   "osio",
-		Short: "Osio is a helper tool for OpenShift.io.",
+		Short: "osio is a helper tool for OpenShift.io.",
 	}
 
+	RootCmd.PersistentFlags().StringVarP(&targetEnv, "target", "t", "stage", "Target environment OpenShift.io stage vs prod.")
+
+	RootCmd.AddCommand(cmdJWT)
 	RootCmd.AddCommand(cmdToken)
 	cobra.OnInitialize(initConfig)
 
