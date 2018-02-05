@@ -1,0 +1,80 @@
+kind: Template
+apiVersion: v1
+metadata:
+  name: webhook-migration
+labels:
+  template: webhook-migration
+objects:
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: webhook-migration
+  spec:
+    parallelism: 1
+    completions: 1
+    template:
+      metadata:
+        name: webhook-migration
+      spec:
+        containers:
+        - name: webhook-migration
+          image: ${IMAGE}:${IMAGE_TAG}
+          env:
+          - name: TENANT_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: f8tenant.api.url
+          - name: AUTH_URL
+            valueFrom:
+              configMapKeyRef:
+                name: core
+                key: auth.serviceurl
+          - name: OPENSHIFT_URL
+            valueFrom:
+              configMapKeyRef:
+                name: f8tenant
+                key: openshift.tenant.masterurl
+          - name: OPENSHIFT_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: openshift-online-tokens
+                key: dsaas-service-token
+          - name: AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: proxy.auth.token
+          - name: JENKINS_OLD_URL_SUFFIX
+            valueFrom:
+              configMapKeyRef:
+                name: f8tenant
+                key: template.domain
+          - name: JENKINS_PROXY_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: redirect.url
+          - name: PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: auth
+                key: serviceaccount.privatekey
+          - name: TARGET_ENV
+            value: ${TARGET_ENV}
+          - name: DRY_RUN
+            value: ${DRY_RUN}
+          - name: CHECK_NAMESPACES
+            value: ${CHECK_NAMESPACES}
+        restartPolicy: Never
+parameters:
+- name: IMAGE
+  value: hferentschik/webhook-migration
+- name: IMAGE_TAG
+  value: 1.0.0
+- name: TARGET_ENV
+  value: "stage"
+- name: DRY_RUN
+  value: "true"
+- name: CHECK_NAMESPACES
+  value: ""
