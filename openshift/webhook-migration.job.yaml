@@ -1,0 +1,67 @@
+kind: Template
+apiVersion: v1
+metadata:
+  name: webhook-migration
+labels:
+  template: webhook-migration
+objects:
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: webhook-migration
+  spec:
+    parallelism: 1    
+    completions: 1    
+    template:         
+      metadata:
+        name: webhook-migration
+      spec:
+        containers:
+        - name: webhook-migration
+          image: ${IMAGE}:${IMAGE_TAG}
+          env:
+          - name: TENTANT_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: f8tenant.api.url
+          - name: AUTH_URL
+            valueFrom:
+              configMapKeyRef:
+                name: core
+                key: auth.serviceurl
+          - name: OPENSHIFT_URL
+            valueFrom:
+              configMapKeyRef:
+                name: f8tenant
+                key: openshift.tenant.masterurl
+          - name: OPENSHIFT_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: openshift-online-tokens
+                key: dsaas-service-token
+          - name: AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: jenkins-proxy
+                key: proxy.auth.token
+          - name: JENKINS_OLD_URL_SUFFIX
+            valueFrom:
+              configMapKeyRef:
+                name: f8tenant
+                key: template.domain
+          - name: JENKINS_PROXY_URL
+            valueFrom:
+              configMapKeyRef:
+                name: jenkins-proxy
+                key: redirect.url
+          - name: DRY_RUN
+            value: ${DRY_RUN}
+        restartPolicy: Never  
+parameters:
+- name: IMAGE
+  value: registry.devshift.net/fabric8-services/fabric8-jenkins-proxy-migration 
+- name: IMAGE_TAG
+  value: latest
+- name: DRY_RUN
+  value: true
