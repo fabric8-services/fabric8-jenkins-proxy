@@ -417,7 +417,7 @@ func (p *Proxy) processTemplate(w http.ResponseWriter, ns string) (err error) {
 		Retry   int
 	}{
 		Message: "Jenkins has been idled. It is starting now, please wait...",
-		Retry:   10,
+		Retry:   15,
 	}
 	log.WithField("ns", ns).Debug("Templating index.html")
 	err = tmplt.Execute(w, data)
