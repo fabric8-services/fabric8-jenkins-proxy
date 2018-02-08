@@ -167,65 +167,6 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request) (
 		needsAuth = false
 	}
 
-	if len(r.Cookies()) > 0 { //Check cookies and proxy cache to find user info
-		for _, cookie := range r.Cookies() {
-			cacheVal, ok := p.ProxyCache.Get(cookie.Value)
-			if !ok {
-				continue
-			}
-			if strings.HasPrefix(cookie.Name, SessionCookie) { //We found a session cookie in cache
-				cacheKey = cookie.Value
-				pci := cacheVal.(ProxyCacheItem)
-				r.Host = pci.Route //Configure proxy upstream
-				r.URL.Host = pci.Route
-				r.URL.Scheme = pci.Scheme
-				ns = pci.NS
-				needsAuth = false //user is probably logged in, do not redirect
-				noProxy = false
-				break
-			} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
-				cacheKey = cookie.Value
-				needsAuth = false
-				pci := cacheVal.(ProxyCacheItem)
-				ns = pci.NS
-				isIdle, err := p.idler.IsIdle(pci.NS)
-				if err != nil {
-					p.HandleError(w, err)
-					return
-				}
-				if isIdle { //If jenkins is idled, return loading page and status 202
-					err = p.processTemplate(w, ns)
-					p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
-				} else { //If Jenkins is running, remove the cookie
-					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
-					//so even if the pod is up, route might still return 500 - i.e. we need to check the route
-					//before claiming Jenkins is up
-					var statusCode int
-					statusCode, _, err = p.loginJenkins(pci, "")
-					if err != nil {
-						p.HandleError(w, err)
-						return
-					}
-					if statusCode == 200 || statusCode == 403 {
-						cookie.Expires = time.Unix(0, 0)
-						http.SetCookie(w, cookie)
-					} else {
-						err = p.processTemplate(w, ns)
-					}
-				}
-
-				if err != nil {
-					p.HandleError(w, err)
-				}
-				break
-			}
-		}
-		if len(cacheKey) == 0 { //If we do not have user's info cached, run through login process to get it
-			log.WithField("ns", ns).Info("Could not find cache, redirecting to re-login")
-		} else {
-			log.WithField("ns", ns).Infof("Found cookie %s", cacheKey)
-		}
-	}
 	if tj, ok := r.URL.Query()["token_json"]; ok { //If there is token_json in query, process it, find user info and login to Jenkins
 		if len(tj) < 1 {
 			p.HandleError(w, errors.New("Could not read JWT token from URL"))
@@ -289,7 +230,67 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request) (
 		}
 	}
 
-	//Check if we need to redirec tto auth service
+	if len(r.Cookies()) > 0 { //Check cookies and proxy cache to find user info
+		for _, cookie := range r.Cookies() {
+			cacheVal, ok := p.ProxyCache.Get(cookie.Value)
+			if !ok {
+				continue
+			}
+			if strings.HasPrefix(cookie.Name, SessionCookie) { //We found a session cookie in cache
+				cacheKey = cookie.Value
+				pci := cacheVal.(ProxyCacheItem)
+				r.Host = pci.Route //Configure proxy upstream
+				r.URL.Host = pci.Route
+				r.URL.Scheme = pci.Scheme
+				ns = pci.NS
+				needsAuth = false //user is probably logged in, do not redirect
+				noProxy = false
+				break
+			} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
+				cacheKey = cookie.Value
+				needsAuth = false
+				pci := cacheVal.(ProxyCacheItem)
+				ns = pci.NS
+				isIdle, err := p.idler.IsIdle(pci.NS)
+				if err != nil {
+					p.HandleError(w, err)
+					return
+				}
+				if isIdle { //If jenkins is idled, return loading page and status 202
+					err = p.processTemplate(w, ns)
+					p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
+				} else { //If Jenkins is running, remove the cookie
+					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
+					//so even if the pod is up, route might still return 500 - i.e. we need to check the route
+					//before claiming Jenkins is up
+					var statusCode int
+					statusCode, _, err = p.loginJenkins(pci, "")
+					if err != nil {
+						p.HandleError(w, err)
+						return
+					}
+					if statusCode == 200 || statusCode == 403 {
+						cookie.Expires = time.Unix(0, 0)
+						http.SetCookie(w, cookie)
+					} else {
+						err = p.processTemplate(w, ns)
+					}
+				}
+
+				if err != nil {
+					p.HandleError(w, err)
+				}
+				break
+			}
+		}
+		if len(cacheKey) == 0 { //If we do not have user's info cached, run through login process to get it
+			log.WithField("ns", ns).Info("Could not find cache, redirecting to re-login")
+		} else {
+			log.WithField("ns", ns).Infof("Found cookie %s", cacheKey)
+		}
+	}
+
+	//Check if we need to redirect to auth service
 	if needsAuth {
 		redirAuth := GetAuthURI(p.authURL, redirectURL.String())
 		log.Infof("Redirecting to auth: %s", redirAuth)

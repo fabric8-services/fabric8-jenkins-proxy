@@ -7,7 +7,7 @@ set -e
 ###################################################################################
 # Installs all requires build tools to compile, test and build the container image
 # Arguments:
-#   Nore
+#   None
 # Returns:
 #   None
 ###################################################################################
@@ -27,7 +27,7 @@ function setup_build_environment() {
 ###################################################################################
 # Setup the environment for Go, aka the GOPATH
 # Arguments:
-#   Nore
+#   None
 # Returns:
 #   None
 ###################################################################################
@@ -44,7 +44,7 @@ function setup_golang() {
 # Make sure the Go sources are at their proper location within GOPATH.
 # See https://golang.org/doc/code.html
 # Arguments:
-#   Nore
+#   None
 # Returns:
 #   None
 ###################################################################################

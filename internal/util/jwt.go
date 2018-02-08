@@ -12,34 +12,11 @@ import (
 	"golang.org/x/net/html"
 )
 
-type environment struct {
-	authURL     string
-	redirectURL string
-}
-
 const (
-	stage      = "stage"
-	prod       = "prod"
-	json_token = "token_json"
+	jsonToken = "token_json"
 )
 
-var (
-	environments = make(map[string]environment, 2)
-)
-
-func init() {
-	environments[stage] = environment{
-		authURL:     "https://auth.prod-preview.openshift.io/api/login",
-		redirectURL: "https://jenkins.prod-preview.openshift.io",
-	}
-
-	environments[prod] = environment{
-		authURL:     "https://auth.openshift.io/api/login",
-		redirectURL: "https://jenkins.openshift.io",
-	}
-}
-
-func CreateAccessToken(env string, username string, password string) (string, error) {
+func CreateJWTToken(env string, username string, password string) (string, error) {
 	environment, ok := environments[env]
 
 	if !ok {
@@ -57,14 +34,14 @@ func CreateAccessToken(env string, username string, password string) (string, er
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			log.Debugf("Redirect -> %v", req.URL)
 			m, _ := url.ParseQuery(req.URL.RawQuery)
-			if val, ok := m[json_token]; ok {
+			if val, ok := m[jsonToken]; ok {
 				token = val[0]
 			}
 			return nil
 		},
 	}
 
-	req, err := http.NewRequest("GET", environment.authURL, nil)
+	req, err := http.NewRequest("GET", environment.authURL+"/api/login", nil)
 	if err != nil {
 		return "", err
 	}

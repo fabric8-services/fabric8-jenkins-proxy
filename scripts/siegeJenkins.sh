@@ -39,7 +39,7 @@ if [ ! -f ${LOGINS} ]; then
 fi
 
 while read user    pass; do
-  json_token=$(osio token -u ${user} -p ${pass} -e true)
+  json_token=$(osio jwt -u ${user} -p ${pass} -e true)
   for url in "${JENKINS_URLS[@]}"
   do
 	echo "${url}?token_json=${json_token}" >> ${URLS}

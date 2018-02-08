@@ -13,28 +13,25 @@ import (
 var (
 	cmdToken = &cobra.Command{
 		Use:   "token",
-		Short: "Prints the JSON access token for a user.",
-		Long:  `Prints the OpenShift IO JSON (JWT) accesss token for the provided Red Hat Developers credentials.`,
+		Short: "Prints the OSIO token for a specified user UUID.",
+		Long:  `Prints the OSIO token for a specified user UUID.`,
 		Run:   runCreateToken,
 	}
-	targetEnv string
-	username  string
-	password  string
-	encode    bool
+	privateKey string
+	uuid       string
+	session    string
+	validFor   int64
 )
 
 func init() {
-	cmdToken.Flags().StringVarP(&targetEnv, "target", "t", "stage", "Target environment OpenShift.io stage vs prod.")
-	cmdToken.Flags().StringVarP(&username, "username", "u", "", "Red Hat Developer username.")
-	cmdToken.Flags().StringVarP(&password, "password", "p", "", "Red Hat Developer password.")
-	cmdToken.Flags().BoolVarP(&encode, "encode", "e", false, "Whether or not the output should be URL encoded.")
+	cmdToken.Flags().StringVarP(&privateKey, "key", "k", "", "Private key.")
+	cmdToken.Flags().StringVarP(&uuid, "uuid", "u", "", "The users uuid.")
+	cmdToken.Flags().StringVarP(&session, "session", "s", "", "A session state string (optional).")
+	cmdToken.Flags().Int64VarP(&validFor, "valid", "v", 60, "Time token is valid in minutes (default 60).")
 }
 
 func runCreateToken(cmd *cobra.Command, args []string) {
-	log.Debugf("Username: %s", username)
-	log.Debugf("Password: %s", password)
-
-	token, err := util.CreateAccessToken(targetEnv, username, password)
+	token, err := util.CreateOSIOToken(targetEnv, uuid, privateKey, validFor, session)
 	if err != nil {
 		log.Fatal(err)
 	}
