@@ -150,10 +150,9 @@ updateGitHubWebhooks() {
             --data '{"config": {"url": "'${JENKINS_PROXY_URL}'github-webhook/"}}' https://api.github.com/repos/${REPOS[$i]}/hooks/${id}
             echo " "
           else
-            response=$(curl -sgSL -H "Authorization: token ${GITHUB_TOKENS[$i]}" -X PATCH \
-              --data '{"config": {"url": "'${JENKINS_PROXY_URL}'github-webhook/"}}' \
-              https://api.github.com/repos/${REPOS[$i]}/hooks/${id} | \
-              jq -r '.last_response.message')
+            response=$(curl -sgSL -H "Authorization: token ${GITHUB_TOKENS[$i]}" -o /dev/null -w "%{http_code}" \
+              -X PATCH --data '{"config": {"url": "'${JENKINS_PROXY_URL}'github-webhook/"}}' \
+              https://api.github.com/repos/${REPOS[$i]}/hooks/${id})
             echo "${url} updated. Status: $response"
           fi
         else

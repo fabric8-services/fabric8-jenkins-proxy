@@ -43,8 +43,8 @@ ENV ORG=github.com/fabric8-services
 ENV REPO=$ORG/fabric8-jenkins-proxy
 ENV BUILD_DIR=$GOPATH/src/$REPO
 RUN mkdir -p $GOPATH/src/$ORG
-RUN git clone https://github.com/hferentschik/fabric8-jenkins-proxy $BUILD_DIR
-RUN cd $BUILD_DIR && git checkout issue-94 && git rev-parse --short HEAD && make osio
+RUN git clone https://$REPO $BUILD_DIR
+RUN cd $BUILD_DIR && git rev-parse --short HEAD && make osio
 
 COPY updateWebhooks.sh /usr/local/bin/updateWebhooks.sh
 
