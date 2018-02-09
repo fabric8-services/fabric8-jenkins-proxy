@@ -55,8 +55,12 @@ findGitHubRepos() {
     continue
    fi
    printf " *\n"
-   NAME_SPACES+=(${tmp[0]})
-   REPOS+=(${tmp[1]})
+   i=0
+   while [ $(( i+1 )) -lt ${#tmp[@]} ]; do
+    NAME_SPACES+=(${tmp[$i]})
+    REPOS+=(${tmp[$(( i + 1 ))]})
+    i=$(( i + 2 ))
+   done
   done
 }
 
