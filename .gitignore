@@ -1,9 +1,9 @@
-# Build artefacts
+# Build artifacts
 vendor
 tools.timestamp
 out
-scripts/logins.txt
-scripts/urls.txt
+scripts/siege/logins.txt
+scripts/siege/urls.txt
 *.log
 
 # Idea
