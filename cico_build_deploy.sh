@@ -12,7 +12,7 @@ set -e
 #   None
 ###################################################################################
 function setup_build_environment() {
-    [ -f jenkins-env ] && cat jenkins-env | grep -e GIT -e DEVSHIFT -e JOB_NAME > inherit-env
+    [ -f jenkins-env ] && cat jenkins-env | grep -e GIT -e DEVSHIFT -e JOB_NAME -e ghprbPullId > inherit-env
     [ -f inherit-env ] && . inherit-env
 
     # We need to disable selinux for now, XXX
@@ -63,5 +63,8 @@ make all
 
 if [[ "$JOB_NAME" = "devtools-fabric8-jenkins-proxy-build-master" ]]; then
     TAG=$(echo ${GIT_COMMIT} | cut -c1-${DEVSHIFT_TAG_LEN})
+    make push REGISTRY_USER=${DEVSHIFT_USERNAME} REGISTRY_PASSWORD=${DEVSHIFT_PASSWORD} IMAGE_TAG=${TAG} LATEST=true
+elif [[ "$JOB_NAME" = "devtools-fabric8-jenkins-proxy" ]]; then
+    TAG="PR${ghprbPullId}"
     make push REGISTRY_USER=${DEVSHIFT_USERNAME} REGISTRY_PASSWORD=${DEVSHIFT_PASSWORD} IMAGE_TAG=${TAG}
 fi
