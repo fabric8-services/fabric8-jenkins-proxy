@@ -23,7 +23,7 @@ func NewWIT(url string, token string) WIT {
 	}
 }
 
-//WITinfo holds information about owner of a git repository
+//WITInfo holds information about owner of a git repository
 type WITInfo struct {
 	OwnedBy string
 }
@@ -89,7 +89,7 @@ func (w WIT) SearchCodebase(repo string) (*WITInfo, error) {
 	q.Add("url", repo)
 	req.URL.RawQuery = q.Encode()
 
-	log.Info("WIT Client: %s", req.URL)
+	log.Infof("WIT Client: %s", req.URL)
 	resp, err := w.client.Do(req)
 	if err != nil {
 		return nil, err

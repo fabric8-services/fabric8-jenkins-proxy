@@ -132,7 +132,7 @@ start() {
     echo export JC_WIT_API_URL=https://api.prod-preview.openshift.io
     echo export JC_REDIRECT_URL=https://jenkins.prod-preview.openshift.io
     echo export JC_AUTH_URL=https://auth.prod-preview.openshift.io
-    echo export JC_POSTGRES_PORT=${LOCAL_POSTGRES_PORT}:
+    echo export JC_POSTGRES_PORT=${LOCAL_POSTGRES_PORT}
     echo export JC_POSTGRES_HOST=localhost
     echo export JC_POSTGRES_PASSWORD=postgres
     echo export JC_POSTGRES_DATABASE=postgres
