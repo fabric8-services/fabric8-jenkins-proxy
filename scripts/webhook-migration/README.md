@@ -20,7 +20,7 @@ See also https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/94
 <a name="build-container"></a>
 # Build container
 
-    $ docker build -t fabric8-jenkins-proxy/webhook-migration .
+    $ docker build -t hferentschik/webhook-migration:1.0.4 .
 
 <a name="run-locally"></a>
 # Run locally
