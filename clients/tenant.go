@@ -72,10 +72,10 @@ type Namespace struct {
 	Type       string
 }
 
-//GetTenantInfo returns a tenant information based on tenant id
+// GetTenantInfo returns a tenant information based on tenant id
 func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 	if len(tenantID) == 0 {
-		err = errors.New("Tenant ID cannot be empty string")
+		err = errors.New("tenant ID cannot be empty string")
 		return
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants/%s", t.tenantServiceURL, tenantID), nil)
@@ -107,7 +107,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 	return
 }
 
-//GetNamespaceByType searches tenant namespaces for a given type
+// GetNamespaceByType searches tenant namespaces for a given type
 func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err error) {
 	for i := 0; i < len(ti.Data.Attributes.Namespaces); i++ {
 		n := ti.Data.Attributes.Namespaces[i]
@@ -117,38 +117,6 @@ func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err
 		}
 	}
 
-	err = fmt.Errorf("Could not find tenant %s Jenkins namespace", ti.Data.Attributes.Email)
-	return
-}
-
-//GetTenantInfoByNamespace returns tenant information based on OpenShift cluster URL and namespace
-func (t Tenant) GetTenantInfoByNamespace(api string, ns string) (ti TenantInfoList, err error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tenants", t.tenantServiceURL), nil)
-	if err != nil {
-		return
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.authToken))
-
-	q := req.URL.Query()
-	q.Add("master_url", api)
-	q.Add("namespace", ns)
-	req.URL.RawQuery = q.Encode()
-
-	t.logger.WithFields(log.Fields{
-		"type":      "namespace",
-		"namespace": ns,
-	}).Info("Tenant by namespace")
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(body, &ti)
-
+	err = fmt.Errorf("could not find tenant %s Jenkins namespace", ti.Data.Attributes.Email)
 	return
 }
