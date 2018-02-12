@@ -42,7 +42,7 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 		return false, err
 	}
 
-	log.Debugf("Jenkins is idle (%s) in %s", s.IsIdle, namespace)
+	log.Debugf("Jenkins is idle (%t) in %s", s.IsIdle, namespace)
 
 	return s.IsIdle, nil
 }
