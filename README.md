@@ -10,6 +10,8 @@
     - [Compile the code](#compile-the-code)
     - [Build the container image](#build-the-container-image)
     - [Run the tests](#run-the-tests)
+    - [Format the code](#format-the-code)
+    - [Check commit message format](#check-commit-message-format)
     - [Clean up](#clean-up)
   - [Dependency management](#dependency-management)
 
@@ -65,6 +67,16 @@ Last but not least, you need a running Docker daemon, since the final build arti
 ### Run the tests
 
    $ make test
+
+<a name="format-the-code"></a>
+### Format the code
+
+   $ make fmt
+
+<a name="check-commit-message-format"></a>
+### Check commit message format
+
+   $ make validate_commits
 
 <a name="clean-up"></a>
 ### Clean up
