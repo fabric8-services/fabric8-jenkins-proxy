@@ -24,9 +24,11 @@ This script is used to run the Jenkins Proxy on localhost.
 As a prerequisite OPENSHIFT_API_TOKEN and  JC_AUTH_TOKEN need to be exported.
 In your shell (from the root of fabric8-jenkins-proxy):
 
-> export OPENSHIFT_API_TOKEN=<your OpenShift API token>
+> export DSAAS_PREVIEW_TOKEN=<dsaas-preview token>
+> export JC_OPENSHIFT_API_TOKEN=<OpenShift API token>
 > export JC_AUTH_TOKEN=<auth token>
-> eval \$(${0##*/})
+> ./scripts/${0##*/} start
+> eval \$(./scripts/${0##*/} env)
 > fabric8-jenkins-proxy
 EOF
 }
@@ -119,15 +121,32 @@ runPostgres() {
 #   None
 ###############################################################################
 start() {
+    [ -z "${DSAAS_PREVIEW_TOKEN}" ] && printHelp && exit 1
     [ -z "${OPENSHIFT_API_TOKEN}" ] && printHelp && exit 1
     [ -z "${JC_AUTH_TOKEN}" ] && printHelp && exit 1
 
-    oc login https://api.rh-idev.openshift.com --token=${OPENSHIFT_API_TOKEN} > /dev/null
+    oc login https://api.rh-idev.openshift.com --token=${DSAAS_PREVIEW_TOKEN} > /dev/null
 
     forwardIdler &
     forwardTenant &
     runPostgres &
+}
 
+###############################################################################
+# Displays the required environment settings for evaluation.
+# Globals:
+#   None
+# Arguments:
+#   None
+# Returns:
+#   None
+###############################################################################
+env() {
+    [ -z "${JC_OPENSHIFT_API_TOKEN}" ] && printHelp && exit 1
+    [ -z "${JC_AUTH_TOKEN}" ] && printHelp && exit 1
+
+    echo export JC_OPENSHIFT_API_URL=https://api.free-stg.openshift.com
+    echo export JC_OPENSHIFT_API_TOKEN=${JC_OPENSHIFT_API_TOKEN}
     echo export JC_KEYCLOAK_URL=https://sso.prod-preview.openshift.io
     echo export JC_WIT_API_URL=https://api.prod-preview.openshift.io
     echo export JC_REDIRECT_URL=https://jenkins.prod-preview.openshift.io
@@ -137,9 +156,10 @@ start() {
     echo export JC_POSTGRES_PASSWORD=postgres
     echo export JC_POSTGRES_DATABASE=postgres
     echo export JC_AUTH_TOKEN=${JC_AUTH_TOKEN}
-    echo export JC_IDLER_API=http://localhost:${LOCAL_IDLER_PORT}
+    echo export JC_IDLER_API_URL=http://localhost:${LOCAL_IDLER_PORT}
     echo export JC_F8TENANT_API_URL=http://localhost:${LOCAL_TENANT_PORT}
 }
+
 
 ###############################################################################
 # Stops oc-port forwarding and Docker container
@@ -163,6 +183,9 @@ case "$1" in
     ;;
   stop)
     stop
+    ;;
+  env)
+    env
     ;;
   *)
     printHelp

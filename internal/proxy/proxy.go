@@ -16,7 +16,9 @@ import (
 
 	"errors"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/openshift"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/patrickmn/go-cache"
@@ -62,6 +64,7 @@ type Proxy struct {
 	tenant           *clients.Tenant
 	wit              *clients.WIT
 	idler            *clients.Idler
+	oc               openshift.Client
 
 	//redirect is a base URL of the proxy
 	redirect        string
@@ -81,24 +84,25 @@ type ProxyErrorInfo struct {
 	Detail string `json:"detail"`
 }
 
-func NewProxy(t *clients.Tenant, w *clients.WIT, i *clients.Idler, keycloakURL string, authURL string, redirect string, storageService storage.Store, indexPath string, maxRequestRetry int) (Proxy, error) {
+func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, oc openshift.Client, storageService storage.Store, config *configuration.Data) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
 		visitLock:        &sync.Mutex{},
-		tenant:           t,
-		wit:              w,
-		idler:            i,
+		tenant:           tenant,
+		wit:              wit,
+		idler:            idler,
+		oc:               oc,
 		bufferCheckSleep: 30,
-		redirect:         redirect,
-		authURL:          authURL,
+		redirect:         config.GetRedirectURL(),
+		authURL:          config.GetAuthURL(),
 		storageService:   storageService,
-		indexPath:        indexPath,
-		maxRequestRetry:  maxRequestRetry,
+		indexPath:        config.GetIndexPath(),
+		maxRequestRetry:  config.GetMaxRequestRetry(),
 	}
 
 	//Collect and parse public key from Keycloak
-	pk, err := GetPublicKey(keycloakURL)
+	pk, err := GetPublicKey(config.GetKeycloakURL())
 	if err != nil {
 		return p, err
 	}
@@ -384,12 +388,12 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
-	scheme, route, err := p.idler.GetRoute(ns)
+	route, tls, err := p.oc.GetRoute(ns, ServiceName)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
-	r.URL.Scheme = scheme
+	r.URL.Scheme = p.getScheme(tls)
 	r.URL.Host = route
 	r.Host = route
 
@@ -479,13 +483,13 @@ func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci 
 	}
 
 	requestLogEntry.WithField("ns", namespace.Name).Debug("Extracted information from token")
-	scheme, route, err := p.idler.GetRoute(namespace.Name)
+	route, tls, err := p.oc.GetRoute(namespace.Name, ServiceName)
 	if err != nil {
 		return
 	}
 
 	//Prepare an item for proxyCache - Jenkins info and OSO token
-	pci = NewProxyCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
+	pci = NewProxyCacheItem(namespace.Name, p.getScheme(tls), route, namespace.ClusterURL)
 
 	return
 }
@@ -618,6 +622,14 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	}
 
 	return
+}
+
+func (p *Proxy) getScheme(tlsEnabled bool) string {
+	if tlsEnabled {
+		return "https"
+	}
+	return "http"
+
 }
 
 //ProcessBuffer is a loop running through buffered webhook requests trying to replay them

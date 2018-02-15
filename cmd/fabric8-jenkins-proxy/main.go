@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
@@ -15,6 +15,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/openshift"
 	_ "net/http/pprof"
 	"os/signal"
 	"sync"
@@ -53,7 +54,7 @@ func init() {
 }
 
 func main() {
-	log.Infof("Proxy version: %s", version.GetVersion())
+	mainLogger.Infof("Proxy version: %s", version.GetVersion())
 
 	//Init configuration
 	config, err := configuration.NewData()
@@ -79,21 +80,14 @@ func main() {
 	//Create Idler client
 	idler := clients.NewIdler(config.GetIdlerURL())
 
-	start(config, &tenant, &wit, &idler, store)
+	//Create OpenShift client
+	oc := openshift.NewClient(config.GetOpenShiftApiURL(), config.GetOpenShiftApiToken())
+
+	start(config, &tenant, &wit, &idler, oc, store)
 }
 
-func start(config *configuration.Data, tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, store storage.Store) {
-	proxy, err := proxy.NewProxy(
-		tenant,
-		wit,
-		idler,
-		config.GetKeycloakURL(),
-		config.GetAuthURL(),
-		config.GetRedirectURL(),
-		store,
-		config.GetIndexPath(),
-		config.GetMaxRequestretry(),
-	)
+func start(config *configuration.Data, tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, oc openshift.Client, store storage.Store) {
+	proxy, err := proxy.NewProxy(tenant, wit, idler, oc, store, config)
 	if err != nil {
 		log.Fatal(err)
 	}

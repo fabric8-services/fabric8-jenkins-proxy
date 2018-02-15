@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
@@ -23,6 +23,13 @@ const (
 	user     = "postgres"
 	password = "mysecretpassword"
 )
+
+type mockOpenShiftClient struct {
+}
+
+func (oc *mockOpenShiftClient) GetRoute(n string, s string) (r string, tls bool, err error) {
+	return "https://jenkins-john-doe-jenkins.1b7d.free-stg.openshiftapps.com", true, nil
+}
 
 func TestMain(m *testing.M) {
 	var db *sql.DB
@@ -88,7 +95,7 @@ func TestProxy(t *testing.T) {
 	os.Setenv("JC_KEYCLOAK_URL", "https://sso.prod-preview.openshift.io")
 	os.Setenv("JC_AUTH_URL", as.URL)
 	os.Setenv("JC_REDIRECTREDIRECT_URL", "https://localhost:8443/")
-	os.Setenv("JC_iNDEX_PATH", "static/html/index.html")
+	os.Setenv("JC_INDEX_PATH", "static/html/index.html")
 	config, err := configuration.NewData()
 	if err != nil {
 		log.Fatal(err)
@@ -107,7 +114,7 @@ func TestProxy(t *testing.T) {
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 	}()
 
-	start(config, &tenant, &wit, &idler, store)
+	start(config, &tenant, &wit, &idler, &mockOpenShiftClient{}, store)
 
 	// TODO - Test an actual workflow by triggering some of the MockURLs
 

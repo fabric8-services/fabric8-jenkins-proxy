@@ -1,10 +1,9 @@
-package clients_test
+package clients
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	tu "github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
 )
 
@@ -12,7 +11,7 @@ func TestGetTenant(t *testing.T) {
 	ts := tu.MockServer(tu.TenantData1(""))
 	defer ts.Close()
 
-	ct := clients.NewTenant(ts.URL, "aaa")
+	ct := NewTenant(ts.URL, "aaa")
 	ti, err := ct.GetTenantInfo("2e15e957-0366-4802-bf1e-0d6fe3f11bb6")
 	if err != nil {
 		t.Error(err)
@@ -32,7 +31,7 @@ func TestGetError(t *testing.T) {
 	ts := tu.MockServer(tu.TenantData2())
 	defer ts.Close()
 
-	ct := clients.NewTenant(ts.URL, "aaa")
+	ct := NewTenant(ts.URL, "aaa")
 	ti, err := ct.GetTenantInfo("2e15e957-0366-4802-bf1e-0d6fe3f11bb6")
 	if err == nil {
 		t.Error("Expected Errors to be populated in output")

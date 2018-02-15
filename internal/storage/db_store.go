@@ -31,7 +31,7 @@ func (s *DBStore) IncRequestRetry(r *Request) (errs []error) {
 	r.Retries++
 	err := s.updateRequest(r)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("Could not update request for %s (%s) - deleting: %s", r.ID, r.Namespace, err))
+		errs = append(errs, fmt.Errorf("could not update request for %s (%s) - deleting: %s", r.ID, r.Namespace, err))
 		err = s.DeleteRequest(r)
 		if err != nil {
 			errs = append(errs, fmt.Errorf(ErrorFailedDelete, r.ID, r.Namespace, err))
