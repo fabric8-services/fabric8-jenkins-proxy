@@ -4,13 +4,14 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 
 	"context"
+
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
@@ -53,7 +54,7 @@ func init() {
 }
 
 func main() {
-	log.Infof("Proxy version: %s", version.GetVersion())
+	mainLogger.Infof("Proxy version: %s", version.GetVersion())
 
 	//Init configuration
 	config, err := configuration.NewData()
@@ -83,17 +84,7 @@ func main() {
 }
 
 func start(config *configuration.Data, tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, store storage.Store) {
-	proxy, err := proxy.NewProxy(
-		tenant,
-		wit,
-		idler,
-		config.GetKeycloakURL(),
-		config.GetAuthURL(),
-		config.GetRedirectURL(),
-		store,
-		config.GetIndexPath(),
-		config.GetMaxRequestretry(),
-	)
+	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config)
 	if err != nil {
 		log.Fatal(err)
 	}

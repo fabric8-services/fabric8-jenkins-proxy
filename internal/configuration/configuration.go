@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -34,18 +35,20 @@ const (
 
 	varIndexPath = "index.path"
 
-	varLocalDevEnv = "local.dev.env"
+	varOsoClusters = "oso.clusters"
 )
 
 // Data encapsulates the Viper configuration object which stores the configuration data in-memory.
 type Data struct {
-	v *viper.Viper
+	v        *viper.Viper
+	clusters map[string]string
 }
 
 // NewData creates a configuration reader object
 func NewData() (*Data, error) {
 	c := Data{
-		v: viper.New(),
+		v:        viper.New(),
+		clusters: map[string]string{},
 	}
 	c.v.SetEnvPrefix("JC")
 	c.v.AutomaticEnv()
@@ -128,8 +131,19 @@ func (c *Data) VerifyConfig() {
 		log.Error("You need to provide Auth service URL")
 	}
 
+	if len(c.v.GetString(varOsoClusters)) == 0 {
+		missingParam = true
+		log.Error("You need to provide list of OpenShift clusters where Jenkins run")
+	} else {
+		err = c.loadClusters()
+		if err != nil {
+			missingParam = true
+			log.Errorf("Failed to load OpenShift Clusters: %s", err)
+		}
+	}
+
 	if missingParam {
-		log.Fatal("A value for envinronment variable(s) is missing")
+		log.Fatal("At least one required environment variable is missing")
 	}
 }
 
@@ -144,6 +158,12 @@ func (c *Data) GetPostgresConfigString() string {
 		c.GetPostgresSSLMode(),
 		c.GetPostgresConnectionTimeout(),
 	)
+}
+
+func (c *Data) loadClusters() error {
+	data := c.v.GetString(varOsoClusters)
+	err := json.Unmarshal([]byte(data), &c.clusters)
+	return err
 }
 
 // GetPostgresHost returns the postgres host as set via default, config file, or environment variable
@@ -239,13 +259,18 @@ func (c *Data) GetIndexPath() string {
 	return c.v.GetString(varIndexPath)
 }
 
-// GetMaxRequestretry returns the number of retries for webhook request forwarding as set via default, config file,
+// GetMaxRequestRetry returns the number of retries for webhook request forwarding as set via default, config file,
 // or environment variable
-func (c *Data) GetMaxRequestretry() int {
+func (c *Data) GetMaxRequestRetry() int {
 	return c.v.GetInt(varMaxRequestRetry)
 }
 
 // GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
 func (c *Data) GetDebugMode() bool {
 	return c.v.GetBool(varDebugMode)
+}
+
+// GetClusters returns map of OSO clusters apiURL -> DNS suffix for route generation
+func (c *Data) GetClusters() map[string]string {
+	return c.clusters
 }

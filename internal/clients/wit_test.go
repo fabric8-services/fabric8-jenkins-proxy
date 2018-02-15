@@ -1,9 +1,8 @@
-package clients_test
+package clients
 
 import (
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
 	tu "github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
 )
 
@@ -12,7 +11,7 @@ func TestWIT(t *testing.T) {
 
 	defer ts.Close()
 
-	wit := clients.NewWIT(ts.URL, "xxx")
+	wit := NewWIT(ts.URL, "xxx")
 	wi, err := wit.SearchCodebase("github.com/vpavlin/vpavlin-prod-prev-test.git")
 	if err != nil {
 		t.Error(err)
