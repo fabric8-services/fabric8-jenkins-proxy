@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"errors"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -108,11 +109,11 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 }
 
 // GetNamespaceByType searches tenant namespaces for a given type
-func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r *Namespace, err error) {
+func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
 	for i := 0; i < len(ti.Data.Attributes.Namespaces); i++ {
 		n := ti.Data.Attributes.Namespaces[i]
 		if n.Type == typ {
-			r = &n
+			r = n
 			return
 		}
 	}

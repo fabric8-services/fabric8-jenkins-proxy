@@ -24,11 +24,25 @@ This script is used to run the Jenkins Proxy on localhost.
 As a prerequisite OPENSHIFT_API_TOKEN and  JC_AUTH_TOKEN need to be exported.
 In your shell (from the root of fabric8-jenkins-proxy):
 
-> export OPENSHIFT_API_TOKEN=<your OpenShift API token>
+> export OPENSHIFT_API_TOKEN=<OpenShift API token>
 > export JC_AUTH_TOKEN=<auth token>
-> eval \$(${0##*/})
+> ./scripts/${0##*/} start
+> eval \$(./scripts/${0##*/} env)
 > fabric8-jenkins-proxy
 EOF
+}
+
+###############################################################################
+# Wraps oc command with namespace and token parameters
+# Globals:
+#   OPENSHIFT_API_TOKEN - token to run commands against staging cluster
+# Arguments:
+#   Passes all arguments to oc command
+# Returns:
+#   None
+###############################################################################
+loc() {
+    oc -n dsaas-preview --token ${OPENSHIFT_API_TOKEN} $@
 }
 
 ###############################################################################
@@ -41,12 +55,12 @@ EOF
 #   None
 ###############################################################################
 forwardIdler() {
-    pod=$(oc get pods -l deploymentconfig=jenkins-idler -o json | jq -r '.items[0].metadata.name')
+    pod=$(loc get pods -l deploymentconfig=jenkins-idler -o json | jq -r '.items[0].metadata.name')
     if [ "${pod}" == "null" ] ; then
         echo "WARN: Unable to determine Idler pod name"
         return
     fi
-    port=$(oc get pods -l deploymentconfig=jenkins-idler -o json | jq -r '.items[0].spec.containers[0].ports[0].containerPort')
+    port=$(loc get pods -l deploymentconfig=jenkins-idler -o json | jq -r '.items[0].spec.containers[0].ports[0].containerPort')
 
     if lsof -Pi :${LOCAL_IDLER_PORT} -sTCP:LISTEN -t >/dev/null ; then
         echo "INFO: Local Idler port ${LOCAL_IDLER_PORT} already listening. Skipping oc port-forward"
@@ -55,7 +69,7 @@ forwardIdler() {
 
     while :
     do
-	    oc port-forward ${pod} ${LOCAL_IDLER_PORT}:${port}
+	    loc port-forward ${pod} ${LOCAL_IDLER_PORT}:${port}
 	    echo "Idler port forward stopped with exit code $?.  Respawning.." >&2
 	    sleep 1
     done
@@ -72,12 +86,12 @@ forwardIdler() {
 #   None
 ###############################################################################
 forwardTenant() {
-    pod=$(oc get pods -l deploymentconfig=f8tenant -o json | jq -r '.items[0].metadata.name')
+    pod=$(loc get pods -l deploymentconfig=f8tenant -o json | jq -r '.items[0].metadata.name')
     if [ "${pod}" == "null" ] ; then
         echo "WARN: Unable to determine Tenant pod name"
         return
     fi
-    port=$(oc get pods -l deploymentconfig=f8tenant -o json | jq -r '.items[0].spec.containers[0].ports[0].containerPort')
+    port=$(loc get pods -l deploymentconfig=f8tenant -o json | jq -r '.items[0].spec.containers[0].ports[0].containerPort')
 
     if lsof -Pi :${LOCAL_TENANT_PORT} -sTCP:LISTEN -t >/dev/null ; then
         echo "INFO: Local Tenant port ${LOCAL_TENANT_PORT} already listening. Skipping oc port-forward"
@@ -86,7 +100,7 @@ forwardTenant() {
 
     while :
     do
-	    oc port-forward ${pod} ${LOCAL_TENANT_PORT}:${port}
+	    loc port-forward ${pod} ${LOCAL_TENANT_PORT}:${port}
 	    echo "Tenant port forward stopped with exit code $?.  Respawning.." >&2
 	    sleep 1
     done
@@ -122,24 +136,41 @@ start() {
     [ -z "${OPENSHIFT_API_TOKEN}" ] && printHelp && exit 1
     [ -z "${JC_AUTH_TOKEN}" ] && printHelp && exit 1
 
-    oc login https://api.rh-idev.openshift.com --token=${OPENSHIFT_API_TOKEN} > /dev/null
+    loc get pods > /dev/null
+    [ "$?" -ne 0 ] && echo "Your OpenShift token is not valid" && exit 1
 
     forwardIdler &
     forwardTenant &
     runPostgres &
+}
+
+###############################################################################
+# Displays the required environment settings for evaluation.
+# Globals:
+#   None
+# Arguments:
+#   None
+# Returns:
+#   None
+###############################################################################
+env() {
+    [ -z "${OPENSHIFT_API_TOKEN}" ] && printHelp && exit 1
+    [ -z "${JC_AUTH_TOKEN}" ] && printHelp && exit 1
 
     echo export JC_KEYCLOAK_URL=https://sso.prod-preview.openshift.io
     echo export JC_WIT_API_URL=https://api.prod-preview.openshift.io
-    echo export JC_REDIRECT_URL=https://jenkins.prod-preview.openshift.io
+    echo export JC_REDIRECT_URL=http://localhost:8080
     echo export JC_AUTH_URL=https://auth.prod-preview.openshift.io
     echo export JC_POSTGRES_PORT=${LOCAL_POSTGRES_PORT}
     echo export JC_POSTGRES_HOST=localhost
     echo export JC_POSTGRES_PASSWORD=postgres
     echo export JC_POSTGRES_DATABASE=postgres
     echo export JC_AUTH_TOKEN=${JC_AUTH_TOKEN}
-    echo export JC_IDLER_API=http://localhost:${LOCAL_IDLER_PORT}
+    echo export JC_IDLER_API_URL=http://localhost:${LOCAL_IDLER_PORT}
     echo export JC_F8TENANT_API_URL=http://localhost:${LOCAL_TENANT_PORT}
+    echo export JC_OSO_CLUSTERS="'{\"https://api.free-stg.openshift.com/\": \"1b7d.free-stg.openshiftapps.com\"}'"
 }
+
 
 ###############################################################################
 # Stops oc-port forwarding and Docker container
@@ -152,7 +183,7 @@ start() {
 ###############################################################################
 stop() {
     pids=$(pgrep -a -f -d " " "setupLocalProxy.sh start")
-    pids+=$(pgrep -a -f -d " " "oc port-forward")
+    pids+=$(pgrep -a -f -d " " "loc port-forward")
     kill -9 ${pids}
     docker rm -f postgres
 }
@@ -163,6 +194,9 @@ case "$1" in
     ;;
   stop)
     stop
+    ;;
+  env)
+    env
     ;;
   *)
     printHelp

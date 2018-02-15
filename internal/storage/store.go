@@ -45,21 +45,21 @@ func Connect(config *configuration.Data) *gorm.DB {
 	for {
 		db, err = gorm.Open("postgres", config.GetPostgresConfigString())
 		if err != nil {
-			log.Errorf("ERROR: Unable to open connection to database %v", err)
-			log.Infof("Retrying to connect in %v...", config.GetPostgresConnectionRetrySleep())
+			storeLogger.Errorf("ERROR: Unable to open connection to database %v", err)
+			storeLogger.Infof("Retrying to connect in %v...", config.GetPostgresConnectionRetrySleep())
 			time.Sleep(config.GetPostgresConnectionRetrySleep())
 		} else {
-			log.Info("Successfully connected to database")
+			storeLogger.Info("Successfully connected to database")
 			break
 		}
 	}
 
 	if config.GetPostgresConnectionMaxIdle() > 0 {
-		log.Infof("Configured connection pool max idle %v", config.GetPostgresConnectionMaxIdle())
+		storeLogger.Infof("Configured connection pool max idle %v", config.GetPostgresConnectionMaxIdle())
 		db.DB().SetMaxIdleConns(config.GetPostgresConnectionMaxIdle())
 	}
 	if config.GetPostgresConnectionMaxOpen() > 0 {
-		log.Infof("Configured connection pool max open %v", config.GetPostgresConnectionMaxOpen())
+		storeLogger.Infof("Configured connection pool max open %v", config.GetPostgresConnectionMaxOpen())
 		db.DB().SetMaxOpenConns(config.GetPostgresConnectionMaxOpen())
 	}
 

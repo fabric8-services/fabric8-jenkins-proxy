@@ -3,7 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"io/ioutil"
+	"os"
+	"syscall"
+	"testing"
+	"time"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
@@ -11,11 +17,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/ory-am/dockertest.v3"
-	"io/ioutil"
-	"os"
-	"syscall"
-	"testing"
-	"time"
 )
 
 const (
@@ -88,7 +89,8 @@ func TestProxy(t *testing.T) {
 	os.Setenv("JC_KEYCLOAK_URL", "https://sso.prod-preview.openshift.io")
 	os.Setenv("JC_AUTH_URL", as.URL)
 	os.Setenv("JC_REDIRECTREDIRECT_URL", "https://localhost:8443/")
-	os.Setenv("JC_iNDEX_PATH", "static/html/index.html")
+	os.Setenv("JC_INDEX_PATH", "static/html/index.html")
+	//os.Setenv("JC_OSO_CLUSTERS", testutils.OSOClusters())
 	config, err := configuration.NewData()
 	if err != nil {
 		log.Fatal(err)

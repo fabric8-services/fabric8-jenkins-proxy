@@ -8,3 +8,9 @@ data:
   idler.api.url: "http://jenkins-idler:8080"
   wit.api.url: ""
   redirect.url: ""
+  oso.clusters: |
+    {
+      "https://api.starter-us-east-2.openshift.com/": "8a09.starter-us-east-2.openshiftapps.com",
+      "https://api.starter-us-east-2a.openshift.com/": "b542.starter-us-east-2a.openshiftapps.com",
+      "https://api.free-stg.openshift.com/": "1b7d.free-stg.openshiftapps.com"
+    }
