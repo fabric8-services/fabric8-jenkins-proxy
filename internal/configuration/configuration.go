@@ -32,9 +32,10 @@ const (
 	varKeycloakURL     = "keycloak.url"
 	varMaxRequestRetry = "max.request.retry"
 
-	varIndexPath = "index.path"
+	varOpenShiftApiURL   = "openshift.api.url"
+	varOpenShiftApiToken = "openshift.api.token"
 
-	varLocalDevEnv = "local.dev.env"
+	varIndexPath = "index.path"
 )
 
 // Data encapsulates the Viper configuration object which stores the configuration data in-memory.
@@ -239,13 +240,23 @@ func (c *Data) GetIndexPath() string {
 	return c.v.GetString(varIndexPath)
 }
 
-// GetMaxRequestretry returns the number of retries for webhook request forwarding as set via default, config file,
+// GetMaxRequestRetry returns the number of retries for webhook request forwarding as set via default, config file,
 // or environment variable
-func (c *Data) GetMaxRequestretry() int {
+func (c *Data) GetMaxRequestRetry() int {
 	return c.v.GetInt(varMaxRequestRetry)
 }
 
 // GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
 func (c *Data) GetDebugMode() bool {
 	return c.v.GetBool(varDebugMode)
+}
+
+// GetRedirectURL returns the redirect url to be passed to Auth as set via default, config file, or environment variable
+func (c *Data) GetOpenShiftApiURL() string {
+	return c.v.GetString(varOpenShiftApiURL)
+}
+
+// GetOpenShiftToken returns the OpenShift service account token.
+func (c *Data) GetOpenShiftApiToken() string {
+	return c.v.GetString(varOpenShiftApiToken)
 }
