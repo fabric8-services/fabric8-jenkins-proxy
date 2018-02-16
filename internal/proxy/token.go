@@ -4,11 +4,12 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
-	jwt "github.com/dgrijalva/jwt-go"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 type TokenJSON struct {

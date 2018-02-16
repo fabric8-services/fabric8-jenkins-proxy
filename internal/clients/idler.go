@@ -5,8 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	namespaceSuffix = "-jenkins"
 )
 
 //Idler is a simple client for Idler
@@ -24,8 +29,13 @@ type Status struct {
 	IsIdle bool `json:"is_idle"`
 }
 
-//IsIdle returns true if Jenkins is idled for a given namespace
-func (i Idler) IsIdle(namespace string) (bool, error) {
+// IsIdle returns true if the Jenkins instance for the specified tenant is idled. False otherwise
+func (i Idler) IsIdle(tenant string) (bool, error) {
+	namespace := tenant
+	if !strings.HasSuffix(tenant, namespaceSuffix) {
+		namespace = tenant + namespaceSuffix
+		log.WithField("ns", tenant).Debugf("Adding namespace suffix - resulting namespace: %s", namespace)
+	}
 	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/isidle/%s", i.idlerApi, namespace))
 	if err != nil {
 		return true, err
