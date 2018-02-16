@@ -16,14 +16,16 @@ import (
 
 	"errors"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/clients"
+	"hash/fnv"
+	"runtime"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/patrickmn/go-cache"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
-	"hash/fnv"
-	"runtime"
 )
 
 const (
@@ -70,6 +72,7 @@ type Proxy struct {
 	storageService  storage.Store
 	indexPath       string
 	maxRequestRetry int
+	clusters        map[string]string
 }
 
 type ProxyError struct {
@@ -81,24 +84,25 @@ type ProxyErrorInfo struct {
 	Detail string `json:"detail"`
 }
 
-func NewProxy(t *clients.Tenant, w *clients.WIT, i *clients.Idler, keycloakURL string, authURL string, redirect string, storageService storage.Store, indexPath string, maxRequestRetry int) (Proxy, error) {
+func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, storageService storage.Store, config *configuration.Data) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
 		visitLock:        &sync.Mutex{},
-		tenant:           t,
-		wit:              w,
-		idler:            i,
+		tenant:           tenant,
+		wit:              wit,
+		idler:            idler,
 		bufferCheckSleep: 30,
-		redirect:         redirect,
-		authURL:          authURL,
+		redirect:         config.GetRedirectURL(),
+		authURL:          config.GetAuthURL(),
 		storageService:   storageService,
-		indexPath:        indexPath,
-		maxRequestRetry:  maxRequestRetry,
+		indexPath:        config.GetIndexPath(),
+		maxRequestRetry:  config.GetMaxRequestRetry(),
+		clusters:         config.GetClusters(),
 	}
 
 	//Collect and parse public key from Keycloak
-	pk, err := GetPublicKey(keycloakURL)
+	pk, err := GetPublicKey(config.GetKeycloakURL())
 	if err != nil {
 		return p, err
 	}
@@ -378,17 +382,19 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	requestLogEntry.WithField("json", gh).Debug("Processing GitHub JSON payload")
 
-	ns, err = p.GetUser(gh, requestLogEntry)
+	namespace, err := p.GetUser(gh, requestLogEntry)
+	ns = namespace.Name
 	requestLogEntry.WithField("ns", ns).Infof("Processing request from %s", gh.Repository.CloneURL)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
-	scheme, route, err := p.idler.GetRoute(ns)
+	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
+
 	r.URL.Scheme = scheme
 	r.URL.Host = route
 	r.Host = route
@@ -479,7 +485,7 @@ func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci 
 	}
 
 	requestLogEntry.WithField("ns", namespace.Name).Debug("Extracted information from token")
-	scheme, route, err := p.idler.GetRoute(namespace.Name)
+	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
 	if err != nil {
 		return
 	}
@@ -542,9 +548,9 @@ func (p *Proxy) createRequestHash(url string, headers string) uint32 {
 }
 
 //GetUser returns a namespace name based on GitHub repository URL
-func (p *Proxy) GetUser(pl GHHookStruct, requestLogEntry *log.Entry) (string, error) {
+func (p *Proxy) GetUser(pl GHHookStruct, requestLogEntry *log.Entry) (clients.Namespace, error) {
 	if n, found := p.TenantCache.Get(pl.Repository.CloneURL); found {
-		namespace := n.(string)
+		namespace := n.(clients.Namespace)
 		requestLogEntry.WithFields(
 			log.Fields{
 				"ns": namespace,
@@ -555,27 +561,26 @@ func (p *Proxy) GetUser(pl GHHookStruct, requestLogEntry *log.Entry) (string, er
 	requestLogEntry.Infof("Cache miss for repository %s", pl.Repository.CloneURL)
 	wi, err := p.wit.SearchCodebase(pl.Repository.CloneURL)
 	if err != nil {
-		return "", err
+		return clients.Namespace{}, err
 	}
 
 	if len(strings.TrimSpace(wi.OwnedBy)) == 0 {
-		return "", errors.New(fmt.Sprintf("unable to determine tenant id for repository %s", pl.Repository.CloneURL))
+		return clients.Namespace{}, errors.New(fmt.Sprintf("unable to determine tenant id for repository %s", pl.Repository.CloneURL))
 	}
 
 	requestLogEntry.Infof("Found id %s for repo %s", wi.OwnedBy, pl.Repository.CloneURL)
 	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
 	if err != nil {
-		return "", err
+		return clients.Namespace{}, err
 	}
 
 	n, err := p.tenant.GetNamespaceByType(ti, ServiceName)
 	if err != nil {
-		return "", err
+		return clients.Namespace{}, err
 	}
 
-	namespace := n.Name
-	p.TenantCache.SetDefault(pl.Repository.CloneURL, namespace)
-	return namespace, nil
+	p.TenantCache.SetDefault(pl.Repository.CloneURL, n)
+	return n, nil
 }
 
 //RecordStatistics writes usage statistics to a database
@@ -618,6 +623,16 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 	}
 
 	return
+}
+
+//constructRoute returns Jenkins route based on a specific pattern
+func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, error) {
+	appSuffix := p.clusters[clusterURL]
+	if len(appSuffix) == 0 {
+		return "", "", fmt.Errorf("Could not find entry for cluster %s", clusterURL)
+	}
+	route := fmt.Sprintf("jenkins-%s-jenkins.%s", ns, p.clusters[clusterURL])
+	return route, "https", nil
 }
 
 //ProcessBuffer is a loop running through buffered webhook requests trying to replay them

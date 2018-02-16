@@ -31,6 +31,16 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 		return true, err
 	}
 	defer resp.Body.Close()
+
+	// This is a temporary workaround for multi-cluster. ATM, the Idler is only aware of a single OpenShift cluster.
+	// If a IsIdle request is made for a namespace in a different cluster, the Idler will return 404.
+	// For now we don't treat this as an error and just return false, assuming that Idling is only working on
+	// a single cluster for now. See https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/150
+	// and https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/151
+	if resp.StatusCode == 404 {
+		return false, nil
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return false, err
@@ -45,41 +55,4 @@ func (i Idler) IsIdle(namespace string) (bool, error) {
 	log.Debugf("Jenkins is idle (%t) in %s", s.IsIdle, namespace)
 
 	return s.IsIdle, nil
-}
-
-//GetRoute returns sheme and route for a given namespace
-func (i Idler) GetRoute(n string) (scheme string, rt string, err error) {
-	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/route/%s", i.idlerApi, n))
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	type route struct {
-		Service string
-		Route   string
-		TLS     bool
-	}
-	r := route{}
-
-	err = json.Unmarshal(body, &r)
-	if err != nil {
-		return
-	}
-
-	if r.TLS {
-		scheme = "https"
-	} else {
-		scheme = "http"
-	}
-
-	rt = r.Route
-	fmt.Printf(rt)
-
-	return
 }
