@@ -223,6 +223,12 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 
 		//Break the process if the Jenkins is idled, set a cookie and redirect to self
 		if isIdle {
+			err = p.idler.UnIdle(ns)
+			if err != nil {
+				p.HandleError(w, err, requestLogEntry)
+				return
+			}
+
 			p.setIdledCookie(w, pci)
 			requestLogEntry.WithField("ns", ns).Info("Redirecting to remove token from URL")
 			http.Redirect(w, r, redirectURL.String(), http.StatusFound) //Redirect to get rid of token in URL
@@ -291,6 +297,11 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 					return
 				}
 				if isIdle { //If jenkins is idled, return loading page and status 202
+					err = p.idler.UnIdle(ns)
+					if err != nil {
+						p.HandleError(w, err, requestLogEntry)
+						return
+					}
 					err = p.processTemplate(w, ns, requestLogEntry)
 					p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
 				} else { //If Jenkins is running, remove the cookie
@@ -408,6 +419,10 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	//If Jenkins is idle, we need to cache the request and return success
 	if isIdle {
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
+		err = p.idler.UnIdle(ns)
+		if err != nil {
+			p.HandleError(w, err, requestLogEntry)
+		}
 		return
 	}
 

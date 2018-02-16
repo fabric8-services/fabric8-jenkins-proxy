@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,7 +30,7 @@ type Status struct {
 	IsIdle bool `json:"is_idle"`
 }
 
-// IsIdle returns true if the Jenkins instance for the specified tenant is idled. False otherwise
+// IsIdle returns true if the Jenkins instance for the specified tenant is idled. False otherwise.
 func (i Idler) IsIdle(tenant string) (bool, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
@@ -65,4 +66,23 @@ func (i Idler) IsIdle(tenant string) (bool, error) {
 	log.Debugf("Jenkins is idle (%t) in %s", s.IsIdle, namespace)
 
 	return s.IsIdle, nil
+}
+
+// Initiates un-idling of the Jenkins instance for the specified tenant.
+func (i Idler) UnIdle(tenant string) error {
+	namespace := tenant
+	if !strings.HasSuffix(tenant, namespaceSuffix) {
+		namespace = tenant + namespaceSuffix
+	}
+	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/unidle/%s", i.idlerApi, namespace))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		return nil
+	} else {
+		return errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
+	}
 }
