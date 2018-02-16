@@ -631,7 +631,7 @@ func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, er
 	if len(appSuffix) == 0 {
 		return "", "", fmt.Errorf("Could not find entry for cluster %s", clusterURL)
 	}
-	route := fmt.Sprintf("jenkins-%s-jenkins.%s", ns, p.clusters[clusterURL])
+	route := fmt.Sprintf("jenkins-%s.%s", ns, p.clusters[clusterURL])
 	return route, "https", nil
 }
 
