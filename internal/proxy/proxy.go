@@ -346,7 +346,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 
 func (p *Proxy) loginJenkins(pci ProxyCacheItem, osoToken string, requestLogEntry *log.Entry) (int, []*http.Cookie, error) {
 	//Login to Jenkins with OSO token to get cookies
-	jenkinsURL := fmt.Sprintf("%s://%s/", pci.Scheme, pci.Route)
+	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", pci.Scheme, pci.Route)
 	req, _ := http.NewRequest("GET", jenkinsURL, nil)
 	if len(osoToken) > 0 {
 		requestLogEntry.WithField("ns", pci.NS).Infof("Jenkins login for %s", jenkinsURL)
