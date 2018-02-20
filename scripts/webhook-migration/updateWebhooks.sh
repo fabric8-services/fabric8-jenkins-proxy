@@ -124,7 +124,7 @@ getGitHubTokens() {
     gh_token=$(curl -sgSL -H "Authorization: Bearer ${OSIO_TOKENS[${i}]}" ${AUTH_URL}api/token?for=https://github.com | jq -r '.access_token')
     if [ "${gh_token}" == "null" ]; then
         echo "WARN: Unable to create GitHub token for UUID ${UUIDS[$i]}" >&2
-        curl -sgSL -H "Authorization: Bearer ${OSIO_TOKENS[${i}]}" ${AUTH_URL}api/token?for=https://github.com >&2
+        echo curl -sgSL -H "Authorization: Bearer ${OSIO_TOKENS[${i}]}" ${AUTH_URL}api/token?for=https://github.com >&2
     else
         GITHUB_TOKENS[$i]=${gh_token}
     fi
