@@ -71,7 +71,7 @@ parameters:
 - name: IMAGE
   value: hferentschik/webhook-migration
 - name: IMAGE_TAG
-  value: 1.0.4
+  value: 1.0.5
 - name: TARGET_ENV
   value: "stage"
 - name: DRY_RUN
