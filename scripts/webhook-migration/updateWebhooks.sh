@@ -13,6 +13,7 @@
 [ -z "${JENKINS_PROXY_URL}" ] && echo "JENKINS_PROXY_URL needs to be set." && exit 1
 [ -z "${PRIVATE_KEY}" ] && echo "PRIVATE_KEY needs to be set." && exit 1
 [ -z "${TARGET_ENV}" ] && echo "TARGET_ENV needs to be set. [prod|stage]." && exit 1
+[ -z "${SESSION}" ] && echo "SESSION needs to be set to a value from token with an active session" && exit 1
 
 DRY_RUN="${DRY_RUN:-false}"
 
@@ -101,7 +102,7 @@ findUUIDs() {
 getOsioTokens() {
   for i in "${!UUIDS[@]}"; do
     echo "Generating OSIO token for UUID ${UUIDS[$i]}"
-    osio_token=$(osio -t ${TARGET_ENV} token -k "${PRIVATE_KEY}" -u ${UUIDS[$i]})
+    osio_token=$(osio -t ${TARGET_ENV} token -k "${PRIVATE_KEY}" -u ${UUIDS[$i]} -s ${SESSION})
     OSIO_TOKENS[$i]="${osio_token}"
   done
 }
