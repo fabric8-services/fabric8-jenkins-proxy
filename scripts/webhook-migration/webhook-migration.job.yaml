@@ -66,6 +66,8 @@ objects:
             value: ${DRY_RUN}
           - name: CHECK_NAMESPACES
             value: ${CHECK_NAMESPACES}
+          - name: SESSION
+            value: ${SESSION}
         restartPolicy: Never
 parameters:
 - name: IMAGE
@@ -77,4 +79,6 @@ parameters:
 - name: DRY_RUN
   value: "true"
 - name: CHECK_NAMESPACES
+  value: ""
+- name: SESSION
   value: ""
