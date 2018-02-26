@@ -40,7 +40,7 @@ type Token struct {
 	Data Data `json:"data"`
 }
 
-func CreateOSIOToken(env string, uuid string, key string, valid int64, session string) (string, error) {
+func CreateOSIOToken(env string, uuid string, key string, keyId string, valid int64, session string) (string, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(key))
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Unable to parse private key file: %s", err))
@@ -51,7 +51,7 @@ func CreateOSIOToken(env string, uuid string, key string, valid int64, session s
 		return "", errors.New(fmt.Sprintf("Unable to GET user for uuid '%s': %s", uuid, err))
 	}
 
-	token, err := generateToken(env, privateKey, user, uuid, valid, session)
+	token, err := generateToken(env, privateKey, keyId, user, uuid, valid, session)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Unable to generate token for uuid '%s': %s", uuid, err))
 	}
@@ -61,10 +61,16 @@ func CreateOSIOToken(env string, uuid string, key string, valid int64, session s
 
 // generateToken generates the JWT token using the specified private key.
 // See also https://self-issued.info/docs/draft-ietf-oauth-json-web-token.html.
-func generateToken(env string, key *rsa.PrivateKey, user User, userID string, valid int64, session string) (string, error) {
+func generateToken(env string, key *rsa.PrivateKey, keyId string, user User, userID string, valid int64, session string) (string, error) {
 	token := jwt.New(jwt.SigningMethodRS256)
 
-	token.Header["kid"] = environments[env].privateKeyId
+	kid := ""
+	if len(keyId) > 0 {
+		kid = keyId
+	} else {
+		kid = environments[env].privateKeyId
+	}
+	token.Header["kid"] = kid
 
 	// JWT ID, needs to be unique
 	token.Claims.(jwt.MapClaims)["jti"] = uuid.NewV4().String()

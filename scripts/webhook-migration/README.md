@@ -20,7 +20,7 @@ See also https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/94
 <a name="build-container"></a>
 # Build container
 
-    $ docker build -t hferentschik/webhook-migration:1.0.5 .
+    $ docker build -t hferentschik/webhook-migration:1.0.6 .
 
 <a name="run-locally"></a>
 # Run locally
@@ -33,6 +33,8 @@ See also https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/94
     -e JENKINS_OLD_URL_SUFFIX=<Suffix of the old webhook URL. Used to match hook to update> \
     -e JENKINS_PROXY_URL=<URL of Jenskins proxy> \
     -e PRIVATE_KEY=<Private key for OSIO token generation> \
+    -e PRIVATE_KEY_ID=<Private key ID for OSIO token generation> \
+    -e SESSION=<Active OSIO session token>
     -e TARGET_ENV=<stage|prod> \
     -e DRY_RUN=<true|false> \
     fabric8-jenkins-proxy/webhook-migration
@@ -50,14 +52,15 @@ You can use `ncat` for that (assuming you are using 9090 for the oc port forward
 <a name="run-migration"></a>
 # Run migration
 
-    # Dry run against staging and specifying a single namespave
+    # Dry run against staging and specifying a single namespace
     $ oc process -p TARGET_ENV=stage -p DRY_RUN=true -p CHECK_NAMESPACES=johndoe -f webhook-migration.job.yaml | oc apply -f -
 
     # Dry run against staging
     $ oc process -p TARGET_ENV=stage -p DRY_RUN=true -f webhook-migration.job.yaml | oc apply -f -
     
     # Apply changes against prod
-    $ oc process -p TARGET_ENV=prod -p DRY_RUN=false -f webhook-migration.job.yaml | oc apply -f -
+    # In this case the private key and id as well as an active session token need to be specified
+    $ oc process -p TARGET_ENV=prod -p DRY_RUN=false -p SESSION="session-token" -p PRIVATE_KEY="key" -p PRIVTE_KEY_ID="id" -f webhook-migration.job.yaml | oc apply -f -
     
 Do delete the job and start over:
 
