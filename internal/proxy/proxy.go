@@ -84,7 +84,7 @@ type ProxyErrorInfo struct {
 	Detail string `json:"detail"`
 }
 
-func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, storageService storage.Store, config *configuration.Data) (Proxy, error) {
+func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, storageService storage.Store, config configuration.Configuration) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),

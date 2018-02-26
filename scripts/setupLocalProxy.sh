@@ -3,6 +3,9 @@
 # Used to run Proxy locally.
 #
 
+set -o errexit
+set -o pipefail
+
 LOCAL_IDLER_PORT=${LOCAL_IDLER_PORT:-9001}
 LOCAL_TENANT_PORT=${LOCAL_TENANT_PORT:-9002}
 LOCAL_POSTGRES_PORT=${LOCAL_POSTGRES_PORT:-5432}
@@ -18,14 +21,13 @@ LOCAL_POSTGRES_PORT=${LOCAL_POSTGRES_PORT:-5432}
 ###############################################################################
 printHelp() {
     cat << EOF
-Usage: ${0##*/} [start|stop]
+Usage: ${0##*/} [start|stop|env]
 
 This script is used to run the Jenkins Proxy on localhost.
 As a prerequisite OPENSHIFT_API_TOKEN and  JC_AUTH_TOKEN need to be exported.
 In your shell (from the root of fabric8-jenkins-proxy):
 
-> export OPENSHIFT_API_TOKEN=<OpenShift API token>
-> export JC_AUTH_TOKEN=<auth token>
+> export DSAAS_PREVIEW_TOKEN=<dsaas-preview token>
 > ./scripts/${0##*/} start
 > eval \$(./scripts/${0##*/} env)
 > fabric8-jenkins-proxy
@@ -33,16 +35,50 @@ EOF
 }
 
 ###############################################################################
-# Wraps oc command with namespace and token parameters
+# Wraps oc command custom config location
 # Globals:
-#   OPENSHIFT_API_TOKEN - token to run commands against staging cluster
+#   None
 # Arguments:
 #   Passes all arguments to oc command
 # Returns:
 #   None
 ###############################################################################
 loc() {
-    oc -n dsaas-preview --token ${OPENSHIFT_API_TOKEN} $@
+    oc --config $(dirname $0)/config $@
+}
+
+###############################################################################
+# Ensures login to OpenShift
+# Globals:
+#   None
+# Arguments:
+#   None
+# Returns:
+#   None
+###############################################################################
+login() {
+    [ -z "${DSAAS_PREVIEW_TOKEN}" ] && echo "DSAAS_PREVIEW_TOKEN needs to be exported." && printHelp && exit 1
+
+    loc login https://api.rh-idev.openshift.com -n dsaas-preview --token=${DSAAS_PREVIEW_TOKEN} >/dev/null
+}
+
+###############################################################################
+# Retrieves the required Auth token
+# Globals:
+#   JC_AUTH_TOKEN - Auth token for the auth service
+# Arguments:
+#   None
+# Returns:
+#   None
+###############################################################################
+setTokens() {
+    pod=$(loc get pods -l deploymentconfig=jenkins-proxy -o json | jq -r '.items[0].metadata.name')
+    if [ "${pod}" == "null" ] ; then
+        echo "WARN: Unable to determine Proxy pod name"
+        return
+    fi
+
+    export JC_AUTH_TOKEN=$(loc exec ${pod} env | grep JC_AUTH_TOKEN | sed -e 's/JC_AUTH_TOKEN=//')
 }
 
 ###############################################################################
@@ -133,8 +169,9 @@ runPostgres() {
 #   None
 ###############################################################################
 start() {
-    [ -z "${OPENSHIFT_API_TOKEN}" ] && printHelp && exit 1
-    [ -z "${JC_AUTH_TOKEN}" ] && printHelp && exit 1
+    [ -z "${DSAAS_PREVIEW_TOKEN}" ] && echo "DSAAS_PREVIEW_TOKEN needs to be exported." && printHelp && exit 1
+
+    login
 
     loc get pods > /dev/null
     [ "$?" -ne 0 ] && echo "Your OpenShift token is not valid" && exit 1
@@ -154,8 +191,10 @@ start() {
 #   None
 ###############################################################################
 env() {
-    [ -z "${OPENSHIFT_API_TOKEN}" ] && printHelp && exit 1
-    [ -z "${JC_AUTH_TOKEN}" ] && printHelp && exit 1
+    [ -z "${DSAAS_PREVIEW_TOKEN}" ] && echo "DSAAS_PREVIEW_TOKEN needs to be exported." && printHelp && exit 1
+
+    login
+    setTokens
 
     echo export JC_KEYCLOAK_URL=https://sso.prod-preview.openshift.io
     echo export JC_WIT_API_URL=https://api.prod-preview.openshift.io
@@ -163,6 +202,7 @@ env() {
     echo export JC_AUTH_URL=https://auth.prod-preview.openshift.io
     echo export JC_POSTGRES_PORT=${LOCAL_POSTGRES_PORT}
     echo export JC_POSTGRES_HOST=localhost
+    echo export JC_POSTGRES_USER=postgres
     echo export JC_POSTGRES_PASSWORD=postgres
     echo export JC_POSTGRES_DATABASE=postgres
     echo export JC_AUTH_TOKEN=${JC_AUTH_TOKEN}
@@ -182,7 +222,7 @@ env() {
 ###############################################################################
 stop() {
     pids=$(pgrep -a -f -d " " "setupLocalProxy.sh start")
-    pids+=$(pgrep -a -f -d " " "loc port-forward")
+    pids+=$(pgrep -a -f -d " " "oc --config $(dirname $0)/config")
     kill -9 ${pids}
     docker rm -f postgres
 }

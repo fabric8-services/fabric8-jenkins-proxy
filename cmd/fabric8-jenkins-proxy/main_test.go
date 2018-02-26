@@ -3,26 +3,25 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/ory-am/dockertest.v3"
+	"io/ioutil"
+	"strconv"
 )
 
-const (
-	database = "tenant"
-	user     = "postgres"
-	password = "mysecretpassword"
+var (
+	mockConfig = mock.NewConfig()
 )
 
 func TestMain(m *testing.M) {
@@ -33,14 +32,14 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 
-	resource, err := pool.Run("postgres", "9.6", []string{"POSTGRES_PASSWORD=" + password, "POSTGRES_DB=" + database})
+	resource, err := pool.Run("postgres", "9.6", []string{"POSTGRES_PASSWORD=" + mockConfig.GetPostgresPassword(), "POSTGRES_DB=" + mockConfig.GetPostgresDatabase()})
 	if err != nil {
 		log.Fatalf("Could not start resource: %s", err)
 	}
 
 	if err = pool.Retry(func() error {
 		var err error
-		db, err = sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable", user, password, resource.GetPort("5432/tcp"), database))
+		db, err = sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable", mockConfig.GetPostgresUser(), mockConfig.GetPostgresPassword(), resource.GetPort("5432/tcp"), mockConfig.GetPostgresDatabase()))
 		if err != nil {
 			return err
 		}
@@ -49,8 +48,9 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 
-	// we needto make sure that the test can use the port exposed on the host
-	os.Setenv("JC_POSTGRES_PORT", resource.GetPort("5432/tcp"))
+	// we need to make sure that the test can use the port exposed on the host
+	port, _ := strconv.Atoi(resource.GetPort("5432/tcp"))
+	mockConfig.PostgresPort = port
 	code := m.Run()
 
 	// When you're done, kill and remove the container
@@ -84,36 +84,44 @@ func TestProxy(t *testing.T) {
 	idler := clients.NewIdler(is.URL)
 	wit := clients.NewWIT(ws.URL, "xxx")
 
-	// Make sure the right config values are picked up from the environment for this test
-	// TODO - Once Configuration is an interface we can provide a mock config (HF)
-	os.Setenv("JC_KEYCLOAK_URL", "https://sso.prod-preview.openshift.io")
-	os.Setenv("JC_AUTH_URL", as.URL)
-	os.Setenv("JC_REDIRECTREDIRECT_URL", "https://localhost:8443/")
-	os.Setenv("JC_INDEX_PATH", "static/html/index.html")
-	//os.Setenv("JC_OSO_CLUSTERS", testutils.OSOClusters())
-	config, err := configuration.NewData()
-	if err != nil {
-		log.Fatal(err)
-	}
+	mockConfig.AuthURL = as.URL
+	mockConfig.TenantURL = ts.URL
+	mockConfig.IdlerURL = is.URL
+	mockConfig.WitURL = ws.URL
 
-	log.Info(config.GetPostgresConfigString())
-
-	db := storage.Connect(config)
+	db, err := storage.Connect(&mockConfig)
+	log.Info(storage.PostgresConfigString(&mockConfig))
+	assert.NoError(t, err)
 	defer db.Close()
 
 	store := storage.NewDBStorage(db)
 
 	go func() {
-		// Send SIGTERM after two seconds
-		time.Sleep(2 * time.Second)
+		// Send SIGTERM after max 10 seconds
+		for i := 0; i < 10; i++ {
+			time.Sleep(1 * time.Second)
+			logMessages := testutils.ExtractLogMessages(hook.Entries)
+			if contains(logMessages, "Starting API router on port :9091") {
+				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+			}
+		}
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 	}()
 
-	start(config, &tenant, &wit, &idler, store)
+	start(&mockConfig, &tenant, &wit, &idler, store)
 
 	// TODO - Test an actual workflow by triggering some of the MockURLs
 
 	logMessages := testutils.ExtractLogMessages(hook.Entries)
 	assert.Contains(t, logMessages, "Shutting down proxy on port :8080", "Proxy should shut down gracefully")
 	assert.Contains(t, logMessages, "Shutting down API router on port :9091", "API router should shutdown gracefully")
+}
+
+func contains(list []string, s string) bool {
+	for _, elem := range list {
+		if elem == s {
+			return true
+		}
+	}
+	return false
 }

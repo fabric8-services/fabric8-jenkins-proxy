@@ -3,7 +3,7 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
 	"github.com/jinzhu/gorm"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
@@ -12,14 +12,13 @@ import (
 	"gopkg.in/ory-am/dockertest.v3"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
 
-const (
-	database = "tenant"
-	user     = "postgres"
-	password = "mysecretpassword"
+var (
+	mockConfig = mock.NewConfig()
 )
 
 func TestMain(m *testing.M) {
@@ -30,14 +29,14 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 
-	resource, err := pool.Run("postgres", "9.6", []string{"POSTGRES_PASSWORD=" + password, "POSTGRES_DB=" + database})
+	resource, err := pool.Run("postgres", "9.6", []string{"POSTGRES_PASSWORD=" + mockConfig.GetPostgresPassword(), "POSTGRES_DB=" + mockConfig.GetPostgresDatabase()})
 	if err != nil {
 		log.Fatalf("Could not start resource: %s", err)
 	}
 
 	if err = pool.Retry(func() error {
 		var err error
-		db, err = sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable", user, password, resource.GetPort("5432/tcp"), database))
+		db, err = sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable", mockConfig.GetPostgresUser(), mockConfig.GetPostgresPassword(), resource.GetPort("5432/tcp"), mockConfig.GetPostgresDatabase()))
 		if err != nil {
 			return err
 		}
@@ -46,8 +45,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 
-	// we needto make sure that the test can use the port exposed on the host
-	os.Setenv("JC_POSTGRES_PORT", resource.GetPort("5432/tcp"))
+	port, _ := strconv.Atoi(resource.GetPort("5432/tcp"))
+	mockConfig.PostgresPort = port
 	code := m.Run()
 
 	// When you're done, kill and remove the container
@@ -91,12 +90,9 @@ func setUp(t *testing.T) (*gorm.DB, Store, *test.Hook) {
 	testLogger, hook := test.NewNullLogger()
 	dbLogger = testLogger.WithFields(log.Fields{"component": "db"})
 
-	config, err := configuration.NewData()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	db, err := Connect(&mockConfig)
+	assert.NoError(t, err, "Unexpected error")
 
-	db := Connect(config)
 	store := NewDBStorage(db)
 
 	return db, store, hook

@@ -57,16 +57,18 @@ func main() {
 	mainLogger.Infof("Proxy version: %s", version.GetVersion())
 
 	//Init configuration
-	config, err := configuration.NewData()
+	config, err := configuration.NewConfiguration()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//Check if we have all we need
-	config.VerifyConfig()
+	mainLogger.Infof("Proxy config: %s", config.String())
 
-	//Connect to db
-	db := storage.Connect(config)
+	//Connect to DB
+	db, err := storage.Connect(config)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer db.Close()
 
 	store := storage.NewDBStorage(db)
@@ -83,7 +85,7 @@ func main() {
 	start(config, &tenant, &wit, &idler, store)
 }
 
-func start(config *configuration.Data, tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, store storage.Store) {
+func start(config configuration.Configuration, tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, store storage.Store) {
 	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config)
 	if err != nil {
 		log.Fatal(err)

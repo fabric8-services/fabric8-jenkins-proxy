@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"context"
+	"fmt"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 )
@@ -39,15 +40,13 @@ func LogStorageStats(ctx context.Context, store Store, interval time.Duration) e
 	}
 }
 
-func Connect(config *configuration.Data) *gorm.DB {
+func Connect(config configuration.Configuration) (*gorm.DB, error) {
 	var err error
 	var db *gorm.DB
 	for {
-		db, err = gorm.Open("postgres", config.GetPostgresConfigString())
+		db, err = gorm.Open("postgres", PostgresConfigString(config))
 		if err != nil {
-			storeLogger.Errorf("ERROR: Unable to open connection to database %v", err)
-			storeLogger.Infof("Retrying to connect in %v...", config.GetPostgresConnectionRetrySleep())
-			time.Sleep(config.GetPostgresConnectionRetrySleep())
+			return nil, err
 		} else {
 			storeLogger.Info("Successfully connected to database")
 			break
@@ -77,5 +76,18 @@ func Connect(config *configuration.Data) *gorm.DB {
 		db.CreateTable(stats)
 	}
 
-	return db
+	return db, nil
+}
+
+// GetPostgresConfigString returns a ready to use string for usage in sql.Open()
+func PostgresConfigString(config configuration.Configuration) string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
+		config.GetPostgresHost(),
+		config.GetPostgresPort(),
+		config.GetPostgresUser(),
+		config.GetPostgresPassword(),
+		config.GetPostgresDatabase(),
+		config.GetPostgresSSLMode(),
+		config.GetPostgresConnectionTimeout(),
+	)
 }

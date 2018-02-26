@@ -626,7 +626,3 @@ func OpenShiftDataRoute(h string) []byte {
 		}
 	`, u.Host))
 }
-
-func OSOClusters() string {
-	return `{"https://api.free-stg.openshift.com/": "1b7d.free-stg.openshiftapps.com"}`
-}
