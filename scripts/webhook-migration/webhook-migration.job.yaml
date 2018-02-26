@@ -57,6 +57,8 @@ objects:
                 key: redirect.url
           - name: PRIVATE_KEY
             value: ${PRIVATE_KEY}
+          - name: PRIVATE_KEY_ID
+            value: ${PRIVATE_KEY_ID}
           - name: TARGET_ENV
             value: ${TARGET_ENV}
           - name: DRY_RUN
@@ -70,7 +72,7 @@ parameters:
 - name: IMAGE
   value: hferentschik/webhook-migration
 - name: IMAGE_TAG
-  value: 1.0.5
+  value: 1.0.6
 - name: TARGET_ENV
   value: "stage"
 - name: DRY_RUN
@@ -80,4 +82,6 @@ parameters:
 - name: SESSION
   required: true
 - name: PRIVATE_KEY
+  required: true
+- name: PRIVATE_KEY_ID
   required: true

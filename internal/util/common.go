@@ -23,7 +23,7 @@ func init() {
 		apiUrl:       "https://api.openshift.io",
 		authURL:      "https://auth.prod-preview.openshift.io",
 		redirectURL:  "https://jenkins.prod-preview.openshift.io",
-		privateKeyId: "PE6-BEECZZpPZIVxLR6NinbthOHJcGqYrfl8v7v6BVA",
+		privateKeyId: "PE6-BEECZZpPZIVxLR6NinbthOHJcGqYrfl8v7v6BVA", // key id for serviceaccount.privatekey
 	}
 
 	environments[prod] = environment{
@@ -31,6 +31,6 @@ func init() {
 		apiUrl:       "https://api.prod-preview.openshift.io",
 		authURL:      "https://auth.openshift.io",
 		redirectURL:  "https://jenkins.openshift.io",
-		privateKeyId: "quzUZlR_ollAUoAGgm165tYDTU3xtKon8O1RghJZ4TU",
+		privateKeyId: "quzUZlR_ollAUoAGgm165tYDTU3xtKon8O1RghJZ4TU", // key id for serviceaccount.privatekey
 	}
 }
