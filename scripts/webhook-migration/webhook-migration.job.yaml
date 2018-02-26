@@ -56,10 +56,7 @@ objects:
                 name: jenkins-proxy
                 key: redirect.url
           - name: PRIVATE_KEY
-            valueFrom:
-              secretKeyRef:
-                name: auth
-                key: serviceaccount.privatekey
+            value: ${PRIVATE_KEY}
           - name: TARGET_ENV
             value: ${TARGET_ENV}
           - name: DRY_RUN
@@ -81,4 +78,6 @@ parameters:
 - name: CHECK_NAMESPACES
   value: ""
 - name: SESSION
-  value: ""
+  required: true
+- name: PRIVATE_KEY
+  required: true
