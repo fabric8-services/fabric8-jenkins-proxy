@@ -78,7 +78,11 @@ func NewConfiguration() (Configuration, error) {
 	}
 
 	config := EnvConfig{}
-	config.loadClusters()
+	err := config.loadClusters()
+	if err != nil {
+		return nil, errors.New("Unable to load OSO cluster settings.")
+	}
+
 	return &config, nil
 }
 
@@ -266,7 +270,7 @@ func (c *EnvConfig) String() string {
 }
 
 func (c *EnvConfig) loadClusters() error {
-	data := getConfigValueFromEnv("JC_OSO_CLUSTERS") // c.v.GetString(varOsoClusters)
+	data := getConfigValueFromEnv("GetOsoClusters")
 	err := json.Unmarshal([]byte(data), &c.clusters)
 	return err
 }
