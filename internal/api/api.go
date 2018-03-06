@@ -3,19 +3,24 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 //ProxyAPI is an API to serve user statistics
-type ProxyAPI struct {
+type ProxyAPI interface {
+	Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
+}
+
+type proxy struct {
 	storageService storage.Store
 }
 
 func NewAPI(storageService storage.Store) ProxyAPI {
-	return ProxyAPI{
+	return &proxy{
 		storageService: storageService,
 	}
 }
@@ -28,7 +33,7 @@ type APIResponse struct {
 }
 
 //Info returns JSON including information about Proxy usage statistics for a given namespace
-func (api *ProxyAPI) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (api *proxy) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	ns := ps.ByName("namespace")
 	s, notFound, err := api.storageService.GetStatisticsUser(ns)
 	if err != nil {
