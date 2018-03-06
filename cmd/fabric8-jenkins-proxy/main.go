@@ -8,12 +8,12 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/router"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 
 	"context"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
-	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 
 	_ "net/http/pprof"
@@ -114,12 +114,13 @@ func startWorkers(wg *sync.WaitGroup, ctx context.Context, cancel context.Cancel
 		}
 	}()
 
+	api := api.NewAPI(store)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		srv := &http.Server{
 			Addr:    apiRouterPort,
-			Handler: createAPIRouter(store),
+			Handler: router.CreateAPIRouter(api),
 		}
 
 		go func() {
@@ -198,16 +199,6 @@ func startWorkers(wg *sync.WaitGroup, ctx context.Context, cancel context.Cancel
 			}
 		}()
 	}
-}
-
-func createAPIRouter(store storage.Store) *httprouter.Router {
-	// Create Proxy API
-	api := api.NewAPI(store)
-
-	// Create router for API
-	proxyRouter := httprouter.New()
-	proxyRouter.GET("/papi/info/:namespace", api.Info)
-	return proxyRouter
 }
 
 func createProxyRouter(proxy *proxy.Proxy) *http.ServeMux {

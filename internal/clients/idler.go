@@ -37,7 +37,7 @@ func (i Idler) IsIdle(tenant string) (bool, error) {
 		namespace = tenant + namespaceSuffix
 		log.WithField("ns", tenant).Debugf("Adding namespace suffix - resulting namespace: %s", namespace)
 	}
-	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/isidle/%s", i.idlerApi, namespace))
+	resp, err := http.Get(fmt.Sprintf("%s/api/idler/isidle/%s", i.idlerApi, namespace))
 	if err != nil {
 		return true, err
 	}
@@ -74,7 +74,7 @@ func (i Idler) UnIdle(tenant string) error {
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
 	}
-	resp, err := http.Get(fmt.Sprintf("%s/iapi/idler/unidle/%s", i.idlerApi, namespace))
+	resp, err := http.Get(fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerApi, namespace))
 	if err != nil {
 		return err
 	}

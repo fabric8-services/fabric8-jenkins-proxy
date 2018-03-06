@@ -110,7 +110,7 @@ objects:
           terminationMessagePath: /dev/termination-log
           readinessProbe:
             httpGet:
-              path: /papi/info/none
+              path: /api/info/none
               port: 9091
               scheme: HTTP
             initialDelaySeconds: 5
@@ -118,7 +118,7 @@ objects:
             timeoutSeconds: 10
           livenessProbe:
             httpGet:
-              path: /papi/info/none
+              path: /api/info/none
               port: 9091
               scheme: HTTP
             initialDelaySeconds: 30
