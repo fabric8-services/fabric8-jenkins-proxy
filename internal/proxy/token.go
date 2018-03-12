@@ -12,15 +12,17 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
+// TokenJSON represents a JSON Web Token
 type TokenJSON struct {
 	AccessToken      string `json:"access_token"`
 	RefreshToken     string `json:"refresh_token"`
 	TokenType        string `json:"token_type"`
 	ExpiresIn        int    `json:"expires_in"`
 	RefreshExpiresIn int    `json:"refresh_expires_in"`
-	Errors           []ProxyErrorInfo
+	Errors           []ErrorInfo
 }
 
+// GetTokenUID gets user identity on giving raw JWT token and public key of auth service as input.
 func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
 	t, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
@@ -38,14 +40,13 @@ func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
 		if claims["sub"].(string) == "" {
 			err = fmt.Errorf("Could not find user id in token")
 			return
-		} else {
-			sub = claims["sub"].(string)
 		}
+		sub = claims["sub"].(string)
 	}
-
 	return
 }
 
+// GetOSOToken returns Openshift online token on giving raw JWT token, cluster URL and auth service url as input.
 func GetOSOToken(authURL string, clusterURL string, token string) (osoToken string, err error) {
 	url := fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(authURL, "/"), clusterURL)
 	req, err := http.NewRequest("GET", url, nil)
@@ -85,6 +86,7 @@ func GetOSOToken(authURL string, clusterURL string, token string) (osoToken stri
 	return
 }
 
+// GetPublicKey gets public key of keycloak realm which Proxy service is using.
 func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
 	resp, err := http.Get(fmt.Sprintf("%s/auth/realms/fabric8/", strings.TrimRight(kcURL, "/")))
 	if err != nil {
@@ -120,6 +122,8 @@ func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
 	return
 }
 
+// GetAuthURI gets us the URI which we are supposed to use to logging in with fabric8-auth service on
+// giveing auth service URL and redirectURL as input.
 func GetAuthURI(authURL string, redirectURL string) string {
 	return fmt.Sprintf("%s/api/login?redirect=%s", strings.TrimRight(authURL, "/"), url.PathEscape(redirectURL))
 }

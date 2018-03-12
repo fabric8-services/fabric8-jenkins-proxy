@@ -3,13 +3,14 @@ package storage
 import (
 	"bytes"
 	"context"
-	log "github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"sync"
 	"testing"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO turn this into a general in memory store service (HF)
@@ -25,7 +26,7 @@ func (m *mockStore) GetRequests(ns string) (result []Request, err error) {
 	return nil, nil
 }
 
-func (m *mockStore) IncRequestRetry(r *Request) (errs []error) {
+func (m *mockStore) IncrementRequestRetry(r *Request) (errs []error) {
 	return nil
 }
 

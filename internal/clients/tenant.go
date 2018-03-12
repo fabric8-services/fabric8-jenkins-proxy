@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewTenant returns new Tenant client
+// NewTenant returns new Tenant client.
 func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	logger := log.WithFields(
 		log.Fields{
@@ -29,7 +29,7 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	}
 }
 
-//Tenant is a simple client for fabric8-tenant
+// Tenant is a simple client for fabric8-tenant.
 type Tenant struct {
 	tenantServiceURL string
 	authToken        string
@@ -37,6 +37,7 @@ type Tenant struct {
 	logger           *log.Entry
 }
 
+// TenantInfoList is a list of tenant information.
 type TenantInfoList struct {
 	Data []TenantInfoData
 	Meta struct {
@@ -44,28 +45,34 @@ type TenantInfoList struct {
 	}
 	Errors []Error `json:"errors"`
 }
+
+// TenantInfo gives imformation about tenant.
 type TenantInfo struct {
 	Data   TenantInfoData
 	Errors []Error `json:"errors"`
 }
 
+// Error describes an HTTP error consisting of error code and its details.
 type Error struct {
 	Code   string `json:"code"`
 	Detail string `json:"detail"`
 }
 
+// TenantInfoData give data about information such as attributes, id and type.
 type TenantInfoData struct {
 	Attributes Attributes
-	Id         string
+	ID         string
 	Type       string
 }
 
+// Attributes consists of time when the tenant was created, email and list namespaces belonging to that tenant.
 type Attributes struct {
 	CreatedAt  time.Time `json:"created-at"`
 	Email      string
 	Namespaces []Namespace
 }
 
+// Namespace is a tenant space in which each username is unique.
 type Namespace struct {
 	ClusterURL string `json:"cluster-url"`
 	Name       string
@@ -73,7 +80,7 @@ type Namespace struct {
 	Type       string
 }
 
-// GetTenantInfo returns a tenant information based on tenant id
+// GetTenantInfo returns a tenant information based on tenant id.
 func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 	if len(tenantID) == 0 {
 		err = errors.New("tenant ID cannot be empty string")
@@ -108,7 +115,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 	return
 }
 
-// GetNamespaceByType searches tenant namespaces for a given type
+// GetNamespaceByType searches tenant namespaces for a given type.
 func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
 	for i := 0; i < len(ti.Data.Attributes.Namespaces); i++ {
 		n := ti.Data.Attributes.Namespaces[i]

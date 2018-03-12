@@ -103,12 +103,12 @@ func start(config configuration.Configuration, tenant *clients.Tenant, wit *clie
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	startWorkers(&wg, ctx, cancel, store, &proxy, defaultStatsLoggingInterval, config.GetDebugMode())
+	startWorkers(ctx, &wg, cancel, store, &proxy, defaultStatsLoggingInterval, config.GetDebugMode())
 	setupSignalChannel(cancel)
 	wg.Wait()
 }
 
-func startWorkers(wg *sync.WaitGroup, ctx context.Context, cancel context.CancelFunc, store storage.Store, proxy *proxy.Proxy, interval time.Duration, addProfiler bool) {
+func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.CancelFunc, store storage.Store, proxy *proxy.Proxy, interval time.Duration, addProfiler bool) {
 	mainLogger.Info("Starting  all workers")
 	wg.Add(1)
 	go func() {
@@ -207,6 +207,7 @@ func startWorkers(wg *sync.WaitGroup, ctx context.Context, cancel context.Cancel
 	}
 }
 
+// createProxyRouter is the HTTP server handler which handles the incoming webhook and UI requests.
 func createProxyRouter(proxy *proxy.Proxy) *http.ServeMux {
 	proxyMux := http.NewServeMux()
 	proxyMux.HandleFunc("/", proxy.Handle)

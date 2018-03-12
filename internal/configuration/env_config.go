@@ -2,13 +2,14 @@ package configuration
 
 import (
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -53,33 +54,36 @@ func init() {
 	settings["GetDebugMode"] = Setting{"JC_DEBUG_MODE", defaultDebugMode, []func(interface{}, string) error{util.IsBool}}
 }
 
+// Setting is an element in the proxy configuration. It contains the environment
+// variable from which the setting is retrieved, its default value as well as a list
+// of validations which the value of this setting needs to pass.
 type Setting struct {
 	key          string
 	defaultValue string
 	validations  []func(interface{}, string) error
 }
 
-// EnvConfig reads the configuration from the environment
+// EnvConfig is a Configuration implementation which reads the configuration from the process environment.
 type EnvConfig struct {
 	clusters map[string]string
 }
 
-// NewConfiguration creates a configuration instance
+// NewConfiguration creates a configuration instance.
 func NewConfiguration() (Configuration, error) {
-	//Check if we have all we need
+	// Check if we have all we need.
 	multiError := verifyEnv()
 	if !multiError.Empty() {
 		for _, err := range multiError.Errors {
 			logger.Error(err)
 		}
-		return nil, errors.New("One or more required environment variables are missing or invalid.")
+		return nil, errors.New("one or more required environment variables are missing or invalid")
 	}
 
 	config := EnvConfig{}
 	return &config, nil
 }
 
-// GetPostgresHost returns the postgres host as set via default, config file, or environment variable
+// GetPostgresHost returns the postgres host as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresHost() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -87,7 +91,7 @@ func (c *EnvConfig) GetPostgresHost() string {
 	return value
 }
 
-// GetPostgresPort returns the postgres port as set via default, config file, or environment variable
+// GetPostgresPort returns the postgres port as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresPort() int {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -96,7 +100,7 @@ func (c *EnvConfig) GetPostgresPort() int {
 	return i
 }
 
-// GetPostgresUser returns the postgres user as set via default, config file, or environment variable
+// GetPostgresUser returns the postgres user as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresUser() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -104,7 +108,7 @@ func (c *EnvConfig) GetPostgresUser() string {
 	return value
 }
 
-// GetPostgresDatabase returns the postgres database as set via default, config file, or environment variable
+// GetPostgresDatabase returns the postgres database as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresDatabase() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -112,7 +116,7 @@ func (c *EnvConfig) GetPostgresDatabase() string {
 	return value
 }
 
-// GetPostgresPassword returns the postgres password as set via default, config file, or environment variable
+// GetPostgresPassword returns the postgres password as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresPassword() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -120,7 +124,7 @@ func (c *EnvConfig) GetPostgresPassword() string {
 	return value
 }
 
-// GetPostgresSSLMode returns the postgres sslmode as set via default, config file, or environment variable
+// GetPostgresSSLMode returns the postgres sslmode as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresSSLMode() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -128,7 +132,7 @@ func (c *EnvConfig) GetPostgresSSLMode() string {
 	return value
 }
 
-// GetPostgresConnectionTimeout returns the postgres connection timeout as set via default, config file, or environment variable
+// GetPostgresConnectionTimeout returns the postgres connection timeout as set via default, config file, or environment variable.
 func (c *EnvConfig) GetPostgresConnectionTimeout() int {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -138,7 +142,7 @@ func (c *EnvConfig) GetPostgresConnectionTimeout() int {
 }
 
 // GetPostgresConnectionMaxIdle returns the number of connections that should be keept alive in the database connection pool at
-// any given time. -1 represents no restrictions/default behavior
+// any given time. -1 represents no restrictions/default behavior.
 func (c *EnvConfig) GetPostgresConnectionMaxIdle() int {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -148,7 +152,7 @@ func (c *EnvConfig) GetPostgresConnectionMaxIdle() int {
 }
 
 // GetPostgresConnectionMaxOpen returns the max number of open connections that should be open in the database connection pool.
-// -1 represents no restrictions/default behavior
+// -1 represents no restrictions/default behavior.
 func (c *EnvConfig) GetPostgresConnectionMaxOpen() int {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -157,7 +161,7 @@ func (c *EnvConfig) GetPostgresConnectionMaxOpen() int {
 	return i
 }
 
-// GetIdlerURL returns the Idler API URL as set via default, config file, or environment variable
+// GetIdlerURL returns the Idler API URL as set via default, config file, or environment variable.
 func (c *EnvConfig) GetIdlerURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -165,7 +169,7 @@ func (c *EnvConfig) GetIdlerURL() string {
 	return value
 }
 
-// GetAuthURL returns the Auth API URL as set via default, config file, or environment variable
+// GetAuthURL returns the Auth API URL as set via default, config file, or environment variable.
 func (c *EnvConfig) GetAuthURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -173,7 +177,7 @@ func (c *EnvConfig) GetAuthURL() string {
 	return value
 }
 
-// GetTenantURL returns the F8 Tenant API URL as set via default, config file, or environment variable
+// GetTenantURL returns the F8 Tenant API URL as set via default, config file, or environment variable.
 func (c *EnvConfig) GetTenantURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -181,7 +185,7 @@ func (c *EnvConfig) GetTenantURL() string {
 	return value
 }
 
-// GetWitURL returns the WIT API URL as set via default, config file, or environment variable
+// GetWitURL returns the WIT API URL as set via default, config file, or environment variable.
 func (c *EnvConfig) GetWitURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -189,7 +193,7 @@ func (c *EnvConfig) GetWitURL() string {
 	return value
 }
 
-// GetKeycloakURL returns the Keycloak API URL as set via default, config file, or environment variable
+// GetKeycloakURL returns the Keycloak API URL as set via default, config file, or environment variable.
 func (c *EnvConfig) GetKeycloakURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -197,7 +201,7 @@ func (c *EnvConfig) GetKeycloakURL() string {
 	return value
 }
 
-// GetAuthToken returns the Auth token as set via default, config file, or environment variable
+// GetAuthToken returns the Auth token as set via default, config file, or environment variable.
 func (c *EnvConfig) GetAuthToken() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -205,7 +209,7 @@ func (c *EnvConfig) GetAuthToken() string {
 	return value
 }
 
-// GetRedirectURL returns the redirect url to be passed to Auth as set via default, config file, or environment variable
+// GetRedirectURL returns the redirect url to be passed to Auth as set via default, config file, or environment variable.
 func (c *EnvConfig) GetRedirectURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -213,7 +217,7 @@ func (c *EnvConfig) GetRedirectURL() string {
 	return value
 }
 
-// GetIndexPath returns the path to loading page template as set via default, config file, or environment variable
+// GetIndexPath returns the path to loading page template as set via default, config file, or environment variable.
 func (c *EnvConfig) GetIndexPath() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -222,7 +226,7 @@ func (c *EnvConfig) GetIndexPath() string {
 }
 
 // GetMaxRequestRetry returns the number of retries for webhook request forwarding as set via default, config file,
-// or environment variable
+// or environment variable.
 func (c *EnvConfig) GetMaxRequestRetry() int {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -231,7 +235,7 @@ func (c *EnvConfig) GetMaxRequestRetry() int {
 	return i
 }
 
-// GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
+// GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable.
 func (c *EnvConfig) GetDebugMode() bool {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
@@ -257,7 +261,7 @@ func (c *EnvConfig) String() string {
 	return fmt.Sprintf("%v", config)
 }
 
-// Verify checks whether all needed config options are set
+// Verify checks whether all needed config options are set.
 func verifyEnv() util.MultiError {
 	var errors util.MultiError
 	for key, setting := range settings {

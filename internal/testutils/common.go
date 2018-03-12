@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// MockServer creates a mock server for testing purpose.
 func MockServer(b []byte) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
@@ -20,6 +21,7 @@ func MockServer(b []byte) *httptest.Server {
 	}))
 }
 
+// MockRedirect does mock redirection and passes a JWT token along with the request
 func MockRedirect(url string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
@@ -36,6 +38,7 @@ func MockRedirect(url string) *httptest.Server {
 	}))
 }
 
+// MockJenkins returns a mock Jenkins server for testing.
 func MockJenkins() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
@@ -53,6 +56,7 @@ func MockJenkins() *httptest.Server {
 	}))
 }
 
+// MockOpenShift creates a mock openshift server.
 func MockOpenShift(url string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
@@ -67,6 +71,8 @@ func MockOpenShift(url string) *httptest.Server {
 	}))
 }
 
+// JenkinsStatus checks status of Jenkins
+// It return HTTP status code and 1 if Jenkins is active 0 if not active.
 func JenkinsStatus() (c int, r int) {
 	code, err := ioutil.ReadFile("code.txt")
 	if err != nil {
@@ -88,6 +94,7 @@ func JenkinsStatus() (c int, r int) {
 	return
 }
 
+// WITData1 returns some sample work item tracker data.
 func WITData1() []byte {
 	return []byte(`{
 		"data": [
@@ -248,6 +255,8 @@ func WITData1() []byte {
 	}`)
 }
 
+// IdlerData1 returns some sample idler related data when service in question is unidled
+// data such as service in question, its url,  etc.
 func IdlerData1(url string) []byte {
 	fmt.Printf(url)
 	tls := false
@@ -265,6 +274,7 @@ func IdlerData1(url string) []byte {
 		}`, url, tls))
 }
 
+// IdlerData2 returns some sample idler related data when the service in question(Jenkins here) is idled.
 func IdlerData2() []byte {
 	return []byte(`{
 		"service": "jenkins",
@@ -274,6 +284,8 @@ func IdlerData2() []byte {
 		}`)
 }
 
+// TenantData1 contains sample tenant data when jenkins service is unidled
+// data would include cluster url, email of user, etc.
 func TenantData1(url string) []byte {
 	if len(url) == 0 {
 		url = "https://api.free-int.openshift.com"
@@ -338,10 +350,13 @@ func TenantData1(url string) []byte {
 }`, url, url, url, url, url))
 }
 
+// TenantData2 contains sample tenant data when jenkins service is idled.
 func TenantData2() []byte {
 	return []byte(`{"errors":[{"code":"not_found","detail":"/","id":"2Q/BAc8b","status":"404","title":"Not Found"}]}`)
 }
 
+// TenantData3 contains sample tenant data when jenkins service is unidled
+// data would include cluster url, email of user, etc.
 func TenantData3() []byte {
 	return []byte(`
 		{
@@ -409,6 +424,8 @@ func TenantData3() []byte {
 	}`)
 }
 
+// GetGHData gets sample GHData.
+// GHData is data gathered by GitHub when a new commit occurs
 func GetGHData() []byte {
 	return []byte(`{
 		"ref": "refs/heads/master",
@@ -594,14 +611,18 @@ func GetGHData() []byte {
 	}`)
 }
 
+// AuthData1 return a sample JWT token as a query passed to a URL.
 func AuthData1() string {
 	return `?token_json=%7B"access_token"%3A"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ6RC01N29CRklNVVpzQVdxVW5Jc1Z1X3g3MVZJamQxaXJHa0dVT2lUc0w4In0.eyJqdGkiOiI0ZTczNzU3MC03MzMwLTRjMDctYWMzNS00MTkyNWE2Y2YzNmUiLCJleHAiOjE1MTgyNTM4NjksIm5iZiI6MCwiaWF0IjoxNTE1NjYxODY5LCJpc3MiOiJodHRwczovL3Nzby5wcm9kLXByZXZpZXcub3BlbnNoaWZ0LmlvL2F1dGgvcmVhbG1zL2ZhYnJpYzgiLCJhdWQiOiJmYWJyaWM4LW9ubGluZS1wbGF0Zm9ybSIsInN1YiI6IjJlMTVlOTU3LTAzNjYtNDgwMi1iZjFlLTBkNmZlM2YxMWJiNiIsInR5cCI6IkJlYXJlciIsImF6cCI6ImZhYnJpYzgtb25saW5lLXBsYXRmb3JtIiwiYXV0aF90aW1lIjoxNTE1MTYwMjQ2LCJzZXNzaW9uX3N0YXRlIjoiNDRlNDVjZDEtMmJmMC00ZjZlLTk1MzctZWZiYjk4ODI4YTA3IiwiYWNyIjoiMCIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwczovL3Byb2QtcHJldmlldy5vcGVuc2hpZnQuaW8iLCJodHRwczovL2F1dGgucHJvZC1wcmV2aWV3Lm9wZW5zaGlmdC5pbyIsImh0dHA6Ly9jb3JlLXdpdC4xOTIuMTY4LjQyLjY5Lm5pcC5pbyIsImh0dHA6Ly9sb2NhbGhvc3Q6ODA4MCIsIioiLCJodHRwczovL2NvcmUtd2l0LjE5Mi4xNjguNDIuNjkubmlwLmlvIiwiaHR0cHM6Ly9hcGkucHJvZC1wcmV2aWV3Lm9wZW5zaGlmdC5pbyIsImh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsImh0dHA6Ly9hdXRoLXdpdC4xOTIuMTY4LjQyLjY5Lm5pcC5pbyIsImh0dHBzOi8vYXV0aC13aXQuMTkyLjE2OC40Mi42OS5uaXAuaW8iLCJodHRwOi8vbG9jYWxob3N0OjgwODkiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYnJva2VyIjp7InJvbGVzIjpbInJlYWQtdG9rZW4iXX0sImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sImFwcHJvdmVkIjp0cnVlLCJuYW1lIjoiVmFjbGF2IFBhdmxpbiIsImNvbXBhbnkiOiJSZWQgSGF0IiwicHJlZmVycmVkX3VzZXJuYW1lIjoidnBhdmxpbkByZWRoYXQuY29tIiwiZ2l2ZW5fbmFtZSI6IlZhY2xhdiIsImZhbWlseV9uYW1lIjoiUGF2bGluIiwiZW1haWwiOiJ2cGF2bGluQHJlZGhhdC5jb20ifQ.bRTpWRDfIdPavcWyF0UQQ0rCv_iDTaQsQ_sJ3XdOFTzxrAXD4dqGcssbyr8FzvfwfOrgl1Xee7Gd49Ll85UDMUdHAcjXhQHqThCV8CxE2OTrlM-thSIPCdC0cKOAfuoJ02x2YPcWRKP4KYw4dd0zRlcI_ZgBoYgRgofCYzJVSFAm2BdDmRQ-9DgAGkL0djB5FcC3TNCztqAGy53koRW4IJEIFuTbMO_Zink3xvFp31vzmG0Jyw8gS98CnE1ZYir09HU-Xjxr3qlYXV7r0LAcgUIQOWbL6Ok-KAxDcZxUxjQQP2LCYAoLRP35O4u2Bjr9xCnko6qY8rl6_2BBqN0fMw"%2C"expires_in"%3A2592000%2C"not-before-policy"%3Anull%2C"refresh_expires_in"%3A2592000%2C"refresh_token"%3A"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ6RC01N29CRklNVVpzQVdxVW5Jc1Z1X3g3MVZJamQxaXJHa0dVT2lUc0w4In0.eyJqdGkiOiIxYzJhZDJmNS05NDA0LTQyMDQtYTc3MC1jMTA0MmU0MmNiMzQiLCJleHAiOjE1MTgyNTM4NjksIm5iZiI6MCwiaWF0IjoxNTE1NjYxODY5LCJpc3MiOiJodHRwczovL3Nzby5wcm9kLXByZXZpZXcub3BlbnNoaWZ0LmlvL2F1dGgvcmVhbG1zL2ZhYnJpYzgiLCJhdWQiOiJmYWJyaWM4LW9ubGluZS1wbGF0Zm9ybSIsInN1YiI6IjJlMTVlOTU3LTAzNjYtNDgwMi1iZjFlLTBkNmZlM2YxMWJiNiIsInR5cCI6IlJlZnJlc2giLCJhenAiOiJmYWJyaWM4LW9ubGluZS1wbGF0Zm9ybSIsImF1dGhfdGltZSI6MCwic2Vzc2lvbl9zdGF0ZSI6IjQ0ZTQ1Y2QxLTJiZjAtNGY2ZS05NTM3LWVmYmI5ODgyOGEwNyIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImJyb2tlciI6eyJyb2xlcyI6WyJyZWFkLXRva2VuIl19LCJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19fQ.kL4pexAlr09ltckQYHNW8DenUGliGKi2edyGzL_BIxtrX3NUVHQxVSEFFxY9AoY9lzTgxFnycatML_4mCwGTK2Ezok4bisVMc3_yhE7AKwkleV5UyqcyVfRKT20V1w4aOU_64BAUi7Hxz1tRo26AON8P5q-6XT53srJgFXaPjypBml-3a-yu0eIorjx0KmNUQ6g3Vg41tGixPEAy1JYN-kPhR3PBZDLV7yVpNpfTEiTkdfpZ-9wEphw-rGhBZGnd8b57dzlkuGE5jPB33JpgH_IFf49o6wBZMIv5vA9M1mQlF2xIc7nAIeuaYKJZFzlOsx7s1rF-w79PDOJyN6ZF5g"%2C"token_type"%3A"bearer"%7D`
 }
 
+// AuthDataOSO return a sample OpenShift Online JWT token in JSON format.
 func AuthDataOSO() string {
 	return `{"access_token":"ZvOLzEbQ1Ml0AtT_q7HIl4SEM_qnbZ7WrlUNEmDhPsQ","scope":"user:full","token_type":"Bearer"}`
 }
 
+// OpenShiftIdle mock-changes Jenkins status in the DeploymentConfig
+// https://docs.openshift.com/online/rest_api/oapi/v1.DeploymentConfig.html#object-schema
 func OpenShiftIdle(i int) []byte {
 	return []byte(fmt.Sprintf(`
 		{
@@ -613,6 +634,8 @@ func OpenShiftIdle(i int) []byte {
 	`, i, i))
 }
 
+// OpenShiftDataRoute mock-changes host in the Route
+// https://docs.openshift.com/online/rest_api/oapi/v1.Route.html#object-schema
 func OpenShiftDataRoute(h string) []byte {
 	u, err := url.ParseRequestURI(h)
 	if err != nil {

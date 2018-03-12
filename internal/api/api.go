@@ -19,20 +19,22 @@ type proxy struct {
 	storageService storage.Store
 }
 
+// NewAPI creates an instance of ProxyAPI on taking a storage/database service as input.
 func NewAPI(storageService storage.Store) ProxyAPI {
 	return &proxy{
 		storageService: storageService,
 	}
 }
 
-type APIResponse struct {
+// Response contains Proxy usage statistics.
+type Response struct {
 	Namespace   string `json:"namespace"`
 	Requests    int    `json:"requests"`
 	LastVisit   int64  `json:"last_visit"`
 	LastRequest int64  `json:"last_request"`
 }
 
-//Info returns JSON including information about Proxy usage statistics for a given namespace
+// Info returns JSON including information about Proxy usage statistics for a given namespace.
 func (api *proxy) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	ns := ps.ByName("namespace")
 	s, notFound, err := api.storageService.GetStatisticsUser(ns)
@@ -51,7 +53,7 @@ func (api *proxy) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		fmt.Fprintf(w, "{'error': '%s'}", err)
 		return
 	}
-	resp := APIResponse{
+	resp := Response{
 		Namespace:   ns,
 		Requests:    c,
 		LastRequest: s.LastBufferedRequest,

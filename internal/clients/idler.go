@@ -21,6 +21,7 @@ const (
 	OpenShiftAPIParam = "openshift_api_url"
 )
 
+// status represent status of the service true if idle, false if unidle.
 type status struct {
 	IsIdle bool `json:"is_idle"`
 }
@@ -32,6 +33,7 @@ type clusterView struct {
 	AppDNS string
 }
 
+// IdlerService provides methods to talk to the idler client
 type IdlerService interface {
 	IsIdle(tenant string, openShiftAPIURL string) (bool, error)
 	UnIdle(tenant string, openShiftAPIURL string) error
@@ -40,12 +42,13 @@ type IdlerService interface {
 
 // idler is a hand-rolled Idler client using plain HTTP requests.
 type idler struct {
-	idlerApi string
+	idlerAPI string
 }
 
+// NewIdler returns an instance of idler client on taking URL of idler service as an input.
 func NewIdler(url string) IdlerService {
 	return &idler{
-		idlerApi: url,
+		idlerAPI: url,
 	}
 }
 
@@ -56,8 +59,7 @@ func (i *idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 		namespace = tenant + namespaceSuffix
 		log.WithField("ns", tenant).Debugf("Adding namespace suffix - resulting namespace: %s", namespace)
 	}
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/isidle/%s", i.idlerApi, namespace), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/isidle/%s", i.idlerAPI, namespace), nil)
 	if err != nil {
 		return false, err
 	}
@@ -91,14 +93,14 @@ func (i *idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 	return s.IsIdle, nil
 }
 
-// Initiates un-idling of the Jenkins instance for the specified tenant.
+// UnIdle initiates un-idling of the Jenkins instance for the specified tenant.
 func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
 	}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerApi, namespace), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerAPI, namespace), nil)
 	if err != nil {
 		return err
 	}
@@ -118,9 +120,8 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
 
 	if resp.StatusCode == 200 {
 		return nil
-	} else {
-		return errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
 	}
+	return errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
 }
 
 // Clusters returns a map which maps the OpenShift API URL to the application DNS for this cluster. An empty map together with
@@ -128,7 +129,7 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
 func (i *idler) Clusters() (map[string]string, error) {
 	var clusters = make(map[string]string)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/cluster", i.idlerApi), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/cluster", i.idlerAPI), nil)
 	if err != nil {
 		return clusters, err
 	}

@@ -6,8 +6,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"net/url"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 		Run:   runCreateToken,
 	}
 	privateKey   string
-	privateKeyId string
+	privateKeyID string
 	uuid         string
 	session      string
 	validFor     int64
@@ -26,14 +27,14 @@ var (
 
 func init() {
 	cmdToken.Flags().StringVarP(&privateKey, "key", "k", "", "Private key.")
-	cmdToken.Flags().StringVarP(&privateKeyId, "id", "i", "", "Private key id (optional).")
+	cmdToken.Flags().StringVarP(&privateKeyID, "id", "i", "", "Private key id (optional).")
 	cmdToken.Flags().StringVarP(&uuid, "uuid", "u", "", "The users uuid.")
 	cmdToken.Flags().StringVarP(&session, "session", "s", "", "A session state string (optional).")
 	cmdToken.Flags().Int64VarP(&validFor, "valid", "v", 60, "Time token is valid in minutes (default 60).")
 }
 
 func runCreateToken(cmd *cobra.Command, args []string) {
-	token, err := util.CreateOSIOToken(targetEnv, uuid, privateKey, privateKeyId, validFor, session)
+	token, err := util.CreateOSIOToken(targetEnv, uuid, privateKey, privateKeyID, validFor, session)
 	if err != nil {
 		log.Fatal(err)
 	}

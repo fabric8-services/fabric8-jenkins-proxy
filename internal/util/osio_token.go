@@ -8,52 +8,44 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/satori/go.uuid"
-	"time"
 )
 
+// User represents an user of OSIO.
 type User struct {
 	Data Data `json:"data"`
 }
 
+// Data contains user attributes.
 type Data struct {
 	Attributes Attributes `json:"attributes"`
 }
 
+// Attributes consists of user attributes such as username, email and fullname.
 type Attributes struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	FullName string `json:"fullName"`
 }
 
-type Result struct {
-	Tokens []TokenResult `json:"tokens"`
-}
-
-type TokenResult struct {
-	UUID  string `json:"uuid"`
-	Token string `json:"token"`
-}
-
-type Token struct {
-	Data Data `json:"data"`
-}
-
-func CreateOSIOToken(env string, uuid string, key string, keyId string, valid int64, session string) (string, error) {
+// CreateOSIOToken creates OSIO token given inputs such as user identity, environment, etc.
+func CreateOSIOToken(env string, uuid string, key string, keyID string, valid int64, session string) (string, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(key))
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Unable to parse private key file: %s", err))
+		return "", fmt.Errorf("unable to parse private key file: %s", err)
 	}
 
 	user, err := loadUser(env, uuid)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Unable to GET user for uuid '%s': %s", uuid, err))
+		return "", fmt.Errorf("unable to GET user for uuid '%s': %s", uuid, err)
 	}
 
-	token, err := generateToken(env, privateKey, keyId, user, uuid, valid, session)
+	token, err := generateToken(env, privateKey, keyID, user, uuid, valid, session)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Unable to generate token for uuid '%s': %s", uuid, err))
+		return "", fmt.Errorf("unable to generate token for uuid '%s': %s", uuid, err)
 	}
 
 	return token, nil
@@ -61,14 +53,14 @@ func CreateOSIOToken(env string, uuid string, key string, keyId string, valid in
 
 // generateToken generates the JWT token using the specified private key.
 // See also https://self-issued.info/docs/draft-ietf-oauth-json-web-token.html.
-func generateToken(env string, key *rsa.PrivateKey, keyId string, user User, userID string, valid int64, session string) (string, error) {
+func generateToken(env string, key *rsa.PrivateKey, keyID string, user User, userID string, valid int64, session string) (string, error) {
 	token := jwt.New(jwt.SigningMethodRS256)
 
 	kid := ""
-	if len(keyId) > 0 {
-		kid = keyId
+	if len(keyID) > 0 {
+		kid = keyID
 	} else {
-		kid = environments[env].privateKeyId
+		kid = environments[env].privateKeyID
 	}
 	token.Header["kid"] = kid
 
@@ -100,9 +92,9 @@ func generateToken(env string, key *rsa.PrivateKey, keyId string, user User, use
 	}
 
 	token.Claims.(jwt.MapClaims)["allowed-origins"] = []string{
-		environments[env].osioUrl,
+		environments[env].osioURL,
 		environments[env].authURL,
-		environments[env].apiUrl,
+		environments[env].apiURL,
 	}
 
 	realmAccess := make(map[string]interface{})

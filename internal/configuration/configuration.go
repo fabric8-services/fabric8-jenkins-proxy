@@ -1,5 +1,6 @@
 package configuration
 
+// Configuration declares methods to get configuration of the proxy.
 type Configuration interface {
 	// GetPostgresHost returns the postgres host as set via default, config file, or environment variable
 	GetPostgresHost() string
@@ -22,7 +23,7 @@ type Configuration interface {
 	// GetPostgresConnectionTimeout returns the postgres connection timeout as set via default, config file, or environment variable
 	GetPostgresConnectionTimeout() int
 
-	// GetPostgresConnectionMaxIdle returns the number of connections that should be keept alive in the database connection pool at
+	// GetPostgresConnectionMaxIdle returns the number of connections that should be kept alive in the database connection pool at
 	// any given time. -1 represents no restrictions/default behavior
 	GetPostgresConnectionMaxIdle() int
 

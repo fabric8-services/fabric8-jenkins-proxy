@@ -45,8 +45,8 @@ func (i *mockProxyAPI) Info(w http.ResponseWriter, r *http.Request, ps httproute
 }
 
 func Test_all_routes_are_setup(t *testing.T) {
-	mockedProxyApi := &mockProxyAPI{}
-	mockedRouter := CreateAPIRouter(mockedProxyApi)
+	mockedProxyAPI := &mockProxyAPI{}
+	mockedRouter := CreateAPIRouter(mockedProxyAPI)
 
 	var routes = []struct {
 		route  string

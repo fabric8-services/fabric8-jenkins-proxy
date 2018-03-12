@@ -5,6 +5,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// CreateAPIRouter is creating a router for the REST API of the Proxy.
 func CreateAPIRouter(api api.ProxyAPI) *httprouter.Router {
 	// Create router for API
 	proxyRouter := httprouter.New()

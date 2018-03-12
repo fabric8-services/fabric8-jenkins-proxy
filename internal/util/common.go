@@ -6,11 +6,11 @@ const (
 )
 
 type environment struct {
-	osioUrl      string
-	apiUrl       string
+	osioURL      string
+	apiURL       string
 	authURL      string
 	redirectURL  string
-	privateKeyId string
+	privateKeyID string
 }
 
 var (
@@ -19,18 +19,18 @@ var (
 
 func init() {
 	environments[stage] = environment{
-		osioUrl:      "https://prod-preview.openshift.io",
-		apiUrl:       "https://api.openshift.io",
+		osioURL:      "https://prod-preview.openshift.io",
+		apiURL:       "https://api.openshift.io",
 		authURL:      "https://auth.prod-preview.openshift.io",
 		redirectURL:  "https://jenkins.prod-preview.openshift.io",
-		privateKeyId: "PE6-BEECZZpPZIVxLR6NinbthOHJcGqYrfl8v7v6BVA", // key id for serviceaccount.privatekey
+		privateKeyID: "PE6-BEECZZpPZIVxLR6NinbthOHJcGqYrfl8v7v6BVA", // key id for serviceaccount.privatekey
 	}
 
 	environments[prod] = environment{
-		osioUrl:      "https://openshift.io",
-		apiUrl:       "https://api.prod-preview.openshift.io",
+		osioURL:      "https://openshift.io",
+		apiURL:       "https://api.prod-preview.openshift.io",
 		authURL:      "https://auth.openshift.io",
 		redirectURL:  "https://jenkins.openshift.io",
-		privateKeyId: "quzUZlR_ollAUoAGgm165tYDTU3xtKon8O1RghJZ4TU", // key id for serviceaccount.privatekey
+		privateKeyID: "quzUZlR_ollAUoAGgm165tYDTU3xtKon8O1RghJZ4TU", // key id for serviceaccount.privatekey
 	}
 }

@@ -3,17 +3,20 @@ package storage
 import (
 	"bytes"
 	"encoding/json"
-	uuid "github.com/satori/go.uuid"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 const (
+	// ErrorFailedDelete is the error message on failing to delete a request.
 	ErrorFailedDelete = "failed to delete request for %s (%s): %s"
 )
 
+// Request describes an HTTP request.
 type Request struct {
 	ID        uuid.UUID `sql:"type:uuid" gorm:"primary_key"` // This is the ID PK field
 	Method    string
@@ -26,6 +29,7 @@ type Request struct {
 	Retries   int
 }
 
+// NewRequest creates a new request for a namespace.
 func NewRequest(r *http.Request, ns string, body []byte) (*Request, error) {
 	h, err := json.Marshal(r.Header)
 	if err != nil {
@@ -45,20 +49,24 @@ func NewRequest(r *http.Request, ns string, body []byte) (*Request, error) {
 	}, nil
 }
 
+// TableName for current request.
 func (m Request) TableName() string {
 	return "requests"
 }
 
+// GetHeaders gets headers of the this request.
 func (m Request) GetHeaders() (result map[string][]string, err error) {
 	result = make(map[string][]string)
 	err = json.Unmarshal(m.Headers, &result)
 	return
 }
 
+// GetPayloadReader returns an io reader for the request payload.
 func (m Request) GetPayloadReader() io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader(m.Payload))
 }
 
+// GetHTTPRequest wraps an *http.Request from this request.
 func (m Request) GetHTTPRequest() (r *http.Request, err error) {
 	u := url.URL{}
 	u.Host = m.Host

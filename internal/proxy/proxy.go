@@ -29,11 +29,16 @@ import (
 )
 
 const (
-	GHHeader           = "User-Agent"
-	GHAgent            = "GitHub-Hookshot"
+	// GHHeader is how we determine whether we are dealing with a GitHub webhook
+	GHHeader = "User-Agent"
+	// GHAgent is the prefix of the GHHeader
+	GHAgent = "GitHub-Hookshot"
+	// CookieJenkinsIdled stores name of the cookie through which we can check if service is idled
 	CookieJenkinsIdled = "JenkinsIdled"
-	ServiceName        = "jenkins"
-	SessionCookie      = "JSESSIONID"
+	// ServiceName is name of service that we are trying to idle or unidle
+	ServiceName = "jenkins"
+	// SessionCookie stores name of the session cookie of the service in question
+	SessionCookie = "JSESSIONID"
 )
 
 var proxyLogger = log.WithFields(log.Fields{"component": "proxy"})
@@ -50,7 +55,7 @@ type GHHookStruct struct {
 }
 
 //Proxy handles requests, verifies authentication and proxies to Jenkins.
-//If the request comes from Github, it bufferes it and replayes if Jenkins
+//If the request comes from Github, it buffers it and replays if Jenkins
 //is not available.
 type Proxy struct {
 	//TenantCache is used as a temporary cache to optimize number of requests
@@ -75,15 +80,18 @@ type Proxy struct {
 	clusters        map[string]string
 }
 
-type ProxyError struct {
-	Errors []ProxyErrorInfo
+// Error represents list of error informations.
+type Error struct {
+	Errors []ErrorInfo
 }
 
-type ProxyErrorInfo struct {
+// ErrorInfo describes an HTTP error, consisting of HTTP status code and error detail.
+type ErrorInfo struct {
 	Code   string `json:"code"`
 	Detail string `json:"detail"`
 }
 
+// NewProxy creates an instance of Proxy client
 func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, storageService storage.Store, config configuration.Configuration, clusters map[string]string) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
@@ -136,7 +144,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			"request": requestURL,
 			"header":  requestHeaders,
 			"type":    requestType,
-		}).Info("Handling incoming proxy request request.")
+		}).Info("Handling incoming proxy request.")
 
 	var ns string
 	var cacheKey string
@@ -279,7 +287,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			}
 			if strings.HasPrefix(cookie.Name, SessionCookie) { //We found a session cookie in cache
 				cacheKey = cookie.Value
-				pci := cacheVal.(ProxyCacheItem)
+				pci := cacheVal.(CacheItem)
 				r.Host = pci.Route //Configure proxy upstream
 				r.URL.Host = pci.Route
 				r.URL.Scheme = pci.Scheme
@@ -290,7 +298,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
 				cacheKey = cookie.Value
 				needsAuth = false
-				pci := cacheVal.(ProxyCacheItem)
+				pci := cacheVal.(CacheItem)
 				ns = pci.NS
 				clusterURL := pci.ClusterURL
 				isIdle, err := p.idler.IsIdle(ns, clusterURL)
@@ -346,7 +354,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 	return
 }
 
-func (p *Proxy) loginJenkins(pci ProxyCacheItem, osoToken string, requestLogEntry *log.Entry) (int, []*http.Cookie, error) {
+func (p *Proxy) loginJenkins(pci CacheItem, osoToken string, requestLogEntry *log.Entry) (int, []*http.Cookie, error) {
 	//Login to Jenkins with OSO token to get cookies
 	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", pci.Scheme, pci.Route)
 	req, _ := http.NewRequest("GET", jenkinsURL, nil)
@@ -365,7 +373,7 @@ func (p *Proxy) loginJenkins(pci ProxyCacheItem, osoToken string, requestLogEntr
 	return resp.StatusCode, resp.Cookies(), err
 }
 
-func (p *Proxy) setIdledCookie(w http.ResponseWriter, pci ProxyCacheItem) {
+func (p *Proxy) setIdledCookie(w http.ResponseWriter, pci CacheItem) {
 	c := &http.Cookie{}
 	u1 := uuid.NewV4().String()
 	c.Name = CookieJenkinsIdled
@@ -479,7 +487,7 @@ func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntr
 	return
 }
 
-func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci ProxyCacheItem, osioToken string, err error) {
+func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci CacheItem, osioToken string, err error) {
 	tokenJSON := &TokenJSON{}
 	err = json.Unmarshal(tokenData, tokenJSON)
 	if err != nil {
@@ -509,7 +517,7 @@ func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci 
 	}
 
 	//Prepare an item for proxyCache - Jenkins info and OSO token
-	pci = NewProxyCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
+	pci = NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
 
 	return
 }
@@ -533,12 +541,12 @@ func (p *Proxy) HandleError(w http.ResponseWriter, err error, requestLogEntry *l
 	// create error response
 	w.WriteHeader(http.StatusInternalServerError)
 
-	pei := ProxyErrorInfo{
+	pei := ErrorInfo{
 		Code:   fmt.Sprintf("%d", http.StatusInternalServerError),
 		Detail: err.Error(),
 	}
-	e := ProxyError{
-		Errors: make([]ProxyErrorInfo, 1),
+	e := Error{
+		Errors: make([]ErrorInfo, 1),
 	}
 	e.Errors[0] = pei
 
@@ -583,7 +591,7 @@ func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients
 	}
 
 	if len(strings.TrimSpace(wi.OwnedBy)) == 0 {
-		return clients.Namespace{}, errors.New(fmt.Sprintf("unable to determine tenant id for repository %s", repositoryCloneURL))
+		return clients.Namespace{}, fmt.Errorf("unable to determine tenant id for repository %s", repositoryCloneURL)
 	}
 
 	logEntry.Infof("Found id %s for repo %s", wi.OwnedBy, repositoryCloneURL)
@@ -702,7 +710,7 @@ func (p *Proxy) ProcessBuffer() {
 							resp, err := client.Do(req)
 							if err != nil {
 								log.Error("Error: ", err)
-								errs := p.storageService.IncRequestRetry(&r)
+								errs := p.storageService.IncrementRequestRetry(&r)
 								if len(errs) > 0 {
 									for _, e := range errs {
 										log.Error(e)
@@ -713,7 +721,7 @@ func (p *Proxy) ProcessBuffer() {
 
 							if resp.StatusCode != 200 && resp.StatusCode != 404 { //Retry later if the response is not 200
 								log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
-								errs := p.storageService.IncRequestRetry(&r)
+								errs := p.storageService.IncrementRequestRetry(&r)
 								if len(errs) > 0 {
 									for _, e := range errs {
 										log.Error(e)

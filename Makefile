@@ -26,7 +26,8 @@ __check_defined = \
     $(if $(value $1),, \
       $(error Undefined $1$(if $2, ($2))))
 
-all: tools build test fmtcheck vet validate_commits image ## Compiles fabric8-jenkins-proxy and runs format and style checks
+.PHONY: all
+all: tools build test fmtcheck vet lint validate_commits image ## Compiles fabric8-jenkins-proxy and runs format and style checks
 
 build: vendor ## Builds the fabric8-jenkins-proxy into $GOPATH/bin
 	 go install -ldflags="$(LD_FLAGS)" ./cmd/fabric8-jenkins-proxy
@@ -43,6 +44,7 @@ $(BUILD_DIR)/fabric8-jenkins-proxy: vendor $(BUILD_DIR) ## Builds the Linux bina
 image: $(BUILD_DIR)/fabric8-jenkins-proxy ## Builds the fabric8-jenkins-proxy container image
 	docker build -t $(REGISTRY_URL) -f Dockerfile.deploy .
 
+.PHONY: push
 push: image ## Pushes the container image to the registry
 	$(call check_defined, REGISTRY_USER, "You need to pass the registry user via REGISTRY_USER.")
 	$(call check_defined, REGISTRY_PASSWORD, "You need to pass the registry password via REGISTRY_PASSWORD.")

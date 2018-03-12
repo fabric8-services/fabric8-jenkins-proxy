@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// FormatHTTPRequestWithSeparator returns a formatted and readable string containing information of given HTTP request, seperated by given seperated.
 func FormatHTTPRequestWithSeparator(r *http.Request, separator string) string {
 	var request []string
 
@@ -30,14 +31,17 @@ func FormatHTTPRequestWithSeparator(r *http.Request, separator string) string {
 	return strings.Join(request, separator)
 }
 
+// FormatHTTPRequest returns a formatted and readable string containing information of given HTTP request.
 func FormatHTTPRequest(r *http.Request) string {
 	return FormatHTTPRequestWithSeparator(r, "\n")
 }
 
+// RequestMethodAndURL return string containing method(GET, POST, PATCH etc) and string given an HTTP request.
 func RequestMethodAndURL(r *http.Request) string {
 	return fmt.Sprintf("%v %v", r.Method, r.URL)
 }
 
+// RequestHeaders returns a string containing request header for the given HTTP request.
 func RequestHeaders(r *http.Request) string {
 	var result []string
 	for name, headers := range r.Header {
@@ -46,7 +50,7 @@ func RequestHeaders(r *http.Request) string {
 		}
 	}
 
-	// to ensure consistency we force an order
+	// to ensure consistency we force an order.
 	sort.Strings(result)
 	return strings.Join(result, " ")
 }

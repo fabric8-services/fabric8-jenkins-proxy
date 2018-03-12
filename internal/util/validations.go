@@ -2,12 +2,15 @@ package util
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
+// IsNotEmpty checks if value stored at given key is empty.
+// if it is empty it returns an error.
 func IsNotEmpty(value interface{}, key string) error {
 	s, ok := value.(string)
 	if !ok {
@@ -21,6 +24,7 @@ func IsNotEmpty(value interface{}, key string) error {
 
 }
 
+// IsURL checks if value store at an given key is an URL.
 func IsURL(value interface{}, key string) error {
 	s, ok := value.(string)
 	if !ok {
@@ -38,6 +42,7 @@ func IsURL(value interface{}, key string) error {
 	return nil
 }
 
+// IsInt checks if values stored at a given key is an int.
 func IsInt(value interface{}, key string) error {
 	_, err := strconv.Atoi(value.(string))
 	if err != nil {
@@ -46,6 +51,7 @@ func IsInt(value interface{}, key string) error {
 	return nil
 }
 
+// IsBool checks if value stored at a given key is a bool.
 func IsBool(value interface{}, key string) error {
 	_, err := strconv.ParseBool(value.(string))
 	if err != nil {

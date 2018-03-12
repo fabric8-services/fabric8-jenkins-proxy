@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 const (
@@ -11,6 +12,7 @@ const (
 )
 
 var (
+	// RootCmd is for using Cobra library for setting up command line interactions.
 	RootCmd   *cobra.Command
 	targetEnv string
 )

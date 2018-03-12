@@ -1,10 +1,11 @@
 package logging
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (

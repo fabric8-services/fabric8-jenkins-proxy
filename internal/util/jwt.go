@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"fmt"
+
 	"github.com/pkg/errors"
 	"golang.org/x/net/html"
 )
@@ -16,6 +17,7 @@ const (
 	jsonToken = "token_json"
 )
 
+// CreateJWTToken gets raw jwt token from username, password and environment.
 func CreateJWTToken(env string, username string, password string) (string, error) {
 	environment, ok := environments[env]
 
@@ -56,7 +58,7 @@ func CreateJWTToken(env string, username string, password string) (string, error
 	}
 	defer resp.Body.Close()
 
-	postUrl, err := extractFormPostURL(resp)
+	postURL, err := extractFormPostURL(resp)
 	if err != nil {
 		return "", err
 	}
@@ -65,20 +67,20 @@ func CreateJWTToken(env string, username string, password string) (string, error
 	form.Add("password", password)
 	form.Add("login", "Log+in")
 
-	authResp, err := client.PostForm(postUrl, form)
+	authResp, err := client.PostForm(postURL, form)
 	if err != nil {
 		return "", err
 	}
 	defer authResp.Body.Close()
 
 	if len(token) == 0 {
-		return "", errors.New("Token could not be extracted.")
+		return "", errors.New("token could not be extracted")
 	}
 	return token, nil
 }
 
 func extractFormPostURL(resp *http.Response) (string, error) {
-	var postUrl string
+	var postURL string
 	doc, err := html.Parse(resp.Body)
 	if err != nil {
 		return "", err
@@ -88,7 +90,7 @@ func extractFormPostURL(resp *http.Response) (string, error) {
 		if n.Type == html.ElementNode && n.Data == "form" {
 			for _, attr := range n.Attr {
 				if attr.Key == "action" {
-					postUrl = attr.Val
+					postURL = attr.Val
 				}
 			}
 		}
@@ -97,5 +99,5 @@ func extractFormPostURL(resp *http.Response) (string, error) {
 		}
 	}
 	f(doc)
-	return postUrl, nil
+	return postURL, nil
 }

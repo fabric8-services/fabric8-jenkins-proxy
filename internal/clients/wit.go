@@ -9,12 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// WIT describes work item tracker service of OSIO.
 type WIT struct {
 	witURL    string
 	authToken string
 	client    *http.Client
 }
 
+// NewWIT creates an instance of WIT client.
 func NewWIT(url string, token string) WIT {
 	return WIT{
 		witURL:    url,
@@ -23,18 +25,18 @@ func NewWIT(url string, token string) WIT {
 	}
 }
 
-//WITInfo holds information about owner of a git repository
+// WITInfo holds information about owner of a git repository.
 type WITInfo struct {
 	OwnedBy string
 }
 
-//UnmarshalJSON parses byte slice representing quite complicated API response into a simple struct
+// UnmarshalJSON parses byte slice representing quite complicated API response into a simple struct.
 func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 	type data struct {
 		Relationships struct {
 			Space struct {
 				Data struct {
-					Id string
+					ID string
 				}
 			}
 		}
@@ -43,13 +45,13 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 	type relationships struct {
 		OwnedBy struct {
 			Data struct {
-				Id string
+				ID string
 			}
 		} `json:"owned-by"`
 	}
 
 	type included struct {
-		Id            string
+		ID            string
 		Type          string
 		Relationships relationships
 	}
@@ -67,8 +69,8 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 
 	for _, d := range i.Data {
 		for _, i := range i.Included {
-			if d.Relationships.Space.Data.Id == i.Id { //Find correct Relationship
-				wi.OwnedBy = i.Relationships.OwnedBy.Data.Id
+			if d.Relationships.Space.Data.ID == i.ID { // Find correct Relationship
+				wi.OwnedBy = i.Relationships.OwnedBy.Data.ID
 				return nil
 			}
 		}
@@ -77,7 +79,7 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 	return nil
 }
 
-//SearchCodebase finds and returns owner of a given repository based on URL
+// SearchCodebase finds and returns owner of a given repository based on URL.
 func (w WIT) SearchCodebase(repo string) (*WITInfo, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/search/codebases", w.witURL), nil)
 	if err != nil {
