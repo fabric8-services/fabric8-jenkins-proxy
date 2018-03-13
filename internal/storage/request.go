@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ErrorFailedDelete = "Failed to delete request for %s (%s): %s"
+	ErrorFailedDelete = "failed to delete request for %s (%s): %s"
 )
 
 type Request struct {

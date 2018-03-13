@@ -9,55 +9,69 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 )
 
 const (
 	namespaceSuffix = "-jenkins"
+
+	// OpenShiftAPIParam is the parameter name under which the OpenShift cluster API URL is passed using
+	// Idle, UnIdle and IsIdle.
+	OpenShiftAPIParam = "openshift_api_url"
 )
 
+type status struct {
+	IsIdle bool `json:"is_idle"`
+}
+
+type IdlerService interface {
+	IsIdle(tenant string, openShiftAPIURL string) (bool, error)
+	UnIdle(tenant string, openShiftAPIURL string) error
+}
+
 //Idler is a simple client for Idler
-type Idler struct {
+type idler struct {
 	idlerApi string
 }
 
-func NewIdler(url string) Idler {
-	return Idler{
+func NewIdler(url string) IdlerService {
+	return &idler{
 		idlerApi: url,
 	}
 }
 
-type Status struct {
-	IsIdle bool `json:"is_idle"`
-}
-
 // IsIdle returns true if the Jenkins instance for the specified tenant is idled. False otherwise.
-func (i Idler) IsIdle(tenant string) (bool, error) {
+func (i idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
 		log.WithField("ns", tenant).Debugf("Adding namespace suffix - resulting namespace: %s", namespace)
 	}
-	resp, err := http.Get(fmt.Sprintf("%s/api/idler/isidle/%s", i.idlerApi, namespace))
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/isidle/%s", i.idlerApi, namespace), nil)
 	if err != nil {
-		return true, err
+		return false, err
+	}
+
+	q := req.URL.Query()
+	q.Add(OpenShiftAPIParam, util.EnsureSuffix(openShiftAPIURL, "/"))
+	req.URL.RawQuery = q.Encode()
+
+	log.WithField("request", req).Debug("Calling Idler API")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err
 	}
 	defer resp.Body.Close()
-
-	// This is a temporary workaround for multi-cluster. ATM, the Idler is only aware of a single OpenShift cluster.
-	// If a IsIdle request is made for a namespace in a different cluster, the Idler will return 404.
-	// For now we don't treat this as an error and just return false, assuming that Idling is only working on
-	// a single cluster for now. See https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/150
-	// and https://github.com/fabric8-services/fabric8-jenkins-proxy/issues/151
-	if resp.StatusCode == 404 {
-		return false, nil
-	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return false, err
 	}
 
-	s := &Status{}
+	s := &status{}
 	err = json.Unmarshal(body, s)
 	if err != nil {
 		return false, err
@@ -69,7 +83,7 @@ func (i Idler) IsIdle(tenant string) (bool, error) {
 }
 
 // Initiates un-idling of the Jenkins instance for the specified tenant.
-func (i Idler) UnIdle(tenant string) error {
+func (i idler) UnIdle(tenant string, openShiftAPIURL string) error {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix

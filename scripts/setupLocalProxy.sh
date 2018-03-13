@@ -21,7 +21,7 @@ LOCAL_POSTGRES_PORT=${LOCAL_POSTGRES_PORT:-5432}
 ###############################################################################
 printHelp() {
     cat << EOF
-Usage: ${0##*/} [start|stop|env]
+Usage: ${0##*/} [start|stop|env|unset]
 
 This script is used to run the Jenkins Proxy on localhost.
 As a prerequisite OPENSHIFT_API_TOKEN and  JC_AUTH_TOKEN need to be exported.
@@ -212,6 +212,31 @@ env() {
 }
 
 ###############################################################################
+# Unsets the exported Idler environment variables.
+# Globals:
+#   None
+# Arguments:
+#   None
+# Returns:
+#   None
+###############################################################################
+unsetEnv() {
+    echo unset JC_KEYCLOAK_URL
+    echo unset JC_WIT_API_URL
+    echo unset JC_REDIRECT_URL
+    echo unset JC_AUTH_URL
+    echo unset JC_POSTGRES_PORT
+    echo unset JC_POSTGRES_HOST
+    echo unset JC_POSTGRES_USER
+    echo unset JC_POSTGRES_PASSWORD
+    echo unset JC_POSTGRES_DATABASE
+    echo unset JC_AUTH_TOKEN
+    echo unset JC_IDLER_API_URL
+    echo unset JC_F8TENANT_API_URL
+    echo unset JC_OSO_CLUSTERS
+}
+
+###############################################################################
 # Stops oc-port forwarding and Docker container
 # Globals:
 #   None
@@ -236,6 +261,9 @@ case "$1" in
     ;;
   env)
     env
+    ;;
+  unset)
+    unsetEnv
     ;;
   *)
     printHelp

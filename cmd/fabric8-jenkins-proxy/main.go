@@ -82,10 +82,10 @@ func main() {
 	//Create Idler client
 	idler := clients.NewIdler(config.GetIdlerURL())
 
-	start(config, &tenant, &wit, &idler, store)
+	start(config, &tenant, &wit, idler, store)
 }
 
-func start(config configuration.Configuration, tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, store storage.Store) {
+func start(config configuration.Configuration, tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, store storage.Store) {
 	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config)
 	if err != nil {
 		log.Fatal(err)

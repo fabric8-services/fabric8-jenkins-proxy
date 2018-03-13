@@ -108,7 +108,7 @@ func TestProxy(t *testing.T) {
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 	}()
 
-	start(&mockConfig, &tenant, &wit, &idler, store)
+	start(&mockConfig, &tenant, &wit, idler, store)
 
 	// TODO - Test an actual workflow by triggering some of the MockURLs
 

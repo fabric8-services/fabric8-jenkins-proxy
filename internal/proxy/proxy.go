@@ -63,7 +63,7 @@ type Proxy struct {
 	bufferCheckSleep time.Duration
 	tenant           *clients.Tenant
 	wit              *clients.WIT
-	idler            *clients.Idler
+	idler            clients.IdlerService
 
 	//redirect is a base URL of the proxy
 	redirect        string
@@ -84,7 +84,7 @@ type ProxyErrorInfo struct {
 	Detail string `json:"detail"`
 }
 
-func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler *clients.Idler, storageService storage.Store, config configuration.Configuration) (Proxy, error) {
+func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, storageService storage.Store, config configuration.Configuration) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
@@ -158,7 +158,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	//Write usage stats to DB, run in a goroutine to not slow down the proxy
 	go func() {
-		p.RecordStatistics(ns, time.Now().Unix(), 0)
+		p.recordStatistics(ns, time.Now().Unix(), 0)
 	}()
 
 	reqURL := *r.URL
@@ -213,9 +213,10 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			return
 		}
 		ns = pci.NS
-		requestLogEntry.WithField("ns", ns).Debug("Found token info in query")
+		clusterURL := pci.ClusterURL
+		requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL}).Debug("Found token info in query")
 
-		isIdle, err := p.idler.IsIdle(ns)
+		isIdle, err := p.idler.IsIdle(ns, clusterURL)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 			return
@@ -223,7 +224,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 
 		//Break the process if the Jenkins is idled, set a cookie and redirect to self
 		if isIdle {
-			err = p.idler.UnIdle(ns)
+			err = p.idler.UnIdle(ns, clusterURL)
 			if err != nil {
 				p.HandleError(w, err, requestLogEntry)
 				return
@@ -291,19 +292,20 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 				needsAuth = false
 				pci := cacheVal.(ProxyCacheItem)
 				ns = pci.NS
-				isIdle, err := p.idler.IsIdle(pci.NS)
+				clusterURL := pci.ClusterURL
+				isIdle, err := p.idler.IsIdle(ns, clusterURL)
 				if err != nil {
 					p.HandleError(w, err, requestLogEntry)
 					return
 				}
 				if isIdle { //If jenkins is idled, return loading page and status 202
-					err = p.idler.UnIdle(ns)
+					err = p.idler.UnIdle(ns, clusterURL)
 					if err != nil {
 						p.HandleError(w, err, requestLogEntry)
 						return
 					}
 					err = p.processTemplate(w, ns, requestLogEntry)
-					p.RecordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
+					p.recordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
 				} else { //If Jenkins is running, remove the cookie
 					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
 					//so even if the pod is up, route might still return 500 - i.e. we need to check the route
@@ -393,9 +395,10 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	requestLogEntry.WithField("json", gh).Debug("Processing GitHub JSON payload")
 
-	namespace, err := p.GetUser(gh, requestLogEntry)
+	namespace, err := p.getUser(gh.Repository.CloneURL, requestLogEntry)
 	ns = namespace.Name
-	requestLogEntry.WithField("ns", ns).Infof("Processing request from %s", gh.Repository.CloneURL)
+	clusterURL := namespace.ClusterURL
+	requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
@@ -410,7 +413,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	r.URL.Host = route
 	r.Host = route
 
-	isIdle, err := p.idler.IsIdle(ns)
+	isIdle, err := p.idler.IsIdle(ns, clusterURL)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
@@ -419,7 +422,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	//If Jenkins is idle, we need to cache the request and return success
 	if isIdle {
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
-		err = p.idler.UnIdle(ns)
+		err = p.idler.UnIdle(ns, clusterURL)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 		}
@@ -445,7 +448,7 @@ func (p *Proxy) storeGHRequest(w http.ResponseWriter, r *http.Request, ns string
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
-	err = p.RecordStatistics(ns, 0, time.Now().Unix())
+	err = p.recordStatistics(ns, 0, time.Now().Unix())
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
@@ -563,27 +566,27 @@ func (p *Proxy) createRequestHash(url string, headers string) uint32 {
 }
 
 //GetUser returns a namespace name based on GitHub repository URL
-func (p *Proxy) GetUser(pl GHHookStruct, requestLogEntry *log.Entry) (clients.Namespace, error) {
-	if n, found := p.TenantCache.Get(pl.Repository.CloneURL); found {
+func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients.Namespace, error) {
+	if n, found := p.TenantCache.Get(repositoryCloneURL); found {
 		namespace := n.(clients.Namespace)
-		requestLogEntry.WithFields(
+		logEntry.WithFields(
 			log.Fields{
 				"ns": namespace,
-			}).Infof("Cache hit for repository %s", pl.Repository.CloneURL)
+			}).Infof("Cache hit for repository %s", repositoryCloneURL)
 		return namespace, nil
 	}
 
-	requestLogEntry.Infof("Cache miss for repository %s", pl.Repository.CloneURL)
-	wi, err := p.wit.SearchCodebase(pl.Repository.CloneURL)
+	logEntry.Infof("Cache miss for repository %s", repositoryCloneURL)
+	wi, err := p.wit.SearchCodebase(repositoryCloneURL)
 	if err != nil {
 		return clients.Namespace{}, err
 	}
 
 	if len(strings.TrimSpace(wi.OwnedBy)) == 0 {
-		return clients.Namespace{}, errors.New(fmt.Sprintf("unable to determine tenant id for repository %s", pl.Repository.CloneURL))
+		return clients.Namespace{}, errors.New(fmt.Sprintf("unable to determine tenant id for repository %s", repositoryCloneURL))
 	}
 
-	requestLogEntry.Infof("Found id %s for repo %s", wi.OwnedBy, pl.Repository.CloneURL)
+	logEntry.Infof("Found id %s for repo %s", wi.OwnedBy, repositoryCloneURL)
 	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
 	if err != nil {
 		return clients.Namespace{}, err
@@ -594,12 +597,12 @@ func (p *Proxy) GetUser(pl GHHookStruct, requestLogEntry *log.Entry) (clients.Na
 		return clients.Namespace{}, err
 	}
 
-	p.TenantCache.SetDefault(pl.Repository.CloneURL, n)
+	p.TenantCache.SetDefault(repositoryCloneURL, n)
 	return n, nil
 }
 
 //RecordStatistics writes usage statistics to a database
-func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
+func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
 	log.WithField("ns", ns).Debug("Recording stats")
 	s, notFound, err := p.storageService.GetStatisticsUser(ns)
 	if err != nil {
@@ -644,7 +647,7 @@ func (p *Proxy) RecordStatistics(ns string, la int64, lbf int64) (err error) {
 func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, error) {
 	appSuffix := p.clusters[clusterURL]
 	if len(appSuffix) == 0 {
-		return "", "", fmt.Errorf("Could not find entry for cluster %s", clusterURL)
+		return "", "", fmt.Errorf("could not find entry for cluster %s", clusterURL)
 	}
 	route := fmt.Sprintf("jenkins-%s.%s", ns, p.clusters[clusterURL])
 	return route, "https", nil
@@ -658,19 +661,29 @@ func (p *Proxy) ProcessBuffer() {
 			log.Error(err)
 		} else {
 			for _, ns := range namespaces {
-				reqs, err := p.storageService.GetRequests(ns)
+				requests, err := p.storageService.GetRequests(ns)
 				if err != nil {
 					log.Error(err)
 					continue
 				}
-				for _, r := range reqs {
-					log.WithField("ns", ns).Info("Retrying request")
-					isIdle, err := p.idler.IsIdle(ns)
+				for _, r := range requests {
+					gh := GHHookStruct{}
+					err = json.Unmarshal(r.Payload, &gh)
 					if err != nil {
 						log.Error(err)
 						break
 					}
-					err = p.RecordStatistics(ns, 0, time.Now().Unix())
+
+					log.WithFields(log.Fields{"ns": ns, "repository": gh.Repository.CloneURL}).Info("Retrying request")
+					namespace, err := p.getUser(gh.Repository.CloneURL, proxyLogger)
+					clusterURL := namespace.ClusterURL
+
+					isIdle, err := p.idler.IsIdle(ns, clusterURL)
+					if err != nil {
+						log.Error(err)
+						break
+					}
+					err = p.recordStatistics(ns, 0, time.Now().Unix())
 					if err != nil {
 						log.Error(err)
 					}
