@@ -56,7 +56,7 @@ func init() {
 func main() {
 	mainLogger.Infof("Proxy version: %s", version.GetVersion())
 
-	//Init configuration
+	// Init configuration
 	config, err := configuration.NewConfiguration()
 	if err != nil {
 		log.Fatal(err)
@@ -64,7 +64,7 @@ func main() {
 
 	mainLogger.Infof("Proxy config: %s", config.String())
 
-	//Connect to DB
+	// Connect to DB
 	db, err := storage.Connect(config)
 	if err != nil {
 		log.Fatal(err)
@@ -73,26 +73,32 @@ func main() {
 
 	store := storage.NewDBStorage(db)
 
-	//Create tenant client
+	// Create tenant client
 	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
 
-	//Create WorkItemTracker client
+	// Create WorkItemTracker client
 	wit := clients.NewWIT(config.GetWitURL(), config.GetAuthToken())
 
-	//Create Idler client
+	// Create Idler client
 	idler := clients.NewIdler(config.GetIdlerURL())
 
-	start(config, &tenant, &wit, idler, store)
+	// Get the cluster view from the Idler
+	clusters, err := idler.Clusters()
+	if err != nil {
+		mainLogger.WithField("error", err).Fatalf("Failure to retrieve cluster view")
+	}
+	mainLogger.WithField("clusters", clusters).Info("Retrieved cluster view")
+
+	start(config, &tenant, &wit, idler, store, clusters)
 }
 
-func start(config configuration.Configuration, tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, store storage.Store) {
-	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config)
+func start(config configuration.Configuration, tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, store storage.Store, clusters map[string]string) {
+	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config, clusters)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the various Go routines
-	// TODO - Eventually all goroutines should be started and controlled from the method below
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -41,8 +41,6 @@ func NewConfig() Config {
 
 	c.RedirectURL = "https://localhost:8443/"
 	c.IndexPath = "static/html/index.html"
-	c.Clusters = make(map[string]string)
-	c.Clusters["https://api.free-stg.openshift.com/"] = "1b7d.free-stg.openshiftapps.com"
 
 	return c
 }
@@ -121,10 +119,6 @@ func (c *Config) GetMaxRequestRetry() int {
 
 func (c *Config) GetDebugMode() bool {
 	return c.DebugMode
-}
-
-func (c *Config) GetClusters() map[string]string {
-	return c.Clusters
 }
 
 func (c *Config) String() string {

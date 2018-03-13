@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func FormatHttpRequest(r *http.Request) string {
+func FormatHTTPRequestWithSeparator(r *http.Request, separator string) string {
 	var request []string
 
 	url := fmt.Sprintf("%v %v", r.Method, r.URL)
@@ -27,7 +27,11 @@ func FormatHttpRequest(r *http.Request) string {
 		request = append(request, r.Form.Encode())
 	}
 
-	return strings.Join(request, "\n")
+	return strings.Join(request, separator)
+}
+
+func FormatHTTPRequest(r *http.Request) string {
+	return FormatHTTPRequestWithSeparator(r, "\n")
 }
 
 func RequestMethodAndURL(r *http.Request) string {

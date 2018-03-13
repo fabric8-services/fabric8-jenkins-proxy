@@ -19,19 +19,6 @@ func Test_without_required_parameters_new_configuration_returns_error(t *testing
 	assert.Nil(t, config, "No configuration should be returned.")
 }
 
-func Test_load_oso_clusters(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
-
-	os.Clearenv()
-	defer os.Clearenv()
-
-	os.Setenv("JC_OSO_CLUSTERS", `{"https://api.free-stg.openshift.com/": "1b7d.free-stg.openshiftapps.com"}`)
-	envConfig := EnvConfig{}
-	err := envConfig.loadClusters()
-	assert.NoError(t, err, "There should have been no error.")
-	assert.Equal(t, "1b7d.free-stg.openshiftapps.com", envConfig.GetClusters()["https://api.free-stg.openshift.com/"])
-}
-
 func Test_setting_required_parameters_lets_you_create_configuration(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 
@@ -53,7 +40,6 @@ func Test_setting_required_parameters_lets_you_create_configuration(t *testing.T
 
 	os.Setenv("JC_AUTH_TOKEN", "snafu")
 	os.Setenv("JC_REDIRECT_URL", "http://localhost")
-	os.Setenv("JC_OSO_CLUSTERS", `{"https://api.free-stg.openshift.com/": "1b7d.free-stg.openshiftapps.com"}`)
 
 	config, err := NewConfiguration()
 	assert.NoError(t, err, "There should have been no error.")

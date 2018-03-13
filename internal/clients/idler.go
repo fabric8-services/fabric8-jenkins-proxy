@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 )
 
 const (
@@ -24,12 +25,20 @@ type status struct {
 	IsIdle bool `json:"is_idle"`
 }
 
+// clusterView is a view of the cluster topology which only includes the OpenShift API URL and the application DNS for this
+// cluster.
+type clusterView struct {
+	APIURL string
+	AppDNS string
+}
+
 type IdlerService interface {
 	IsIdle(tenant string, openShiftAPIURL string) (bool, error)
 	UnIdle(tenant string, openShiftAPIURL string) error
+	Clusters() (map[string]string, error)
 }
 
-//Idler is a simple client for Idler
+// idler is a hand-rolled Idler client using plain HTTP requests.
 type idler struct {
 	idlerApi string
 }
@@ -40,8 +49,8 @@ func NewIdler(url string) IdlerService {
 	}
 }
 
-// IsIdle returns true if the Jenkins instance for the specified tenant is idled. False otherwise.
-func (i idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
+// IsIdle returns true if the Jenkins instance for the specified tenant is idled, false otherwise.
+func (i *idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
@@ -57,7 +66,7 @@ func (i idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 	q.Add(OpenShiftAPIParam, util.EnsureSuffix(openShiftAPIURL, "/"))
 	req.URL.RawQuery = q.Encode()
 
-	log.WithField("request", req).Debug("Calling Idler API")
+	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "isidle"}).Debug("Calling Idler API")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -83,12 +92,25 @@ func (i idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 }
 
 // Initiates un-idling of the Jenkins instance for the specified tenant.
-func (i idler) UnIdle(tenant string, openShiftAPIURL string) error {
+func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
 	}
-	resp, err := http.Get(fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerApi, namespace))
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerApi, namespace), nil)
+	if err != nil {
+		return err
+	}
+
+	q := req.URL.Query()
+	q.Add(OpenShiftAPIParam, util.EnsureSuffix(openShiftAPIURL, "/"))
+	req.URL.RawQuery = q.Encode()
+
+	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "unidle"}).Debug("Calling Idler API")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -99,4 +121,41 @@ func (i idler) UnIdle(tenant string, openShiftAPIURL string) error {
 	} else {
 		return errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
 	}
+}
+
+// Clusters returns a map which maps the OpenShift API URL to the application DNS for this cluster. An empty map together with
+// an error is returned if an error occurs.
+func (i *idler) Clusters() (map[string]string, error) {
+	var clusters = make(map[string]string)
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/cluster", i.idlerApi), nil)
+	if err != nil {
+		return clusters, err
+	}
+
+	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "cluster"}).Debug("Calling Idler API")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return clusters, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return clusters, err
+	}
+
+	var clusterViews []clusterView
+	err = json.Unmarshal(body, &clusterViews)
+	if err != nil {
+		return clusters, err
+	}
+
+	for _, clusterView := range clusterViews {
+		clusters[clusterView.APIURL] = clusterView.AppDNS
+	}
+
+	return clusters, nil
 }

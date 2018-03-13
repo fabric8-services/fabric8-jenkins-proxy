@@ -59,11 +59,6 @@ objects:
               configMapKeyRef:
                 name: core
                 key: auth.serviceurl
-          - name: JC_OSO_CLUSTERS
-            valueFrom:
-              configMapKeyRef:
-                name: jenkins-proxy
-                key: oso.clusters
           - name: JC_AUTH_TOKEN
             valueFrom:
               secretKeyRef:

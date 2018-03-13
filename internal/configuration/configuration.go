@@ -61,9 +61,6 @@ type Configuration interface {
 	// GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
 	GetDebugMode() bool
 
-	// GetClusters returns map of OSO clusters apiURL -> DNS suffix for route generation
-	GetClusters() map[string]string
-
 	// String returns a string representation of the configuration
 	String() string
 }

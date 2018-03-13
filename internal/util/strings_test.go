@@ -1,8 +1,8 @@
 package util
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func Test_Ensure_Suffix(t *testing.T) {

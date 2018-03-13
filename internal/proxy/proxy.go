@@ -84,7 +84,7 @@ type ProxyErrorInfo struct {
 	Detail string `json:"detail"`
 }
 
-func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, storageService storage.Store, config configuration.Configuration) (Proxy, error) {
+func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, storageService storage.Store, config configuration.Configuration, clusters map[string]string) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
@@ -98,7 +98,7 @@ func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerServi
 		storageService:   storageService,
 		indexPath:        config.GetIndexPath(),
 		maxRequestRetry:  config.GetMaxRequestRetry(),
-		clusters:         config.GetClusters(),
+		clusters:         clusters,
 	}
 
 	//Collect and parse public key from Keycloak

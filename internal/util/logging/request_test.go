@@ -23,7 +23,7 @@ func Test_format_get_request(t *testing.T) {
 	req := httptest.NewRequest("GET", "http://example.com/foo?bar=baz", nil)
 	req.Header.Set("Authentication", "Bearer 123")
 
-	requestAsString := FormatHttpRequest(req)
+	requestAsString := FormatHTTPRequest(req)
 	assert.Equal(t, getRequestExpectation, requestAsString, "Format does not match.")
 
 	requestMethodAndURL := RequestMethodAndURL(req)
@@ -38,7 +38,7 @@ func Test_format_post_request(t *testing.T) {
 	form.Add("foo", "bar")
 	req.PostForm = form
 
-	requestAsString := FormatHttpRequest(req)
+	requestAsString := FormatHTTPRequest(req)
 	assert.Equal(t, postRequestExpectation, requestAsString, "Format does not match.")
 
 	requestMethodAndURL := RequestMethodAndURL(req)

@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/pkg/errors"
@@ -52,7 +51,6 @@ func init() {
 	settings["GetIndexPath"] = Setting{"JC_INDEX_PATH", defaultIndexPath, []func(interface{}, string) error{util.IsNotEmpty}}
 	settings["GetMaxRequestRetry"] = Setting{"JC_MAX_REQUEST_RETRY", defaultMaxRequestRetry, []func(interface{}, string) error{util.IsInt}}
 	settings["GetDebugMode"] = Setting{"JC_DEBUG_MODE", defaultDebugMode, []func(interface{}, string) error{util.IsBool}}
-	settings["GetOsoClusters"] = Setting{"JC_OSO_CLUSTERS", "", []func(interface{}, string) error{util.IsNotEmpty}}
 }
 
 type Setting struct {
@@ -78,11 +76,6 @@ func NewConfiguration() (Configuration, error) {
 	}
 
 	config := EnvConfig{}
-	err := config.loadClusters()
-	if err != nil {
-		return nil, errors.New("Unable to load OSO cluster settings.")
-	}
-
 	return &config, nil
 }
 
@@ -247,11 +240,6 @@ func (c *EnvConfig) GetDebugMode() bool {
 	return b
 }
 
-// GetClusters returns map of OSO clusters apiURL -> DNS suffix for route generation
-func (c *EnvConfig) GetClusters() map[string]string {
-	return c.clusters
-}
-
 func (c *EnvConfig) String() string {
 	config := map[string]interface{}{}
 	for key, setting := range settings {
@@ -267,12 +255,6 @@ func (c *EnvConfig) String() string {
 
 	}
 	return fmt.Sprintf("%v", config)
-}
-
-func (c *EnvConfig) loadClusters() error {
-	data := getConfigValueFromEnv("GetOsoClusters")
-	err := json.Unmarshal([]byte(data), &c.clusters)
-	return err
 }
 
 // Verify checks whether all needed config options are set

@@ -108,7 +108,9 @@ func TestProxy(t *testing.T) {
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 	}()
 
-	start(&mockConfig, &tenant, &wit, idler, store)
+	clusters := make(map[string]string)
+	clusters["https://api.free-stg.openshift.com/"] = "1b7d.free-stg.openshiftapps.com"
+	start(&mockConfig, &tenant, &wit, idler, store, clusters)
 
 	// TODO - Test an actual workflow by triggering some of the MockURLs
 
