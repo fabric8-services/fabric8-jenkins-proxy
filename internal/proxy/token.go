@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/errors"
 )
 
 // TokenJSON represents a JSON Web Token
@@ -19,7 +20,7 @@ type TokenJSON struct {
 	TokenType        string `json:"token_type"`
 	ExpiresIn        int    `json:"expires_in"`
 	RefreshExpiresIn int    `json:"refresh_expires_in"`
-	Errors           []ErrorInfo
+	Errors           []errors.ErrorInfo
 }
 
 // GetTokenUID gets user identity on giving raw JWT token and public key of auth service as input.
@@ -42,46 +43,6 @@ func GetTokenUID(token string, pk *rsa.PublicKey) (sub string, err error) {
 			return
 		}
 		sub = claims["sub"].(string)
-	}
-	return
-}
-
-// GetOSOToken returns Openshift online token on giving raw JWT token, cluster URL and auth service url as input.
-func GetOSOToken(authURL string, clusterURL string, token string) (osoToken string, err error) {
-	url := fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(authURL, "/"), clusterURL)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	c := http.DefaultClient
-
-	resp, err := c.Do(req)
-	if err != nil {
-		return
-	}
-
-	tj := &TokenJSON{}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(body, tj)
-	if err != nil {
-		return
-	}
-
-	if len(tj.Errors) > 0 {
-		err = fmt.Errorf(tj.Errors[0].Detail)
-		return
-	}
-
-	if len(tj.AccessToken) > 0 {
-		osoToken = tj.AccessToken
-	} else {
-		err = fmt.Errorf("OSO access token empty for %s", authURL)
 	}
 	return
 }
