@@ -47,16 +47,11 @@ func LogStorageStats(ctx context.Context, store Store, interval time.Duration) e
 
 // Connect sets up a database connection by using configuration given as input.
 func Connect(config configuration.Configuration) (*gorm.DB, error) {
-	var err error
-	var db *gorm.DB
-	for {
-		db, err = gorm.Open("postgres", PostgresConfigString(config))
-		if err != nil {
-			return nil, err
-		}
-		storeLogger.Info("Successfully connected to database")
-		break
+	db, err := gorm.Open("postgres", PostgresConfigString(config))
+	if err != nil {
+		return nil, err
 	}
+	storeLogger.Info("Successfully connected to database")
 
 	if config.GetPostgresConnectionMaxIdle() > 0 {
 		storeLogger.Infof("Configured connection pool max idle %v", config.GetPostgresConnectionMaxIdle())
