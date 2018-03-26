@@ -37,15 +37,12 @@ type Response struct {
 // Info returns JSON including information about Proxy usage statistics for a given namespace.
 func (api *proxy) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	ns := ps.ByName("namespace")
-	s, notFound, err := api.storageService.GetStatisticsUser(ns)
+	s, _, err := api.storageService.GetStatisticsUser(ns)
 	if err != nil {
-		if notFound {
-			log.Debugf("Did not find data for %s", ns)
-		} else {
-			log.Error(err) //FIXME
-			fmt.Fprintf(w, "{'error': '%s'}", err)
-			return
-		}
+		log.Error(err)
+		fmt.Fprintf(w, "{'error': '%s'}", err)
+		return
+
 	}
 	c, err := api.storageService.GetRequestsCount(ns)
 	if err != nil {
