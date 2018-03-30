@@ -2,13 +2,12 @@ package router
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/julienschmidt/httprouter"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockResponseWriter struct {
@@ -47,20 +46,13 @@ func (i *mockProxyAPI) Info(w http.ResponseWriter, r *http.Request, ps httproute
 func Test_all_routes_are_setup(t *testing.T) {
 	mockedProxyAPI := &mockProxyAPI{}
 	mockedRouter := CreateAPIRouter(mockedProxyAPI)
+	req, _ := http.NewRequest("GET", "/api/info/:namespace", nil)
+	w := new(mockResponseWriter)
+	mockedRouter.ServeHTTP(w, req)
+	require.Equal(t, "Info", w.GetBody(), "Routing failed for /api/info/:namespace")
 
-	var routes = []struct {
-		route  string
-		target string
-	}{
-		{"/api/info/:namespace", "Info"},
-	}
-
-	for _, testRoute := range routes {
-		w := new(mockResponseWriter)
-
-		req, _ := http.NewRequest("GET", testRoute.route, nil)
-		mockedRouter.ServeHTTP(w, req)
-
-		assert.Equal(t, testRoute.target, w.GetBody(), fmt.Sprintf("Routing failed for %s", testRoute.route))
-	}
+	req, _ = http.NewRequest("GET", "/metrics", nil)
+	w = new(mockResponseWriter)
+	mockedRouter.ServeHTTP(w, req)
+	require.Contains(t, w.GetBody(), "go_gc_duration_seconds", "Routing failed for /metrics")
 }
