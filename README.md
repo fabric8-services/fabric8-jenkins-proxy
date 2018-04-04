@@ -118,8 +118,34 @@ Both CI systems build all merges to master as well as pull requests.
 The repository contains a script [`setupLocalProxy.sh`](./scripts/setupLocalProxy.sh) which can be used to run the Proxy locally.
 A prerequisite for this is access to https://console.rh-idev.openshift.com/.
 To run the script you need to export your OpenShift access token for console.rh-idev.openshift.com as DSAAS_PREVIEW_TOKEN.
-Note, you need edit permissions on the dsaas-preview namespace in order to port forward.
+Note, In order to port forward you need to edit permissions on the dsaas-preview namespace.
+You need to have jq installed to run these commands. For fedora use `sudo dnf install jq`
 
+Usage: ./scripts/setupLocalProxy.sh [start|stop|env|unset]
+
+This script is used to run the Jenkins Proxy on localhost.
+As a prerequisite OPENSHIFT_API_TOKEN needs to be exported.
+In your shell (from the root of fabric8-jenkins-proxy):
+
+To start proxy and other required services
+```
+[user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token> 
+[user@localhost ~]$ ./scripts/setupLocalProxy.sh start 
+[user@localhost ~]$ eval $(./scripts/setupLocalProxy.sh env) 
+[user@localhost ~]$ fabric8-jenkins-proxy 
+```
+
+After you stop `fabric8-jenkins-proxy`, you would want to stop all the dependency services as well
+To remove postgres container and stop port-forwarding to prod-preview's idler service and tenant service
+```
+[user@localhost ~]$ ./scripts/setupLocalProxy.sh stop
+```
+
+Services running as a part of this local setup:
+  - idler on 9001
+  - tenant service on 9002
+  - postgres on 5432
+  
 <a id="testing-webhooks"></a>
 ## Testing webhooks
 
@@ -136,6 +162,9 @@ Then execute the following curl command:
     -H "X-GitHub-Event: status" \
     -d @webhook-payload.json
 
+
+<a id="apis"></a>
+## APIs
 
 
 
