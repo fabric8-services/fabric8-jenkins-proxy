@@ -59,6 +59,7 @@ tools.timestamp:
 	go get -u github.com/golang/dep/cmd/dep
 	go get -u github.com/golang/lint/golint
 	go get -u github.com/vbatts/git-validation/...
+	go get -u github.com/haya14busa/goverage
 	@touch tools.timestamp
 
 vendor: tools.timestamp ## Runs dep to vendor project dependencies
@@ -67,6 +68,12 @@ vendor: tools.timestamp ## Runs dep to vendor project dependencies
 .PHONY: test
 test: vendor ## Runs unit tests
 	go test $(PACKAGES)
+
+.PHONY: coverage
+coverage: vendor tools $(BUILD_DIR) ## Run coverage, need goverage tool installed
+	goverage -coverprofile=$(BUILD_DIR)/coverage.out $(PACKAGES) && \
+	go tool cover -html=$(BUILD_DIR)/coverage.out -o $(BUILD_DIR)/coverage.html
+	@echo $(realpath $(BUILD_DIR))/coverage.html
 
 .PHONY: fmtcheck
 fmtcheck: ## Runs gofmt and returns error in case of violations
