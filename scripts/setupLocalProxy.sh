@@ -3,9 +3,12 @@
 # Used to run Proxy locally.
 #
 
+# Stop the script if any commands fail
 set -o errexit
 set -o pipefail
 
+# XYZ = ${XYZ:-8000}
+# if env variable $XYZ is set, use that for XYZ, otherwise use 8000 
 LOCAL_IDLER_PORT=${LOCAL_IDLER_PORT:-9001}
 LOCAL_TENANT_PORT=${LOCAL_TENANT_PORT:-9002}
 LOCAL_POSTGRES_PORT=${LOCAL_POSTGRES_PORT:-5432}
@@ -24,11 +27,13 @@ printHelp() {
 Usage: ${0##*/} [start|stop|env|unset]
 
 This script is used to run the Jenkins Proxy on localhost.
-As a prerequisite OPENSHIFT_API_TOKEN and  JC_AUTH_TOKEN need to be exported.
+As a prerequisite OPENSHIFT_API_TOKEN needs to be exported.
 In your shell (from the root of fabric8-jenkins-proxy):
 
 > export DSAAS_PREVIEW_TOKEN=<dsaas-preview token>
 > ./scripts/${0##*/} start
+# Run command below this in a seperate terminal so that we can see logs of the above command. 
+> export DSAAS_PREVIEW_TOKEN=<dsaas-preview token>
 > eval \$(./scripts/${0##*/} env)
 > fabric8-jenkins-proxy
 EOF
@@ -144,7 +149,7 @@ forwardTenant() {
 }
 
 ###############################################################################
-# Runs a Postgres Docker container on port 5
+# Runs a Postgres Docker container on port 5432
 # Globals:
 #   None
 # Arguments:
