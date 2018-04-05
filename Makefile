@@ -103,7 +103,7 @@ clean: ## Deletes all build artifacts
 
 .PHONY: validate_commits
 validate_commits: tools ## Validates git commit messages
-	git-validation -q -run short-subject,message_regexp='^Issue #[0-9]+ [A-Z]+.*' -range $(START_COMMIT_MESSAGE_VALIDATION)...
+	git-validation -q -run short-subject,message_regexp='^(Fix\s)?(Issue\s)?#[0-9]+ [A-Z]+.*' -range $(START_COMMIT_MESSAGE_VALIDATION)...
 
 .PHONY: help
 help: ## Prints this help
