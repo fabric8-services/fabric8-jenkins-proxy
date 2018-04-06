@@ -54,6 +54,7 @@ func init() {
 }
 
 func main() {
+	mainLogger.Info("Starting  proxy..")
 	mainLogger.Infof("Proxy version: %s", version.GetVersion())
 
 	// Init configuration
