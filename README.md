@@ -131,6 +131,10 @@ To start proxy and other required services
 ```
 [user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token> 
 [user@localhost ~]$ ./scripts/setupLocalProxy.sh start 
+```
+Run command below this in a seperate terminal so that we can see logs of the above command. 
+```
+[user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token> 
 [user@localhost ~]$ eval $(./scripts/setupLocalProxy.sh env) 
 [user@localhost ~]$ fabric8-jenkins-proxy 
 ```
@@ -163,8 +167,24 @@ Then execute the following curl command:
     -d @webhook-payload.json
 
 
+<a id="testing-through-ui"></a>
+## Testing Through UI
+
+Any request that is made to proxy(i.e., port 8080) regardless of the path, proxy will send a request to idler to unidle jenkins, if it is idled.
+
+    curl http://localhost:8080/*
+
+This would show a spinning wheel until jenkins is idle. On running locally the html page might not exist so, it will show a message on not finding the html page.
+
 <a id="apis"></a>
 ## APIs
 
+This project opens two ports 9091 and 8080. Proxy runs on 8080 and API router runs 9091. 
+The API router has only one API, which is info API. An example is as follows
+
+    Request: GET http://localhost:9091/api/info/ksagathi-preview
+
+    Response: {"namespace":"ksagathi-preview","requests":0,"last_visit":0,"last_request":0}
+    
 
 
