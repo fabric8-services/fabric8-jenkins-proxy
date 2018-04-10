@@ -17,11 +17,11 @@ import (
 	"errors"
 
 	"hash/fnv"
+	"runtime"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
-	jsonerrors "github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/errors"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/patrickmn/go-cache"
 	"github.com/satori/go.uuid"
@@ -78,7 +78,17 @@ type Proxy struct {
 	indexPath       string
 	maxRequestRetry int
 	clusters        map[string]string
-	loginInstance   interfaceOflogin
+}
+
+// Error represents list of error informations.
+type Error struct {
+	Errors []ErrorInfo
+}
+
+// ErrorInfo describes an HTTP error, consisting of HTTP status code and error detail.
+type ErrorInfo struct {
+	Code   string `json:"code"`
+	Detail string `json:"detail"`
 }
 
 // NewProxy creates an instance of Proxy client
@@ -97,7 +107,6 @@ func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerServi
 		indexPath:        config.GetIndexPath(),
 		maxRequestRetry:  config.GetMaxRequestRetry(),
 		clusters:         clusters,
-		loginInstance:    &login{},
 	}
 
 	//Collect and parse public key from Keycloak
@@ -127,7 +136,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	requestURL := logging.RequestMethodAndURL(r)
 	requestHeaders := logging.RequestHeaders(r)
-	requestHash := createRequestHash(requestURL, requestHeaders)
+	requestHash := p.createRequestHash(requestURL, requestHeaders)
 	logEntryWithHash := proxyLogger.WithField("request-hash", requestHash)
 
 	logEntryWithHash.WithFields(
@@ -183,217 +192,193 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	}).ServeHTTP(w, r)
 }
 
-func (p *Proxy) handleJenkinsUIRequest(responseWriter http.ResponseWriter, request *http.Request, requestLogEntry *log.Entry) (cacheKey string, namespace string, noProxy bool) {
-
+func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, requestLogEntry *log.Entry) (cacheKey string, ns string, noProxy bool) {
+	//redirect determines if we need to redirect to auth service
 	needsAuth := true
 	noProxy = true
 
-	// Checks if token_json is present in the query
-	if tokenJSON, ok := request.URL.Query()["token_json"]; ok {
-		namespace = p.processAuthenticatedRequest(responseWriter, request, requestLogEntry, tokenJSON, &noProxy)
-	}
-
-	if len(request.Cookies()) > 0 {
-		cacheKey, namespace, noProxy, needsAuth = p.checkCookies(responseWriter, request, requestLogEntry)
-	}
-	//Check if we need to redirect to auth service
-	if needsAuth {
-		p.redirectToAuth(responseWriter, request, requestLogEntry)
-	}
-
-	return cacheKey, namespace, noProxy
-}
-
-func (p *Proxy) redirectToAuth(responseWriter http.ResponseWriter, request *http.Request, requestLogEntry *log.Entry) {
-	// redirectURL is used for auth service as a target of successful auth redirect
-	redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), request.URL.Path))
+	//redirectURL is used for auth service as a target of successful auth redirect
+	redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), r.URL.Path))
 	if err != nil {
-		jsonerrors.JSONError(responseWriter, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
-	redirAuth := GetAuthURI(p.authURL, redirectURL.String())
-	requestLogEntry.Infof("Redirecting to auth: %s", redirAuth)
-	http.Redirect(responseWriter, request, redirAuth, 301)
-}
-
-// processAuthenticatedRequest processes token_json if present in query and find user info and login to Jenkins and redirects the target page
-func (p *Proxy) processAuthenticatedRequest(responseWriter http.ResponseWriter, request *http.Request, requestLogEntry *log.Entry, tokenJSON []string, noProxy *bool) (namespace string) {
-
-	// redirectURL is used for auth service as a target of successful auth redirect
-	redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), request.URL.Path))
-	if err != nil {
-		jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-		return namespace
+	//If the user provides OSO token, we can directly proxy
+	if _, ok := r.Header["Authorization"]; ok { //FIXME Do we need this?
+		needsAuth = false
 	}
 
-	if len(tokenJSON) < 1 {
-		jsonerrors.JSONError(responseWriter, errors.New("could not read JWT token from URL"), requestLogEntry)
-		return namespace
-	}
-
-	proxyCacheItem, osioToken, err := p.loginInstance.processToken([]byte(tokenJSON[0]), requestLogEntry, p)
-	if err != nil {
-		jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-		return namespace
-	}
-
-	namespace = proxyCacheItem.NS
-	clusterURL := proxyCacheItem.ClusterURL
-	requestLogEntry.WithField("ns", namespace).Debug("Found token info in query")
-
-	// Check if jenkins is idled
-	isIdle, err := p.idler.IsIdle(namespace, clusterURL)
-	if err != nil {
-		jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-		return namespace
-
-	}
-
-	// Break the process if the Jenkins is idled, set a cookie and redirect to self
-	if isIdle {
-		// Initiates unidling of the Jenkins instance
-		err = p.idler.UnIdle(namespace, clusterURL)
-		if err != nil {
-			jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-			return namespace
+	if tj, ok := r.URL.Query()["token_json"]; ok { //If there is token_json in query, process it, find user info and login to Jenkins
+		if len(tj) < 1 {
+			p.HandleError(w, errors.New("could not read JWT token from URL"), requestLogEntry)
+			return
 		}
 
-		// sets a cookie, in which cookie value is id of proxyCacheItem in cache
-		p.setIdledCookie(responseWriter, *proxyCacheItem)
-		requestLogEntry.WithField("ns", namespace).Info("Redirecting to remove token from URL")
-		// Redirect to get rid of token in URL
-		http.Redirect(responseWriter, request, redirectURL.String(), http.StatusFound)
-		return namespace
-	}
-	// The part below here is executed only if Jenkins is not idle
+		pci, osioToken, err := p.processToken([]byte(tj[0]), requestLogEntry)
+		if err != nil {
+			p.HandleError(w, err, requestLogEntry)
+			return
+		}
+		ns = pci.NS
+		clusterURL := pci.ClusterURL
+		requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL}).Debug("Found token info in query")
 
-	// gets openshift online token
-	osoToken, err := p.loginInstance.GetOSOToken(p.authURL, clusterURL, osioToken)
-	if err != nil {
-		jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-		return namespace
-	}
-	requestLogEntry.WithField("ns", namespace).Debug("Loaded OSO token")
+		isIdle, err := p.idler.IsIdle(ns, clusterURL)
+		if err != nil {
+			p.HandleError(w, err, requestLogEntry)
+			return
+		}
 
-	// login to Jenkins and gets cookies
-	statusCode, cookies, err := p.loginInstance.loginJenkins(*proxyCacheItem, osoToken, requestLogEntry)
-	if err != nil {
-		jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-		return namespace
+		//Break the process if the Jenkins is idled, set a cookie and redirect to self
+		if isIdle {
+			err = p.idler.UnIdle(ns, clusterURL)
+			if err != nil {
+				p.HandleError(w, err, requestLogEntry)
+				return
+			}
+
+			p.setIdledCookie(w, pci)
+			requestLogEntry.WithField("ns", ns).Info("Redirecting to remove token from URL")
+			http.Redirect(w, r, redirectURL.String(), http.StatusFound) //Redirect to get rid of token in URL
+			return
+		}
+
+		osoToken, err := GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
+		if err != nil {
+			p.HandleError(w, err, requestLogEntry)
+			return
+		}
+		requestLogEntry.WithField("ns", ns).Debug("Loaded OSO token")
+
+		statusCode, cookies, err := p.loginJenkins(pci, osoToken, requestLogEntry)
+		if err != nil {
+			p.HandleError(w, err, requestLogEntry)
+			return
+		}
+		if statusCode == http.StatusOK {
+			for _, cookie := range cookies {
+				if cookie.Name == CookieJenkinsIdled {
+					continue
+				}
+				http.SetCookie(w, cookie)
+				if strings.HasPrefix(cookie.Name, SessionCookie) { //Find session cookie and use it's value as a key for cache
+					p.ProxyCache.SetDefault(cookie.Value, pci)
+					requestLogEntry.WithField("ns", ns).Infof("Cached Jenkins route %s in %s", pci.Route, cookie.Value)
+					requestLogEntry.WithField("ns", ns).Infof("Redirecting to %s", redirectURL.String())
+					//If all good, redirect to self to remove token from url
+					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+					return
+				}
+
+				//If we got here, the cookie was not found - report error
+				p.HandleError(w, fmt.Errorf("could not find cookie %s for %s", SessionCookie, pci.NS), requestLogEntry)
+			}
+		} else {
+			p.HandleError(w, fmt.Errorf("could not login to Jenkins in %s namespace", ns), requestLogEntry)
+		}
 	}
 
-	if statusCode == http.StatusOK {
-		// sets all cookies that we got from loginJenkins method
-		for _, cookie := range cookies {
-			// No need to set a cookie for whether jenkins if idled, because we have already done that
-			if cookie.Name == CookieJenkinsIdled {
+	if len(r.Cookies()) > 0 { //Check cookies and proxy cache to find user info
+		for _, cookie := range r.Cookies() {
+			cacheVal, ok := p.ProxyCache.Get(cookie.Value)
+			if !ok {
 				continue
 			}
-			http.SetCookie(responseWriter, cookie)
-			if strings.HasPrefix(cookie.Name, SessionCookie) {
-				// Find session cookie and use it's value as a key for cache
-				p.ProxyCache.SetDefault(cookie.Value, proxyCacheItem)
-				requestLogEntry.WithField("ns", namespace).Infof("Cached Jenkins route %s in %s", proxyCacheItem.Route, cookie.Value)
-				requestLogEntry.WithField("ns", namespace).Infof("Redirecting to %s", redirectURL.String())
-				//If all good, redirect to self to remove token from url
-				http.Redirect(responseWriter, request, redirectURL.String(), http.StatusFound)
-				return namespace
-			}
-
-			//If we got here, the cookie was not found - report error
-			jsonerrors.JSONError(responseWriter, fmt.Errorf("could not find cookie %s for %s", SessionCookie, proxyCacheItem.NS), requestLogEntry)
-		}
-	} else {
-		jsonerrors.JSONError(responseWriter, fmt.Errorf("could not login to Jenkins in %s namespace", namespace), requestLogEntry)
-	}
-	return namespace
-}
-
-// checkCookies checks cookies and proxy cache to find user info
-func (p *Proxy) checkCookies(responseWriter http.ResponseWriter, request *http.Request, requestLogEntry *log.Entry) (cacheKey string, namespace string, noProxy bool, needsAuth bool) {
-	needsAuth = true
-	noProxy = true
-
-	for _, cookie := range request.Cookies() {
-		cacheVal, ok := p.ProxyCache.Get(cookie.Value)
-		if !ok {
-			continue
-		}
-		if strings.HasPrefix(cookie.Name, SessionCookie) { // We found a session cookie in cache
-			cacheKey = cookie.Value
-			proxyCacheItem := cacheVal.(CacheItem)
-			request.Host = proxyCacheItem.Route // Configure proxy upstream
-			request.URL.Host = proxyCacheItem.Route
-			request.URL.Scheme = proxyCacheItem.Scheme
-			namespace = proxyCacheItem.NS
-			needsAuth = false // user is logged in, do not redirect
-			noProxy = false
-			break
-		} else if cookie.Name == CookieJenkinsIdled { // Found a cookie saying Jenkins is idled, verify and act accordingly
-			cacheKey = cookie.Value
-			needsAuth = false
-			proxyCacheItem := cacheVal.(CacheItem)
-			namespace = proxyCacheItem.NS
-			clusterURL := proxyCacheItem.ClusterURL
-			isIdle, err := p.idler.IsIdle(proxyCacheItem.NS, clusterURL)
-			if err != nil {
-				jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-				return cacheKey, namespace, noProxy, needsAuth
-			}
-
-			if isIdle { //If jenkins is idled, return loading page and status 202
-				err = p.idler.UnIdle(namespace, clusterURL)
+			if strings.HasPrefix(cookie.Name, SessionCookie) { //We found a session cookie in cache
+				cacheKey = cookie.Value
+				pci := cacheVal.(CacheItem)
+				r.Host = pci.Route //Configure proxy upstream
+				r.URL.Host = pci.Route
+				r.URL.Scheme = pci.Scheme
+				ns = pci.NS
+				needsAuth = false //user is probably logged in, do not redirect
+				noProxy = false
+				break
+			} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
+				cacheKey = cookie.Value
+				needsAuth = false
+				pci := cacheVal.(CacheItem)
+				ns = pci.NS
+				clusterURL := pci.ClusterURL
+				isIdle, err := p.idler.IsIdle(ns, clusterURL)
 				if err != nil {
-					jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-					return cacheKey, namespace, noProxy, needsAuth
+					p.HandleError(w, err, requestLogEntry)
+					return
 				}
-
-				err = p.processTemplate(responseWriter, namespace, requestLogEntry)
-				if err != nil {
-					jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-				}
-				p.recordStatistics(proxyCacheItem.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
-			} else { //If Jenkins is running, remove the cookie
-				//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
-				//so even if the pod is up, route might still return 500 - i.e. we need to check the route
-				//before claiming Jenkins is up
-				var statusCode int
-				statusCode, _, err = p.loginInstance.loginJenkins(proxyCacheItem, "", requestLogEntry)
-				if err != nil {
-					jsonerrors.JSONError(responseWriter, err, requestLogEntry)
-					return cacheKey, namespace, noProxy, needsAuth
-				}
-				if statusCode == 200 || statusCode == 403 {
-					cookie.Expires = time.Unix(0, 0)
-					http.SetCookie(responseWriter, cookie)
-				} else {
-					err = p.processTemplate(responseWriter, namespace, requestLogEntry)
+				if isIdle { //If jenkins is idled, return loading page and status 202
+					err = p.idler.UnIdle(ns, clusterURL)
 					if err != nil {
-						jsonerrors.JSONError(responseWriter, err, requestLogEntry)
+						p.HandleError(w, err, requestLogEntry)
+						return
+					}
+					err = p.processTemplate(w, ns, requestLogEntry)
+					p.recordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
+				} else { //If Jenkins is running, remove the cookie
+					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
+					//so even if the pod is up, route might still return 500 - i.e. we need to check the route
+					//before claiming Jenkins is up
+					var statusCode int
+					statusCode, _, err = p.loginJenkins(pci, "", requestLogEntry)
+					if err != nil {
+						p.HandleError(w, err, requestLogEntry)
+						return
+					}
+					if statusCode == 200 || statusCode == 403 {
+						cookie.Expires = time.Unix(0, 0)
+						http.SetCookie(w, cookie)
+					} else {
+						err = p.processTemplate(w, ns, requestLogEntry)
 					}
 				}
+
+				if err != nil {
+					p.HandleError(w, err, requestLogEntry)
+				}
+				break
 			}
-			break
+		}
+		if len(cacheKey) == 0 { //If we do not have user's info cached, run through login process to get it
+			requestLogEntry.WithField("ns", ns).Info("Could not find cache, redirecting to re-login")
+		} else {
+			requestLogEntry.WithField("ns", ns).Infof("Found cookie %s", cacheKey)
 		}
 	}
 
-	if len(cacheKey) == 0 { //If we do not have user's info cached, run through login process to get it
-		requestLogEntry.WithField("ns", namespace).WithField("needsAuth", needsAuth).Info("Could not find cache, redirecting to re-login")
-	} else {
-		requestLogEntry.WithField("ns", namespace).Infof("Found cookie %s", cacheKey)
+	//Check if we need to redirect to auth service
+	if needsAuth {
+		redirAuth := GetAuthURI(p.authURL, redirectURL.String())
+		requestLogEntry.Infof("Redirecting to auth: %s", redirAuth)
+		http.Redirect(w, r, redirAuth, 301)
 	}
-
-	return cacheKey, namespace, noProxy, needsAuth
+	return
 }
 
-func (p *Proxy) setIdledCookie(w http.ResponseWriter, proxyCacheItem CacheItem) {
+func (p *Proxy) loginJenkins(pci CacheItem, osoToken string, requestLogEntry *log.Entry) (int, []*http.Cookie, error) {
+	//Login to Jenkins with OSO token to get cookies
+	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", pci.Scheme, pci.Route)
+	req, _ := http.NewRequest("GET", jenkinsURL, nil)
+	if len(osoToken) > 0 {
+		requestLogEntry.WithField("ns", pci.NS).Infof("Jenkins login for %s", jenkinsURL)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
+	} else {
+		requestLogEntry.WithField("ns", pci.NS).Infof("Accessing Jenkins route %s", jenkinsURL)
+	}
+	c := http.DefaultClient
+	resp, err := c.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, resp.Cookies(), err
+}
+
+func (p *Proxy) setIdledCookie(w http.ResponseWriter, pci CacheItem) {
 	c := &http.Cookie{}
-	id := uuid.NewV4().String()
+	u1 := uuid.NewV4().String()
 	c.Name = CookieJenkinsIdled
-	c.Value = id
-	// Store proxyCacheItem at id in cache
-	p.ProxyCache.SetDefault(id, proxyCacheItem)
+	c.Value = u1
+	p.ProxyCache.SetDefault(u1, pci)
 	http.SetCookie(w, c)
 	return
 }
@@ -406,13 +391,13 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
 	err = json.Unmarshal(body, &gh)
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
@@ -423,12 +408,12 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	clusterURL := namespace.ClusterURL
 	requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
@@ -438,7 +423,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	isIdle, err := p.idler.IsIdle(ns, clusterURL)
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
@@ -447,7 +432,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
 		err = p.idler.UnIdle(ns, clusterURL)
 		if err != nil {
-			jsonerrors.JSONError(w, err, requestLogEntry)
+			p.HandleError(w, err, requestLogEntry)
 		}
 		return
 	}
@@ -463,17 +448,17 @@ func (p *Proxy) storeGHRequest(w http.ResponseWriter, r *http.Request, ns string
 	w.Header().Set("Server", "Webhook-Proxy")
 	sr, err := storage.NewRequest(r, ns, body)
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 	err = p.storageService.CreateRequest(sr)
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 	err = p.recordStatistics(ns, 0, time.Now().Unix())
 	if err != nil {
-		jsonerrors.JSONError(w, err, requestLogEntry)
+		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
@@ -502,6 +487,76 @@ func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntr
 	return
 }
 
+func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci CacheItem, osioToken string, err error) {
+	tokenJSON := &TokenJSON{}
+	err = json.Unmarshal(tokenData, tokenJSON)
+	if err != nil {
+		return
+	}
+
+	uid, err := GetTokenUID(tokenJSON.AccessToken, p.publicKey)
+	if err != nil {
+		return
+	}
+
+	ti, err := p.tenant.GetTenantInfo(uid)
+	if err != nil {
+		return
+	}
+	osioToken = tokenJSON.AccessToken
+
+	namespace, err := p.tenant.GetNamespaceByType(ti, ServiceName)
+	if err != nil {
+		return
+	}
+
+	requestLogEntry.WithField("ns", namespace.Name).Debug("Extracted information from token")
+	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
+	if err != nil {
+		return
+	}
+
+	//Prepare an item for proxyCache - Jenkins info and OSO token
+	pci = NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
+
+	return
+}
+
+//HandleError creates a JSON response with a given error and writes it to ResponseWriter
+func (p *Proxy) HandleError(w http.ResponseWriter, err error, requestLogEntry *log.Entry) {
+	// log the error
+	location := ""
+	if err != nil {
+		pc, fn, line, _ := runtime.Caller(1)
+
+		location = fmt.Sprintf(" %s[%s:%d]", runtime.FuncForPC(pc).Name(), fn, line)
+	}
+
+	requestLogEntry.WithFields(
+		log.Fields{
+			"location": location,
+			"error":    err,
+		}).Error("Error Handling proxy request request.")
+
+	// create error response
+	w.WriteHeader(http.StatusInternalServerError)
+
+	pei := ErrorInfo{
+		Code:   fmt.Sprintf("%d", http.StatusInternalServerError),
+		Detail: err.Error(),
+	}
+	e := Error{
+		Errors: make([]ErrorInfo, 1),
+	}
+	e.Errors[0] = pei
+
+	eb, err := json.Marshal(e)
+	if err != nil {
+		requestLogEntry.Error(err)
+	}
+	w.Write(eb)
+}
+
 func (p *Proxy) isGitHubRequest(r *http.Request) bool {
 	isGH := false
 	// Is the request coming from Github Webhook?
@@ -512,7 +567,7 @@ func (p *Proxy) isGitHubRequest(r *http.Request) bool {
 	return isGH
 }
 
-func createRequestHash(url string, headers string) uint32 {
+func (p *Proxy) createRequestHash(url string, headers string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(url + headers + fmt.Sprint(time.Now())))
 	return h.Sum32()
@@ -555,13 +610,13 @@ func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients
 }
 
 //RecordStatistics writes usage statistics to a database
-func (p *Proxy) recordStatistics(namespace string, lastAccessed int64, lastBufferedRequest int64) (err error) {
-	log.WithField("namespace", namespace).Debug("Recording stats")
-	s, notFound, err := p.storageService.GetStatisticsUser(namespace)
+func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
+	log.WithField("ns", ns).Debug("Recording stats")
+	s, notFound, err := p.storageService.GetStatisticsUser(ns)
 	if err != nil {
 		log.WithFields(
 			log.Fields{
-				"namespace": namespace,
+				"ns": ns,
 			}).Warningf("Could not load statistics: %s", err)
 		if !notFound {
 			return
@@ -569,28 +624,28 @@ func (p *Proxy) recordStatistics(namespace string, lastAccessed int64, lastBuffe
 	}
 
 	if notFound {
-		log.WithField("namespace", namespace).Infof("New user %s", namespace)
-		s = storage.NewStatistics(namespace, lastAccessed, lastBufferedRequest)
+		log.WithField("ns", ns).Infof("New user %s", ns)
+		s = storage.NewStatistics(ns, la, lbf)
 		err = p.storageService.CreateStatistics(s)
 		if err != nil {
-			log.Errorf("Could not create statistics for %s: %s", namespace, err)
+			log.Errorf("Could not create statistics for %s: %s", ns, err)
 		}
 		return
 	}
 
-	if lastAccessed != 0 {
-		s.LastAccessed = lastAccessed
+	if la != 0 {
+		s.LastAccessed = la
 	}
 
-	if lastBufferedRequest != 0 {
-		s.LastBufferedRequest = lastBufferedRequest
+	if lbf != 0 {
+		s.LastBufferedRequest = lbf
 	}
 
 	p.visitLock.Lock()
 	err = p.storageService.UpdateStatistics(s)
 	p.visitLock.Unlock()
 	if err != nil {
-		log.WithField("namespace", namespace).Errorf("Could not update statistics for %s: %s", namespace, err)
+		log.WithField("ns", ns).Errorf("Could not update statistics for %s: %s", ns, err)
 	}
 
 	return
@@ -694,110 +749,4 @@ func (p *Proxy) ProcessBuffer() {
 		}
 		time.Sleep(p.bufferCheckSleep * time.Second)
 	}
-}
-
-type interfaceOflogin interface {
-	loginJenkins(pci CacheItem, osoToken string, requestLogEntry *log.Entry) (int, []*http.Cookie, error)
-	processToken(tokenData []byte, requestLogEntry *log.Entry, p *Proxy) (pci *CacheItem, osioToken string, err error)
-	GetOSOToken(authURL string, clusterURL string, token string) (osoToken string, err error)
-}
-
-type login struct {
-}
-
-func (l *login) loginJenkins(pci CacheItem, osoToken string, requestLogEntry *log.Entry) (int, []*http.Cookie, error) {
-	//Login to Jenkins with OSO token to get cookies
-	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", pci.Scheme, pci.Route)
-	req, _ := http.NewRequest("GET", jenkinsURL, nil)
-	if len(osoToken) > 0 {
-		requestLogEntry.WithField("ns", pci.NS).Infof("Jenkins login for %s", jenkinsURL)
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
-	} else {
-		requestLogEntry.WithField("ns", pci.NS).Infof("Accessing Jenkins route %s", jenkinsURL)
-	}
-	c := http.DefaultClient
-	resp, err := c.Do(req)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode, resp.Cookies(), err
-}
-
-// Extract openshift.io token (access_token from token_json)
-// and get proxy cache item using openshift.io token
-func (l *login) processToken(tokenData []byte, requestLogEntry *log.Entry, p *Proxy) (proxyCacheItem *CacheItem, osioToken string, err error) {
-	tokenJSON := &TokenJSON{}
-	err = json.Unmarshal(tokenData, tokenJSON)
-	if err != nil {
-		return
-	}
-
-	uid, err := GetTokenUID(tokenJSON.AccessToken, p.publicKey)
-	if err != nil {
-		return
-	}
-
-	ti, err := p.tenant.GetTenantInfo(uid)
-	if err != nil {
-		return
-	}
-	osioToken = tokenJSON.AccessToken
-
-	namespace, err := p.tenant.GetNamespaceByType(ti, ServiceName)
-	if err != nil {
-		return
-	}
-
-	requestLogEntry.WithField("ns", namespace.Name).Debug("Extracted information from token")
-	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
-	if err != nil {
-		return
-	}
-
-	//Prepare an item for proxyCache - Jenkins info and OSO token
-	pci := NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
-	proxyCacheItem = &pci
-
-	return
-}
-
-// GetOSOToken returns Openshift online token on giving raw JWT token, cluster URL and auth service url as input.
-func (l *login) GetOSOToken(authURL string, clusterURL string, token string) (osoToken string, err error) {
-	url := fmt.Sprintf("%s/api/token?for=%s", strings.TrimRight(authURL, "/"), clusterURL)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	c := http.DefaultClient
-
-	resp, err := c.Do(req)
-	if err != nil {
-		return
-	}
-
-	tj := &TokenJSON{}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(body, tj)
-	if err != nil {
-		return
-	}
-
-	if len(tj.Errors) > 0 {
-		err = fmt.Errorf(tj.Errors[0].Detail)
-		return
-	}
-
-	if len(tj.AccessToken) > 0 {
-		osoToken = tj.AccessToken
-	} else {
-		err = fmt.Errorf("OSO access token empty for %s", authURL)
-	}
-	return
 }
