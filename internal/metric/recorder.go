@@ -15,7 +15,7 @@ func (pr PrometheusRecorder) Initialize() {
 	registerMetrics()
 }
 
-// RecordReqByTypeCounter records a request type
+// RecordReqByTypeTotal records a request type
 func (pr PrometheusRecorder) RecordReqByTypeTotal(requestType string) {
 	reportRequestsTotal(requestType)
 }
