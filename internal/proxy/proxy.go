@@ -21,6 +21,7 @@ import (
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/patrickmn/go-cache"
@@ -42,6 +43,9 @@ const (
 )
 
 var proxyLogger = log.WithFields(log.Fields{"component": "proxy"})
+
+// Recorder to capture events
+var Recorder = metric.PrometheusRecorder{}
 
 //GHHookStruct a simplified structure to get info from
 //a webhook request
@@ -109,6 +113,9 @@ func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerServi
 		clusters:         clusters,
 	}
 
+	//Initialize metrics
+	Recorder.Initialize()
+
 	//Collect and parse public key from Keycloak
 	pk, err := GetPublicKey(config.GetKeycloakURL())
 	if err != nil {
@@ -133,6 +140,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	} else {
 		requestType = "Jenkins UI"
 	}
+
+	Recorder.RecordReqByTypeTotal(requestType)
 
 	requestURL := logging.RequestMethodAndURL(r)
 	requestHeaders := logging.RequestHeaders(r)
