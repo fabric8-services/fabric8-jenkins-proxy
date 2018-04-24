@@ -214,6 +214,7 @@ env() {
     echo export JC_IDLER_API_URL=http://localhost:${LOCAL_IDLER_PORT}
     echo export JC_F8TENANT_API_URL=http://localhost:${LOCAL_TENANT_PORT}
     echo export JC_OSO_CLUSTERS="'{\"https://api.free-stg.openshift.com/\": \"1b7d.free-stg.openshiftapps.com\"}'"
+    echo export JC_INDEX_PATH=static/html/index.html
 }
 
 ###############################################################################
