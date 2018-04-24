@@ -228,17 +228,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 				return
 			}
 			p.recordStatistics(pci.NS, time.Now().Unix(), 0)
-
-			time.Sleep(3 * time.Minute)
-
-			for isIdle {
-				isIdle, err = p.idler.IsIdle(ns, clusterURL)
-				if err != nil {
-					p.HandleError(w, err, requestLogEntry)
-					return
-				}
-				time.Sleep(30 * time.Second)
-			}
+			return
 		}
 
 		if !isIdle {
