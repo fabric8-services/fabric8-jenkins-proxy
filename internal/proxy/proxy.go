@@ -40,6 +40,8 @@ const (
 	ServiceName = "jenkins"
 	// SessionCookie stores name of the session cookie of the service in question
 	SessionCookie = "JSESSIONID"
+
+	defaultRetry = 15
 )
 
 var proxyLogger = log.WithFields(log.Fields{"component": "proxy"})
@@ -71,7 +73,7 @@ type Proxy struct {
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
 	tenant           *clients.Tenant
-	wit              *clients.WIT
+	wit              clients.WIT
 	idler            clients.IdlerService
 
 	//redirect is a base URL of the proxy
@@ -96,7 +98,7 @@ type ErrorInfo struct {
 }
 
 // NewProxy creates an instance of Proxy client
-func NewProxy(tenant *clients.Tenant, wit *clients.WIT, idler clients.IdlerService, storageService storage.Store, config configuration.Configuration, clusters map[string]string) (Proxy, error) {
+func NewProxy(tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerService, storageService storage.Store, config configuration.Configuration, clusters map[string]string) (Proxy, error) {
 	p := Proxy{
 		TenantCache:      cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:       cache.New(15*time.Minute, 10*time.Minute),
@@ -412,7 +414,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	requestLogEntry.WithField("json", gh).Debug("Processing GitHub JSON payload")
 
-	namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, requestLogEntry)
+	namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, requestLogEntry, defaultRetry)
 	ns = namespace.Name
 	clusterURL := namespace.ClusterURL
 	requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
@@ -582,14 +584,11 @@ func (p *Proxy) createRequestHash(url string, headers string) uint32 {
 	return h.Sum32()
 }
 
-func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry) (clients.Namespace, error) {
-
-	iterations := 15
-
+func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry, retry int) (clients.Namespace, error) {
 	var namespace clients.Namespace
 	var error error
 
-	for i := 0; i < iterations; i++ {
+	for i := 0; i < retry; i++ {
 		namespace, error = p.getUser(repositoryCloneURL, logEntry)
 
 		if error == nil {
@@ -715,7 +714,7 @@ func (p *Proxy) ProcessBuffer() {
 					}
 
 					log.WithFields(log.Fields{"ns": ns, "repository": gh.Repository.CloneURL}).Info("Retrying request")
-					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger)
+					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
 					clusterURL := namespace.ClusterURL
 
 					isIdle, err := p.idler.IsIdle(ns, clusterURL)
