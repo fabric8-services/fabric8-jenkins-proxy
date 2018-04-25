@@ -24,6 +24,16 @@ func TestReqsByTypeTotalMetric(t *testing.T) {
 	checkCounter(t, jenkins, 1)
 }
 
+func TestConvertToPrometheusLabel(t *testing.T) {
+
+	convertedLabel := convertLabel(jenkins)
+
+	if convertedLabel != "jenkinsui" {
+		t.Errorf("want: %s, got: %s", "jenkinsui", convertedLabel)
+	}
+
+}
+
 func checkCounter(t *testing.T, reportType string, expected int64) {
 	reqMetric, _ := reqCnt.GetMetricWithLabelValues(reportType)
 	m := &dto.Metric{}
