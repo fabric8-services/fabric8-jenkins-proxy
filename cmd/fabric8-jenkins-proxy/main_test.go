@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"io/ioutil"
+	"strconv"
+
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
@@ -16,8 +19,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/ory-am/dockertest.v3"
-	"io/ioutil"
-	"strconv"
 )
 
 var (
@@ -110,7 +111,7 @@ func TestProxy(t *testing.T) {
 
 	clusters := make(map[string]string)
 	clusters["https://api.free-stg.openshift.com/"] = "1b7d.free-stg.openshiftapps.com"
-	start(&mockConfig, &tenant, &wit, idler, store, clusters)
+	start(&mockConfig, &tenant, wit, idler, store, clusters)
 
 	// TODO - Test an actual workflow by triggering some of the MockURLs
 

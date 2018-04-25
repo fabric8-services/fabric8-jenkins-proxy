@@ -10,7 +10,11 @@ import (
 )
 
 // WIT describes work item tracker service of OSIO.
-type WIT struct {
+type WIT interface {
+	SearchCodebase(repo string) (*WITInfo, error)
+}
+
+type wit struct {
 	witURL    string
 	authToken string
 	client    *http.Client
@@ -18,7 +22,7 @@ type WIT struct {
 
 // NewWIT creates an instance of WIT client.
 func NewWIT(url string, token string) WIT {
-	return WIT{
+	return &wit{
 		witURL:    url,
 		authToken: token,
 		client:    &http.Client{},
@@ -80,7 +84,7 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 }
 
 // SearchCodebase finds and returns owner of a given repository based on URL.
-func (w WIT) SearchCodebase(repo string) (*WITInfo, error) {
+func (w *wit) SearchCodebase(repo string) (*WITInfo, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/search/codebases", w.witURL), nil)
 	if err != nil {
 		return nil, err
