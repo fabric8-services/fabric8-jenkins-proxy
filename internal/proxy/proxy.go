@@ -412,7 +412,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	requestLogEntry.WithField("json", gh).Debug("Processing GitHub JSON payload")
 
-	namespace, err := p.getUser(gh.Repository.CloneURL, requestLogEntry)
+	namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, requestLogEntry)
 	ns = namespace.Name
 	clusterURL := namespace.ClusterURL
 	requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
@@ -582,6 +582,29 @@ func (p *Proxy) createRequestHash(url string, headers string) uint32 {
 	return h.Sum32()
 }
 
+func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry) (clients.Namespace, error) {
+
+	iterations := 15
+
+	var namespace clients.Namespace
+	var error error
+
+	for i := 0; i < iterations; i++ {
+		namespace, error = p.getUser(repositoryCloneURL, logEntry)
+
+		if error == nil {
+			return namespace, error
+		}
+
+		time.Sleep(1000 * time.Millisecond)
+
+	}
+
+	// Last chance
+	return p.getUser(repositoryCloneURL, logEntry)
+
+}
+
 //GetUser returns a namespace name based on GitHub repository URL
 func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients.Namespace, error) {
 	if n, found := p.TenantCache.Get(repositoryCloneURL); found {
@@ -692,7 +715,7 @@ func (p *Proxy) ProcessBuffer() {
 					}
 
 					log.WithFields(log.Fields{"ns": ns, "repository": gh.Repository.CloneURL}).Info("Retrying request")
-					namespace, err := p.getUser(gh.Repository.CloneURL, proxyLogger)
+					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger)
 					clusterURL := namespace.ClusterURL
 
 					isIdle, err := p.idler.IsIdle(ns, clusterURL)
