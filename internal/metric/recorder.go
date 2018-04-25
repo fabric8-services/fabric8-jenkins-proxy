@@ -1,5 +1,9 @@
 package metric
 
+import (
+	"strings"
+)
+
 // Recorder interface that encapsulates all logic of metrics
 type Recorder interface {
 	Initialize()
@@ -17,5 +21,11 @@ func (pr PrometheusRecorder) Initialize() {
 
 // RecordReqByTypeTotal records a request type
 func (pr PrometheusRecorder) RecordReqByTypeTotal(requestType string) {
-	reportRequestsTotal(requestType)
+	// adapt label to better name
+	reportRequestsTotal(convertLabel(requestType))
+}
+
+func convertLabel(label string) string {
+	newLabel := strings.ToLower(label)
+	return strings.Replace(newLabel, " ", "", -1)
 }
