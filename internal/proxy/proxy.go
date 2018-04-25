@@ -228,11 +228,13 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 				return
 			}
 			p.recordStatistics(pci.NS, time.Now().Unix(), 0)
+			w.WriteHeader(http.StatusAccepted)
 			return
 		}
 
 		if !isIdle {
 			log.Infof("Jenkins is unidle, Yay!!")
+			w.WriteHeader(http.StatusOK)
 		} else {
 			p.HandleError(w, errors.New("Couldn't unidle Jenkins"), requestLogEntry)
 			return
