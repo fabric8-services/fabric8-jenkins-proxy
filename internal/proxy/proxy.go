@@ -585,14 +585,12 @@ func (p *Proxy) createRequestHash(url string, headers string) uint32 {
 }
 
 func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry, retry int) (clients.Namespace, error) {
-	var namespace clients.Namespace
-	var error error
 
 	for i := 0; i < retry; i++ {
-		namespace, error = p.getUser(repositoryCloneURL, logEntry)
+		namespace, err := p.getUser(repositoryCloneURL, logEntry)
 
-		if error == nil {
-			return namespace, error
+		if err == nil {
+			return namespace, err
 		}
 
 		time.Sleep(1000 * time.Millisecond)
