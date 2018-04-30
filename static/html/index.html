@@ -4,6 +4,18 @@
     <title>Jenkins Idled</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      p {
+        text-align: center
+      }
+    </style>
+    
+</head>
+<body>
+
+    <p><img src="https://upload.wikimedia.org/wikipedia/commons/2/28/InternetSlowdown_Day.gif" /></p>
+    <p id="message">{{.Message}}</p>
+
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>    
     <script type="application/javascript">
       var timeout = {{.Retry}}*1000
@@ -17,8 +29,14 @@
             statusCode: {
               202: function(){
                 console.log("Got 202, waiting along..")
+                document.getElementById("message").innerHTML = "Jenkins has been idled. It is starting now, please wait..."
                 setTimeout(check, timeout)
                 },
+              503: function(){
+                console.log("Got 503, Cluster resources capacity is full. waiting along..")
+                document.getElementById("message").innerHTML = "Tenant resource capacity for current cluster is full, please wait..."
+                setTimeout(check, timeout)
+              },
               200: function() {
                 console.log("Got 200, reloading...")
                 window.location.reload(true)
@@ -34,17 +52,5 @@
         setTimeout(check, timeout);
       });
     </script>
-    <style>
-      p {
-        text-align: center
-      }
-    </style>
-    
-</head>
-<body>
-
-    <p><img src="https://upload.wikimedia.org/wikipedia/commons/2/28/InternetSlowdown_Day.gif" /></p>
-    <p>{{.Message}}</p>
-
 </body>
 </html>
