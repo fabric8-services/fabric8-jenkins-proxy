@@ -36,7 +36,7 @@ type clusterView struct {
 // IdlerService provides methods to talk to the idler client
 type IdlerService interface {
 	IsIdle(tenant string, openShiftAPIURL string) (bool, error)
-	UnIdle(tenant string, openShiftAPIURL string) error
+	UnIdle(tenant string, openShiftAPIURL string) (int, error)
 	Clusters() (map[string]string, error)
 }
 
@@ -94,7 +94,7 @@ func (i *idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
 }
 
 // UnIdle initiates un-idling of the Jenkins instance for the specified tenant.
-func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
+func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
@@ -102,7 +102,7 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerAPI, namespace), nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	q := req.URL.Query()
@@ -114,14 +114,16 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 200 {
-		return nil
+		return resp.StatusCode, nil
+	} else if resp.StatusCode == 503 {
+		return resp.StatusCode, nil
 	}
-	return errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
+	return 0, errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
 }
 
 // Clusters returns a map which maps the OpenShift API URL to the application DNS for this cluster. An empty map together with
