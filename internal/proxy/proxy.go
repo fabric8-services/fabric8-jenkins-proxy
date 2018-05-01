@@ -360,7 +360,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 	if needsAuth {
 		redirAuth := GetAuthURI(p.authURL, redirectURL.String())
 		requestLogEntry.Infof("Redirecting to auth: %s", redirAuth)
-		http.Redirect(w, r, redirAuth, 301)
+		http.Redirect(w, r, redirAuth, http.StatusTemporaryRedirect)
 	}
 	return
 }
