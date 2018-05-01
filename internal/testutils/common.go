@@ -32,7 +32,7 @@ func MockRedirect(url string) *httptest.Server {
 		}
 		if redir, ok := req.URL.Query()["redirect"]; ok {
 			log.Info(fmt.Sprintf("MockRedirect to %s/toke-info...", redir[0]))
-			http.Redirect(w, req, fmt.Sprintf("%s%s", redir[0], AuthData1()), 301)
+			http.Redirect(w, req, fmt.Sprintf("%s%s", redir[0], AuthData1()), http.StatusTemporaryRedirect)
 			return
 		}
 	}))
