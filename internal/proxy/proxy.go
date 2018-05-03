@@ -481,24 +481,11 @@ func (p *Proxy) storeGHRequest(w http.ResponseWriter, r *http.Request, ns string
 
 func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntry *log.Entry, code int) (err error) {
 	w.WriteHeader(code)
-	var message string
-	if code == http.StatusAccepted {
-		message = "Jenkins has been idled. It is starting now, please wait..."
-	} else if code == http.StatusServiceUnavailable {
-		message = "Cluster Tenant resource capacity for current cluster is full, please wait..."
-	}
-
 	tmplt, err := template.ParseFiles(p.indexPath)
 	if err != nil {
 		return
 	}
-	data := struct {
-		Message string
-		Retry   int
-	}{
-		Message: message,
-		Retry:   15,
-	}
+	data := struct{ Retry int }{Retry: 15}
 	requestLogEntry.WithField("ns", ns).Debug("Templating index.html")
 	err = tmplt.Execute(w, data)
 
