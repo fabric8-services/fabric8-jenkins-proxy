@@ -1,56 +1,68 @@
 <!doctype html>
 <head>
     <meta charset="utf-8">
-    <title>Jenkins Idled</title>
+    <title>Starting Jenkins...</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-      p {
-        text-align: center
+      body {
+        font-family: Helvetica;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
     </style>
-    
-</head>
-<body>
 
-    <p><img src="https://upload.wikimedia.org/wikipedia/commons/2/28/InternetSlowdown_Day.gif" /></p>
-    <p id="message">{{.Message}}</p>
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>    
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script type="application/javascript">
-      var timeout = {{.Retry}}*1000
       $(document).ready(function() {
+        var timeout = {{.Retry}}*1000
+
+        function showStatus(header, body) {
+          $("#header").text(header)
+          $("#status").text(body)
+        }
         function check() {
-          console.log("Checking "+window.location)
+          console.log("Checking", window.location)
           $.ajax({
             type: "GET",
-            url: window.location, 
+            url: window.location,
             success: null,
             statusCode: {
+              200: function() {
+                console.log("Got 200, reloading...")
+                showStatus("Starting Jenkins", "Jenkins is up and running; loading..." )
+                window.location.reload(true)
+                },
               202: function(){
                 console.log("Got 202, waiting along..")
-                document.getElementById("message").innerHTML = "Jenkins has been idled. It is starting now, please wait..."
+                showStatus("Starting Jenkins", "Jenkins is currently idled. Please wait while we start it...")
                 setTimeout(check, timeout)
                 },
               503: function(){
                 console.log("Got 503, Cluster resources capacity is full. waiting along..")
-                document.getElementById("message").innerHTML = "Tenant resource capacity for current cluster is full, please wait..."
+                showStatus("Failed to start Jenkins", "OpenShift cluster is experiencing heavy load. Retrying...")
                 setTimeout(check, timeout)
               },
-              200: function() {
-                console.log("Got 200, reloading...")
-                window.location.reload(true)
-                },
               default: function(xhr, status, e) {
-                console.log(status)
+                console.error(status)
                 setTimeout(check, timeout)
               }
-            }          
+            }
           });
         }
-
+        check()
         setTimeout(check, timeout);
       });
     </script>
+</head>
+<body>
+  <div class="container">
+    <h1 id="header"> Starting Jenkins ... </h1>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif" />
+    <p>Status: <span id="status"> please wait...</span> </p>
+  </div>
 </body>
 </html>
