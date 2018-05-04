@@ -9,7 +9,6 @@ import (
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -118,12 +117,13 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
-		return resp.StatusCode, nil
-	} else if resp.StatusCode == 503 {
+	// return err only for unexpected responses from idler
+	if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusServiceUnavailable {
 		return resp.StatusCode, nil
 	}
-	return 0, errors.New(fmt.Sprintf("unexpected status code '%d' as response to unidle call.", resp.StatusCode))
+
+	return 0, fmt.Errorf("unexpected status code '%d' as response to unidle call", resp.StatusCode)
 }
 
 // Clusters returns a map which maps the OpenShift API URL to the application DNS for this cluster. An empty map together with
