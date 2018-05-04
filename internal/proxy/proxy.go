@@ -323,7 +323,19 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 						p.HandleError(w, err, requestLogEntry)
 						return
 					}
-					err = p.processTemplate(w, ns, requestLogEntry, code)
+
+					if code == http.StatusOK {
+						code = http.StatusAccepted
+					} else if code != http.StatusServiceUnavailable {
+						p.HandleError(w, fmt.Errorf("Failed to send unidle request using fabric8-jenkins-idler"), requestLogEntry)
+					}
+
+					w.WriteHeader(code)
+					err = p.processTemplate(w, ns, requestLogEntry)
+					if err != nil {
+						p.HandleError(w, err, requestLogEntry)
+						return
+					}
 					p.recordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
 				} else { //If Jenkins is running, remove the cookie
 					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
@@ -339,7 +351,12 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 						cookie.Expires = time.Unix(0, 0)
 						http.SetCookie(w, cookie)
 					} else {
-						err = p.processTemplate(w, ns, requestLogEntry, http.StatusAccepted)
+						w.WriteHeader(http.StatusAccepted)
+						err = p.processTemplate(w, ns, requestLogEntry)
+						if err != nil {
+							p.HandleError(w, err, requestLogEntry)
+							return
+						}
 					}
 				}
 
@@ -479,8 +496,7 @@ func (p *Proxy) storeGHRequest(w http.ResponseWriter, r *http.Request, ns string
 	return
 }
 
-func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntry *log.Entry, code int) (err error) {
-	w.WriteHeader(code)
+func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntry *log.Entry) (err error) {
 	tmplt, err := template.ParseFiles(p.indexPath)
 	if err != nil {
 		return
