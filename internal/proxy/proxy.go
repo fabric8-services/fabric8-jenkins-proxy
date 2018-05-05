@@ -218,6 +218,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 	//If the user provides OSO token, we can directly proxy
 	if _, ok := r.Header["Authorization"]; ok { //FIXME Do we need this?
 		needsAuth = false
+		noProxy = false
 	}
 
 	if tj, ok := r.URL.Query()["token_json"]; ok { //If there is token_json in query, process it, find user info and login to Jenkins
