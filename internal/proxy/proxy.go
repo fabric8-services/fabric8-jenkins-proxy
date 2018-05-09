@@ -187,6 +187,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			log.WithField("ns", ns).WithField("url", reqURL.String()).Info("Proxying")
 		},
 		ModifyResponse: func(resp *http.Response) error {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
 			//Check response from Jenkins and redirect if it got idled in the meantime
 			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
 				if len(cacheKey) > 0 { //Delete cache entry to force new check whether Jenkins is idled
