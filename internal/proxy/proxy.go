@@ -135,6 +135,9 @@ func NewProxy(tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerServic
 //Handle handles requests coming to the proxy and performs action based on
 //the type of request and state of Jenkins.
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
+	// Setting header here to all the subsequent calls have this set
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	isGH := p.isGitHubRequest(r)
 	var requestType string
 	if isGH {
