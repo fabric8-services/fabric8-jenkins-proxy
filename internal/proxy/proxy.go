@@ -132,9 +132,22 @@ func NewProxy(tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerServic
 	return p, nil
 }
 
+func enableCORS(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
+func checkHeaders(w http.ResponseWriter) {
+	log.Infof("Checking Headers: " + w.Header().Get("Access-Control-Allow-Origin"))
+	log.Infof("Checking Headers: " + w.Header().Get("Access-Control-Allow-Methods"))
+	log.Infof("Checking Headers: " + w.Header().Get("Access-Control-Allow-Headers"))
+}
+
 //Handle handles requests coming to the proxy and performs action based on
 //the type of request and state of Jenkins.
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
+	enableCORS(&w)
 	isGH := p.isGitHubRequest(r)
 	var requestType string
 	if isGH {
@@ -187,7 +200,6 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 			log.WithField("ns", ns).WithField("url", reqURL.String()).Info("Proxying")
 		},
 		ModifyResponse: func(resp *http.Response) error {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
 			//Check response from Jenkins and redirect if it got idled in the meantime
 			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
 				if len(cacheKey) > 0 { //Delete cache entry to force new check whether Jenkins is idled
@@ -196,6 +208,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 				}
 				if len(reqURL.String()) > 0 { //Block proxying to 503, redirect to self
 					log.Infof("Redirecting to %s, because %d", reqURL.String(), resp.StatusCode)
+					checkHeaders(w)
 					http.Redirect(w, r, reqURL.String(), http.StatusFound)
 				}
 			}
@@ -252,6 +265,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 
 			p.setIdledCookie(w, pci)
 			requestLogEntry.WithField("ns", ns).Info("Redirecting to remove token from URL")
+			checkHeaders(w)
 			http.Redirect(w, r, redirectURL.String(), http.StatusFound) //Redirect to get rid of token in URL
 			return
 		}
@@ -279,6 +293,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 					requestLogEntry.WithField("ns", ns).Infof("Cached Jenkins route %s in %s", pci.Route, cookie.Value)
 					requestLogEntry.WithField("ns", ns).Infof("Redirecting to %s", redirectURL.String())
 					//If all good, redirect to self to remove token from url
+					checkHeaders(w)
 					http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 					return
 				}
@@ -378,6 +393,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 	if needsAuth {
 		redirAuth := GetAuthURI(p.authURL, redirectURL.String())
 		requestLogEntry.Infof("Redirecting to auth: %s", redirAuth)
+		checkHeaders(w)
 		http.Redirect(w, r, redirAuth, http.StatusTemporaryRedirect)
 	}
 	return
