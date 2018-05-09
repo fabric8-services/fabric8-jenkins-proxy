@@ -24,8 +24,6 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
-	"github.com/patrickmn/go-cache"
-	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -204,6 +202,9 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, requestLogEntry *log.Entry) (cacheKey string, ns string, noProxy bool) {
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	//redirect determines if we need to redirect to auth service
 	needsAuth := true
 	noProxy = true
