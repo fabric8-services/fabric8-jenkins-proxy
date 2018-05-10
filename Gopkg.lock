@@ -4,7 +4,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/Azure/go-ansiterm"
-  packages = [".","winterm"]
+  packages = [
+    ".",
+    "winterm"
+  ]
   revision = "d6e3b3328b783f23731bc4d058875b0371ff8109"
 
 [[projects]]
@@ -51,7 +54,33 @@
 
 [[projects]]
   name = "github.com/docker/docker"
-  packages = ["api/types","api/types/blkiodev","api/types/container","api/types/filters","api/types/mount","api/types/network","api/types/registry","api/types/strslice","api/types/swarm","api/types/swarm/runtime","api/types/versions","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonmessage","pkg/longpath","pkg/mount","pkg/pools","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
+  packages = [
+    "api/types",
+    "api/types/blkiodev",
+    "api/types/container",
+    "api/types/filters",
+    "api/types/mount",
+    "api/types/network",
+    "api/types/registry",
+    "api/types/strslice",
+    "api/types/swarm",
+    "api/types/swarm/runtime",
+    "api/types/versions",
+    "opts",
+    "pkg/archive",
+    "pkg/fileutils",
+    "pkg/homedir",
+    "pkg/idtools",
+    "pkg/ioutils",
+    "pkg/jsonmessage",
+    "pkg/longpath",
+    "pkg/mount",
+    "pkg/pools",
+    "pkg/stdcopy",
+    "pkg/system",
+    "pkg/term",
+    "pkg/term/windows"
+  ]
   revision = "fe8aac6f5ae413a967adb0adad0b54abdfb825c4"
 
 [[projects]]
@@ -93,7 +122,17 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
-  packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
+  packages = [
+    ".",
+    "hcl/ast",
+    "hcl/parser",
+    "hcl/scanner",
+    "hcl/strconv",
+    "hcl/token",
+    "json/parser",
+    "json/scanner",
+    "json/token"
+  ]
   revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
 
 [[projects]]
@@ -122,7 +161,10 @@
 
 [[projects]]
   name = "github.com/lib/pq"
-  packages = [".","oid"]
+  packages = [
+    ".",
+    "oid"
+  ]
   revision = "83612a56d3dd153a94a629cd64925371c9adad78"
 
 [[projects]]
@@ -151,13 +193,19 @@
 
 [[projects]]
   name = "github.com/opencontainers/image-spec"
-  packages = ["specs-go","specs-go/v1"]
+  packages = [
+    "specs-go",
+    "specs-go/v1"
+  ]
   revision = "d60099175f88c47cd379c4738d158884749ed235"
   version = "v1.0.1"
 
 [[projects]]
   name = "github.com/opencontainers/runc"
-  packages = ["libcontainer/system","libcontainer/user"]
+  packages = [
+    "libcontainer/system",
+    "libcontainer/user"
+  ]
   revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
   version = "v0.1.1"
 
@@ -187,7 +235,10 @@
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
-  packages = ["prometheus"]
+  packages = [
+    "prometheus",
+    "prometheus/promhttp"
+  ]
   revision = "c5b7fccd204277076155f10851dad72b76a49317"
   version = "v0.8.0"
 
@@ -200,14 +251,29 @@
 [[projects]]
   branch = "master"
   name = "github.com/prometheus/common"
-  packages = ["expfmt","internal/bitbucket.org/ww/goautoneg","model"]
+  packages = [
+    "expfmt",
+    "internal/bitbucket.org/ww/goautoneg",
+    "model"
+  ]
   revision = "38c53a9f4bfcd932d1b00bfc65e256a7fba6b37a"
 
 [[projects]]
   branch = "master"
   name = "github.com/prometheus/procfs"
-  packages = [".","internal/util","nfs","xfs"]
+  packages = [
+    ".",
+    "internal/util",
+    "nfs",
+    "xfs"
+  ]
   revision = "780932d4fbbe0e69b84c34c20f5c8d0981e109ea"
+
+[[projects]]
+  name = "github.com/rs/cors"
+  packages = ["."]
+  revision = "feef513b9575b32f84bafa580aad89b011259019"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
@@ -217,13 +283,19 @@
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
-  packages = [".","hooks/test"]
+  packages = [
+    ".",
+    "hooks/test"
+  ]
   revision = "202f25545ea4cf9b191ff7f846df5d87c9382c2b"
   version = "v1.0.0"
 
 [[projects]]
   name = "github.com/spf13/afero"
-  packages = [".","mem"]
+  packages = [
+    ".",
+    "mem"
+  ]
   revision = "bb8f1927f2a9d3ab41c9340aa034f6b803f4359c"
   version = "v1.0.2"
 
@@ -259,26 +331,44 @@
 
 [[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert","require"]
+  packages = [
+    "assert",
+    "require"
+  ]
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
   version = "v1.1.4"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp","html","html/atom"]
+  packages = [
+    "context",
+    "context/ctxhttp",
+    "html",
+    "html/atom"
+  ]
   revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "af50095a40f9041b3b38960738837185c26e9419"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["internal/gen","internal/triegen","internal/ucd","transform","unicode/cldr","unicode/norm"]
+  packages = [
+    "internal/gen",
+    "internal/triegen",
+    "internal/ucd",
+    "transform",
+    "unicode/cldr",
+    "unicode/norm"
+  ]
   revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
 
 [[projects]]
@@ -296,6 +386,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ddc28772e6d4eb02dbc1665a0c8fe4c9111a2756f5089736b19340389fc5c2ab"
+  inputs-digest = "c5cb2898ca998e5a394fae2875d7431d3523d5c67c47231848335a1422d4c712"
   solver-name = "gps-cdcl"
   solver-version = 1

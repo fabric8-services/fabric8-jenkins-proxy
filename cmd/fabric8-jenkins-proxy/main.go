@@ -11,6 +11,8 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/router"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 
+	"github.com/rs/cors"
+
 	"context"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
@@ -127,7 +129,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 		defer wg.Done()
 		srv := &http.Server{
 			Addr:    apiRouterPort,
-			Handler: router.CreateAPIRouter(api),
+			Handler: cors.AllowAll().Handler(router.CreateAPIRouter(api)),
 		}
 
 		go func() {
@@ -155,7 +157,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 		defer wg.Done()
 		srv := &http.Server{
 			Addr:    proxyPort,
-			Handler: createProxyRouter(proxy),
+			Handler: cors.AllowAll().Handler(createProxyRouter(proxy)),
 		}
 
 		go func() {
