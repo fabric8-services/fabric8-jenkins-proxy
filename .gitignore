@@ -13,3 +13,5 @@ scripts/config
 
 # Misc
 .virtualgo
+*.key
+*.crt

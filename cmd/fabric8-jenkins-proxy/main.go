@@ -106,12 +106,32 @@ func start(config configuration.Configuration, tenant *clients.Tenant, wit clien
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	startWorkers(ctx, &wg, cancel, store, &proxy, defaultStatsLoggingInterval, config.GetDebugMode())
+	startWorkers(ctx, &wg, cancel, store, &proxy, defaultStatsLoggingInterval, config)
 	setupSignalChannel(cancel)
 	wg.Wait()
 }
 
-func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.CancelFunc, store storage.Store, proxy *proxy.Proxy, interval time.Duration, addProfiler bool) {
+func listenAndServe(srv *http.Server, cancel context.CancelFunc, enableHTTPS bool) {
+	if enableHTTPS {
+		if err := srv.ListenAndServeTLS("server.crt", "server.key"); err != nil {
+			log.Error(err)
+			cancel()
+			return
+		}
+	} else {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Error(err)
+			cancel()
+			return
+		}
+	}
+}
+
+func startWorkers(
+	ctx context.Context, wg *sync.WaitGroup, cancel context.CancelFunc,
+	store storage.Store, proxy *proxy.Proxy, interval time.Duration,
+	config configuration.Configuration) {
+
 	mainLogger.Info("Starting  all workers")
 	wg.Add(1)
 	go func() {
@@ -131,10 +151,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 
 		go func() {
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
-			if err := srv.ListenAndServe(); err != nil {
-				cancel()
-				return
-			}
+			listenAndServe(srv, cancel, config.GetHTTPSEnabled())
 		}()
 
 		for {
@@ -155,10 +172,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 		srv := newProxyServer(proxy)
 		go func() {
 			mainLogger.Infof("Starting proxy on port %s", proxyPort)
-			if err := srv.ListenAndServe(); err != nil {
-				cancel()
-				return
-			}
+			listenAndServe(srv, cancel, config.GetHTTPSEnabled())
 		}()
 
 		for {
@@ -173,7 +187,8 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 		}
 	}()
 
-	if addProfiler {
+	// add profile if debug mode is enabled
+	if config.GetDebugMode() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -183,10 +198,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 
 			go func() {
 				mainLogger.Infof("Starting profiler on port %s", profilerPort)
-				if err := srv.ListenAndServe(); err != nil {
-					cancel()
-					return
-				}
+				listenAndServe(srv, cancel, config.GetHTTPSEnabled())
 			}()
 
 			for {

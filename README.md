@@ -149,7 +149,9 @@ Services running as a part of this local setup:
   - idler on 9001
   - tenant service on 9002
   - postgres on 5432
-  
+
+This will run proxy over HTTPS on port 8080.
+
 <a id="testing-webhooks"></a>
 ## Testing webhooks
 
@@ -160,7 +162,7 @@ There you can see the recent deliveries.
 Copy the payload of a webhook delivery into a file `webhook-payload.json`.
 Then execute the following curl command:
 
-    $ curl http://localhost:8080/github-webhook/ \
+    $ curl https://localhost:8080/github-webhook/ \
     -H "Content-Type: application/json" \
     -H "User-Agent: GitHub-Hookshot/c494ff1" \
     -H "X-GitHub-Event: status" \
@@ -172,7 +174,7 @@ Then execute the following curl command:
 
 Any request that is made to proxy(i.e., port 8080) regardless of the path, proxy will send a request to idler to unidle jenkins, if it is idled.
 
-    curl http://localhost:8080/*
+    curl https://localhost:8080/*
 
 This would show a spinning wheel until jenkins is idle. On running locally the html page might not exist so, it will show a message on not finding the html page.
 
@@ -182,7 +184,7 @@ This would show a spinning wheel until jenkins is idle. On running locally the h
 This project opens two ports 9091 and 8080. Proxy runs on 8080 and API router runs 9091. 
 The API router has only one API, which is info API. An example is as follows
 
-    Request: GET http://localhost:9091/api/info/ksagathi-preview
+    Request: GET https://localhost:9091/api/info/ksagathi-preview
 
     Response: {"namespace":"ksagathi-preview","requests":0,"last_visit":0,"last_request":0}
     
