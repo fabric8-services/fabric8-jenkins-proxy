@@ -127,10 +127,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := &http.Server{
-			Addr:    apiRouterPort,
-			Handler: cors.AllowAll().Handler(router.CreateAPIRouter(api)),
-		}
+		srv := getAPIServer(api)
 
 		go func() {
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
@@ -155,11 +152,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := &http.Server{
-			Addr:    proxyPort,
-			Handler: cors.AllowAll().Handler(createProxyRouter(proxy)),
-		}
-
+		srv := getProxyServer(proxy)
 		go func() {
 			mainLogger.Infof("Starting proxy on port %s", proxyPort)
 			if err := srv.ListenAndServe(); err != nil {
@@ -210,14 +203,6 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	}
 }
 
-// createProxyRouter is the HTTP server handler which handles the incoming webhook and UI requests.
-func createProxyRouter(proxy *proxy.Proxy) *http.ServeMux {
-	proxyMux := http.NewServeMux()
-	proxyMux.HandleFunc("/", proxy.Handle)
-
-	return proxyMux
-}
-
 // setupSignalChannel registers a listener for Unix signals for a ordered shutdown
 func setupSignalChannel(cancel context.CancelFunc) {
 	sigchan := make(chan os.Signal, 1)
@@ -228,4 +213,26 @@ func setupSignalChannel(cancel context.CancelFunc) {
 		mainLogger.Info("Received SIGTERM signal. Initiating shutdown.")
 		cancel()
 	}()
+}
+
+func getAPIServer(api api.ProxyAPI) *http.Server {
+	c := cors.New(cors.Options{
+		AllowCredentials: true,
+	})
+	srv := &http.Server{
+		Addr:    apiRouterPort,
+		Handler: c.Handler(router.CreateAPIRouter(api)),
+	}
+	return srv
+}
+
+func getProxyServer(p *proxy.Proxy) *http.Server {
+	c := cors.New(cors.Options{
+		AllowCredentials: true,
+	})
+	srv := &http.Server{
+		Addr:    proxyPort,
+		Handler: c.Handler(router.CreateProxyRouter(p)),
+	}
+	return srv
 }
