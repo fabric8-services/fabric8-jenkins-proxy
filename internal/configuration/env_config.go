@@ -20,6 +20,7 @@ const (
 	defaultIndexPath                 = "/opt/fabric8-jenkins-proxy/index.html"
 	defaultMaxRequestRetry           = "10"
 	defaultDebugMode                 = "false"
+	defaultHTTPSEnabled              = "false"
 )
 
 var (
@@ -52,6 +53,7 @@ func init() {
 	settings["GetIndexPath"] = Setting{"JC_INDEX_PATH", defaultIndexPath, []func(interface{}, string) error{util.IsNotEmpty}}
 	settings["GetMaxRequestRetry"] = Setting{"JC_MAX_REQUEST_RETRY", defaultMaxRequestRetry, []func(interface{}, string) error{util.IsInt}}
 	settings["GetDebugMode"] = Setting{"JC_DEBUG_MODE", defaultDebugMode, []func(interface{}, string) error{util.IsBool}}
+	settings["GetHTTPSEnabled"] = Setting{"JC_ENABLE_HTTPS", defaultHTTPSEnabled, []func(interface{}, string) error{util.IsBool}}
 }
 
 // Setting is an element in the proxy configuration. It contains the environment
@@ -237,6 +239,15 @@ func (c *EnvConfig) GetMaxRequestRetry() int {
 
 // GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable.
 func (c *EnvConfig) GetDebugMode() bool {
+	callPtr, _, _, _ := runtime.Caller(0)
+	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
+
+	b, _ := strconv.ParseBool(value)
+	return b
+}
+
+// GetHTTPSEnabled returns if https should be enabled as set via default, config file, or environment variable.
+func (c *EnvConfig) GetHTTPSEnabled() bool {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
 

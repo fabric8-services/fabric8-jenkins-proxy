@@ -67,6 +67,13 @@ login() {
     loc login https://api.rh-idev.openshift.com -n dsaas-preview --token=${DSAAS_PREVIEW_TOKEN} >/dev/null
 }
 
+generateCertificates() {
+    # generate only if needed
+    [[ -r server.key ]] && [[ -r server.crt ]] && return
+
+    openssl req -newkey rsa:2048 -nodes -keyout ./server.key -x509 -days 365 -out ./server.crt
+}
+
 ###############################################################################
 # Retrieves the required Auth token
 # Globals:
@@ -176,6 +183,7 @@ runPostgres() {
 start() {
     [ -z "${DSAAS_PREVIEW_TOKEN}" ] && echo "DSAAS_PREVIEW_TOKEN needs to be exported." && printHelp && exit 1
 
+    generateCertificates
     login
 
     loc get pods > /dev/null
@@ -203,7 +211,8 @@ env() {
 
     echo export JC_KEYCLOAK_URL=https://sso.prod-preview.openshift.io
     echo export JC_WIT_API_URL=https://api.prod-preview.openshift.io
-    echo export JC_REDIRECT_URL=http://localhost:8080
+    echo export JC_REDIRECT_URL=https://localhost:8080
+    echo export JC_ENABLE_HTTPS=true
     echo export JC_AUTH_URL=https://auth.prod-preview.openshift.io
     echo export JC_POSTGRES_PORT=${LOCAL_POSTGRES_PORT}
     echo export JC_POSTGRES_HOST=localhost
@@ -230,6 +239,7 @@ unsetEnv() {
     echo unset JC_KEYCLOAK_URL
     echo unset JC_WIT_API_URL
     echo unset JC_REDIRECT_URL
+    echo unset JC_ENABLE_HTTPS
     echo unset JC_AUTH_URL
     echo unset JC_POSTGRES_PORT
     echo unset JC_POSTGRES_HOST

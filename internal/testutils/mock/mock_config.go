@@ -21,6 +21,7 @@ type Config struct {
 	IndexPath                 string
 	MaxRequestRetry           int
 	DebugMode                 bool
+	HTTPSEnabled              bool
 	Clusters                  map[string]string
 }
 
@@ -142,6 +143,11 @@ func (c *Config) GetMaxRequestRetry() int {
 // GetDebugMode return hardcoded debug mode from test configuration.
 func (c *Config) GetDebugMode() bool {
 	return c.DebugMode
+}
+
+// GetHTTPSEnabled return hardcoded http-enabled from test configuration.
+func (c *Config) GetHTTPSEnabled() bool {
+	return c.HTTPSEnabled
 }
 
 func (c *Config) String() string {

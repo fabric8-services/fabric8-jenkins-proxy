@@ -62,6 +62,9 @@ type Configuration interface {
 	// GetDebugMode returns if debug mode should be enabled as set via default, config file, or environment variable
 	GetDebugMode() bool
 
+	// GetHTTPSEnabled returns if https should be enabled as set via default, config file, or environment variable
+	GetHTTPSEnabled() bool
+
 	// String returns a string representation of the configuration
 	String() string
 }
