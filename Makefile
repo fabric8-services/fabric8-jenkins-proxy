@@ -18,7 +18,7 @@ SOURCE_DIRS = $(shell echo $(PACKAGES) | awk 'BEGIN{FS="/"; RS=" "}{print $$4}' 
 LD_FLAGS := -X github.com/fabric8-services/fabric8-jenkins-proxy/internal/version.version=$(IMAGE_TAG)
 
 # MISC
-START_COMMIT_MESSAGE_VALIDATION = decf89e7e5948f2065f17a5daa4da79cbf117664
+START_COMMIT_MESSAGE_VALIDATION = 1091725ef9533f26a6c4c6119140a3c8633e9109
 .DEFAULT_GOAL := help
 
 # Check that given variables are set and all have non-empty values,
