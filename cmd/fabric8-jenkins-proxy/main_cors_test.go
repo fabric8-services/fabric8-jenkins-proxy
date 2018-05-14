@@ -25,7 +25,7 @@ func (m MockProxyAPIImpl) Info(w http.ResponseWriter, r *http.Request, ps httpro
 }
 
 func TestAPIServerCORSHeaders(t *testing.T) {
-	apiServer := getAPIServer(MockProxyAPIImpl{})
+	apiServer := newAPIServer(MockProxyAPIImpl{})
 	reader, _ := http.NewRequest("GET", "/", nil)
 	randomOrigin := uuid.NewV4().String()
 	reader.Header.Set("origin", randomOrigin) // allowing everything for now.
@@ -38,7 +38,7 @@ func TestAPIServerCORSHeaders(t *testing.T) {
 }
 
 func TestProxyCORSHeaders(t *testing.T) {
-	apiServer := getProxyServer(&proxy.Proxy{})
+	apiServer := newProxyServer(&proxy.Proxy{})
 	reader, _ := http.NewRequest("GET", "/", nil)
 	randomOrigin := uuid.NewV4().String()
 	reader.Header.Set("origin", randomOrigin) // allowing everything for now.

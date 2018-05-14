@@ -127,7 +127,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := getAPIServer(api)
+		srv := newAPIServer(api)
 
 		go func() {
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
@@ -152,7 +152,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := getProxyServer(proxy)
+		srv := newProxyServer(proxy)
 		go func() {
 			mainLogger.Infof("Starting proxy on port %s", proxyPort)
 			if err := srv.ListenAndServe(); err != nil {
@@ -215,7 +215,7 @@ func setupSignalChannel(cancel context.CancelFunc) {
 	}()
 }
 
-func getAPIServer(api api.ProxyAPI) *http.Server {
+func newAPIServer(api api.ProxyAPI) *http.Server {
 	c := cors.New(cors.Options{
 		AllowCredentials: true,
 	})
@@ -226,7 +226,7 @@ func getAPIServer(api api.ProxyAPI) *http.Server {
 	return srv
 }
 
-func getProxyServer(p *proxy.Proxy) *http.Server {
+func newProxyServer(p *proxy.Proxy) *http.Server {
 	c := cors.New(cors.Options{
 		AllowCredentials: true,
 	})
