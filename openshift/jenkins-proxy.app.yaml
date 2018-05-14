@@ -10,7 +10,7 @@ objects:
   metadata:
     name: jenkins-proxy
   spec:
-    replicas: 1
+    replicas: 3
     selector:
       service: jenkins-proxy
     strategy:
