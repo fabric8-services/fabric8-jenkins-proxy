@@ -46,6 +46,6 @@ func TestProxyCORSHeaders(t *testing.T) {
 	writer := httptest.NewRecorder()
 	apiServer.Handler.ServeHTTP(writer, reader)
 
-	assert.Equal(t, randomOrigin, writer.Header().Get("access-control-allow-origin"))
+	assert.Equal(t, "", writer.Header().Get("access-control-allow-origin"))
 
 }

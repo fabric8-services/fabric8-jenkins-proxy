@@ -227,12 +227,10 @@ func newAPIServer(api api.ProxyAPI) *http.Server {
 }
 
 func newProxyServer(p *proxy.Proxy) *http.Server {
-	c := cors.New(cors.Options{
-		AllowCredentials: true,
-	})
+
 	srv := &http.Server{
 		Addr:    proxyPort,
-		Handler: c.Handler(router.CreateProxyRouter(p)),
+		Handler: router.CreateProxyRouter(p),
 	}
 	return srv
 }
