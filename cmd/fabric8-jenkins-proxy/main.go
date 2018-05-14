@@ -227,7 +227,6 @@ func newAPIServer(api api.ProxyAPI) *http.Server {
 }
 
 func newProxyServer(p *proxy.Proxy) *http.Server {
-
 	srv := &http.Server{
 		Addr:    proxyPort,
 		Handler: router.CreateProxyRouter(p),
