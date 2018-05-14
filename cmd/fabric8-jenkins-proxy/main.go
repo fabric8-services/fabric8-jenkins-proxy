@@ -11,6 +11,8 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/router"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 
+	"github.com/rs/cors"
+
 	"context"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
@@ -125,10 +127,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := &http.Server{
-			Addr:    apiRouterPort,
-			Handler: router.CreateAPIRouter(api),
-		}
+		srv := newAPIServer(api)
 
 		go func() {
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
@@ -153,11 +152,7 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := &http.Server{
-			Addr:    proxyPort,
-			Handler: createProxyRouter(proxy),
-		}
-
+		srv := newProxyServer(proxy)
 		go func() {
 			mainLogger.Infof("Starting proxy on port %s", proxyPort)
 			if err := srv.ListenAndServe(); err != nil {
@@ -208,14 +203,6 @@ func startWorkers(ctx context.Context, wg *sync.WaitGroup, cancel context.Cancel
 	}
 }
 
-// createProxyRouter is the HTTP server handler which handles the incoming webhook and UI requests.
-func createProxyRouter(proxy *proxy.Proxy) *http.ServeMux {
-	proxyMux := http.NewServeMux()
-	proxyMux.HandleFunc("/", proxy.Handle)
-
-	return proxyMux
-}
-
 // setupSignalChannel registers a listener for Unix signals for a ordered shutdown
 func setupSignalChannel(cancel context.CancelFunc) {
 	sigchan := make(chan os.Signal, 1)
@@ -226,4 +213,23 @@ func setupSignalChannel(cancel context.CancelFunc) {
 		mainLogger.Info("Received SIGTERM signal. Initiating shutdown.")
 		cancel()
 	}()
+}
+
+func newAPIServer(api api.ProxyAPI) *http.Server {
+	c := cors.New(cors.Options{
+		AllowCredentials: true,
+	})
+	srv := &http.Server{
+		Addr:    apiRouterPort,
+		Handler: c.Handler(router.CreateAPIRouter(api)),
+	}
+	return srv
+}
+
+func newProxyServer(p *proxy.Proxy) *http.Server {
+	srv := &http.Server{
+		Addr:    proxyPort,
+		Handler: router.CreateProxyRouter(p),
+	}
+	return srv
 }
