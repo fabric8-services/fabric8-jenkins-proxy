@@ -21,11 +21,12 @@ const (
 	OpenShiftAPIParam = "openshift_api_url"
 )
 
-type podState string
+// PodState represents status of the pod which could be running|starting|idled|
+type PodState string
 
 const (
 	// UnknownState used when the state isn't known, along with err
-	UnknownState podState = ""
+	UnknownState PodState = ""
 	// Running represents a running pod
 	Running = "running"
 	// Starting represents pod that is starting
@@ -41,28 +42,30 @@ type clusterView struct {
 	AppDNS string
 }
 
-// Jenkins pod state response structs
 // ErrorCode is an integer that clients to can use to compare errors
-type errorCode uint32
+type ErrorCode uint32
 
-type responseError struct {
-	Code        errorCode `json:"code"`
+// ResponseError contains and err description along with http status code
+type ResponseError struct {
+	Code        ErrorCode `json:"code"`
 	Description string    `json:"description"`
 }
 
-type jenkinsInfo struct {
-	State podState `json:"state"`
+// JenkinsInfo contains Jenkins pod state
+type JenkinsInfo struct {
+	State PodState `json:"state"`
 }
 
-type statusResponse struct {
-	Data   *jenkinsInfo    `json:"data,omitempty"`
-	Errors []responseError `json:"errors,omitempty"`
+// StatusResponse provides jenkins status and errors that occurred while making the status API call to idler
+type StatusResponse struct {
+	Data   *JenkinsInfo    `json:"data,omitempty"`
+	Errors []ResponseError `json:"errors,omitempty"`
 }
 
 // IdlerService provides methods to talk to the idler client
 type IdlerService interface {
 	UnIdle(tenant string, openShiftAPIURL string) (int, error)
-	State(tenant string, openShiftAPIURL string) (podState, error)
+	State(tenant string, openShiftAPIURL string) (PodState, error)
 	Clusters() (map[string]string, error)
 }
 
@@ -79,7 +82,7 @@ func NewIdler(url string) IdlerService {
 }
 
 // State returns the state of Jenkins instance for the specified tenant
-func (i *idler) State(tenant string, openShiftAPIURL string) (podState, error) {
+func (i *idler) State(tenant string, openShiftAPIURL string) (PodState, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
@@ -114,7 +117,7 @@ func (i *idler) State(tenant string, openShiftAPIURL string) (podState, error) {
 		return UnknownState, err
 	}
 
-	sr := &statusResponse{}
+	sr := &StatusResponse{}
 	err = json.Unmarshal(body, sr)
 	if err != nil {
 		return UnknownState, err
@@ -202,7 +205,7 @@ func (i *idler) Clusters() (map[string]string, error) {
 	return clusters, nil
 }
 
-func (e responseError) Error() string {
+func (e ResponseError) Error() string {
 	return fmt.Sprintf("%d: %s", e.Code, e.Description)
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/jenkinsapi"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/router"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
@@ -30,6 +31,7 @@ const (
 	defaultStatsLoggingInterval = 5 * time.Minute
 	shutdownTimeout             = 5
 	apiRouterPort               = ":9091"
+	jenkinsAPIRouterPort        = ":9092"
 	proxyPort                   = ":8080"
 	profilerPort                = ":6060"
 )
@@ -166,6 +168,31 @@ func startWorkers(
 		}
 	}()
 
+	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+	idler := clients.NewIdler(config.GetIdlerURL())
+	jenkinsAPI := jenkinsapi.NewJenkinsAPI(&tenant, idler)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		srv := newJenkinsAPIServer(jenkinsAPI)
+
+		go func() {
+			mainLogger.Infof("Starting Jenkins Status API router on port %s", jenkinsAPIRouterPort)
+			listenAndServe(srv, cancel, config.GetHTTPSEnabled())
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				mainLogger.Infof("Shutting down Jenkins Status API router on port %s", jenkinsAPIRouterPort)
+				ctx, cancel := context.WithTimeout(ctx, shutdownTimeout*time.Second)
+				srv.Shutdown(ctx)
+				cancel()
+				return
+			}
+		}
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -234,6 +261,17 @@ func newAPIServer(api api.ProxyAPI) *http.Server {
 	srv := &http.Server{
 		Addr:    apiRouterPort,
 		Handler: c.Handler(router.CreateAPIRouter(api)),
+	}
+	return srv
+}
+
+func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI) *http.Server {
+	c := cors.New(cors.Options{
+		AllowCredentials: true,
+	})
+	srv := &http.Server{
+		Addr:    jenkinsAPIRouterPort,
+		Handler: c.Handler(router.CreateJenkinsAPIRouter(jenkinsAPI)),
 	}
 	return srv
 }
