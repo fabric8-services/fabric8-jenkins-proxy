@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
@@ -20,10 +21,18 @@ const (
 	OpenShiftAPIParam = "openshift_api_url"
 )
 
-// status represent status of the service true if idle, false if unidle.
-type status struct {
-	IsIdle bool `json:"is_idle"`
-}
+type podState string
+
+const (
+	// UnknownState used when the state isn't known, along with err
+	UnknownState podState = ""
+	// Running represents a running pod
+	Running = "running"
+	// Starting represents pod that is starting
+	Starting = "starting"
+	// Idled represents pod that is idled
+	Idled = "idled"
+)
 
 // clusterView is a view of the cluster topology which only includes the OpenShift API URL and the application DNS for this
 // cluster.
@@ -32,10 +41,28 @@ type clusterView struct {
 	AppDNS string
 }
 
+// Jenkins pod state response structs
+// ErrorCode is an integer that clients to can use to compare errors
+type errorCode uint32
+
+type responseError struct {
+	Code        errorCode `json:"code"`
+	Description string    `json:"description"`
+}
+
+type jenkinsInfo struct {
+	State podState `json:"state"`
+}
+
+type statusResponse struct {
+	Data   *jenkinsInfo    `json:"data,omitempty"`
+	Errors []responseError `json:"errors,omitempty"`
+}
+
 // IdlerService provides methods to talk to the idler client
 type IdlerService interface {
-	IsIdle(tenant string, openShiftAPIURL string) (bool, error)
 	UnIdle(tenant string, openShiftAPIURL string) (int, error)
+	State(tenant string, openShiftAPIURL string) (podState, error)
 	Clusters() (map[string]string, error)
 }
 
@@ -51,45 +78,57 @@ func NewIdler(url string) IdlerService {
 	}
 }
 
-// IsIdle returns true if the Jenkins instance for the specified tenant is idled, false otherwise.
-func (i *idler) IsIdle(tenant string, openShiftAPIURL string) (bool, error) {
+// State returns the state of Jenkins instance for the specified tenant
+func (i *idler) State(tenant string, openShiftAPIURL string) (podState, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
 		log.WithField("ns", tenant).Debugf("Adding namespace suffix - resulting namespace: %s", namespace)
 	}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/isidle/%s", i.idlerAPI, namespace), nil)
+	req, err := http.NewRequest("GET",
+		fmt.Sprintf("%s/api/idler/status/%s", i.idlerAPI, namespace), nil)
 	if err != nil {
-		return false, err
+		return UnknownState, err
 	}
 
 	q := req.URL.Query()
 	q.Add(OpenShiftAPIParam, util.EnsureSuffix(openShiftAPIURL, "/"))
 	req.URL.RawQuery = q.Encode()
 
-	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "isidle"}).Debug("Calling Idler API")
+	logger := log.WithFields(log.Fields{
+		"request": logging.FormatHTTPRequestWithSeparator(req, " "),
+		"type":    "state",
+	})
 
-	client := &http.Client{}
+	logger.Debug("Calling Idler API")
+
+	client := httpClient()
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, err
+		return UnknownState, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, err
+		return UnknownState, err
 	}
 
-	s := &status{}
-	err = json.Unmarshal(body, s)
+	sr := &statusResponse{}
+	err = json.Unmarshal(body, sr)
 	if err != nil {
-		return false, err
+		return UnknownState, err
 	}
 
-	log.Debugf("Jenkins is idle (%t) in %s", s.IsIdle, namespace)
+	if len(sr.Errors) != 0 {
+		return UnknownState, sr.Errors[0]
 
-	return s.IsIdle, nil
+	}
+
+	state := sr.Data.State
+	logger.Debugf("Jenkins pod on %q is in %q state", namespace, state)
+
+	return state, nil
 }
 
 // UnIdle initiates un-idling of the Jenkins instance for the specified tenant.
@@ -110,7 +149,7 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 
 	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "unidle"}).Debug("Calling Idler API")
 
-	client := &http.Client{}
+	client := httpClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
@@ -161,4 +200,14 @@ func (i *idler) Clusters() (map[string]string, error) {
 	}
 
 	return clusters, nil
+}
+
+func (e responseError) Error() string {
+	return fmt.Sprintf("%d: %s", e.Code, e.Description)
+}
+
+func httpClient() *http.Client {
+	return &http.Client{
+		Timeout: 20 * time.Second,
+	}
 }
