@@ -235,14 +235,14 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 		clusterURL := pci.ClusterURL
 		requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL}).Debug("Found token info in query")
 
-		isIdle, err := p.idler.IsIdle(ns, clusterURL)
+		state, err := p.idler.State(ns, clusterURL)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 			return
 		}
 
 		//Break the process if the Jenkins is idled, set a cookie and redirect to self
-		if isIdle {
+		if state != clients.Running {
 			_, err := p.idler.UnIdle(ns, clusterURL)
 			if err != nil {
 				p.HandleError(w, err, requestLogEntry)
@@ -312,12 +312,12 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 				pci := cacheVal.(CacheItem)
 				ns = pci.NS
 				clusterURL := pci.ClusterURL
-				isIdle, err := p.idler.IsIdle(ns, clusterURL)
+				state, err := p.idler.State(ns, clusterURL)
 				if err != nil {
 					p.HandleError(w, err, requestLogEntry)
 					return
 				}
-				if isIdle { //If jenkins is idled, return loading page and status 202
+				if state != clients.Running { //If jenkins is idled, return loading page and status 202
 					code, err := p.idler.UnIdle(ns, clusterURL)
 					if err != nil {
 						p.HandleError(w, err, requestLogEntry)
@@ -449,14 +449,14 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	r.URL.Host = route
 	r.Host = route
 
-	isIdle, err := p.idler.IsIdle(ns, clusterURL)
+	state, err := p.idler.State(ns, clusterURL)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
 
 	//If Jenkins is idle, we need to cache the request and return success
-	if isIdle {
+	if state != clients.Running {
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
 		_, err = p.idler.UnIdle(ns, clusterURL)
 		if err != nil {
@@ -725,7 +725,7 @@ func (p *Proxy) ProcessBuffer() {
 					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
 					clusterURL := namespace.ClusterURL
 
-					isIdle, err := p.idler.IsIdle(ns, clusterURL)
+					state, err := p.idler.State(ns, clusterURL)
 					if err != nil {
 						log.Error(err)
 						break
@@ -734,7 +734,7 @@ func (p *Proxy) ProcessBuffer() {
 					if err != nil {
 						log.Error(err)
 					}
-					if !isIdle {
+					if state == clients.Running {
 						req, err := r.GetHTTPRequest()
 						if err != nil {
 							log.Errorf("Could not format request %s (%s): %s - deleting", r.ID, r.Namespace, err)
