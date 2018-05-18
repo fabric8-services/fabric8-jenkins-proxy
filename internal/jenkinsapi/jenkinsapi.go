@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -35,15 +36,16 @@ func NewJenkinsAPI(tenant *clients.Tenant, idler clients.IdlerService) JenkinsAP
 // Start returns the Jenkins status for the current user
 func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	resp := clients.StatusResponse{}
-
 	log.Infof("Status API ran")
-	tokenJSON, ok := r.URL.Query()["token_json"]
-	if !ok {
-		err := errors.New("Couldn't find token_json in the query")
-		handleError(w, resp, err, http.StatusBadRequest)
+
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		handleError(w, resp, errors.New("Could not find Bearer Token in Authorization Header"), http.StatusUnauthorized)
 		return
 	}
-	namespace, err := getNamespace(tokenJSON[0], api.tenant)
+
+	accessToken := strings.Split(r.Header.Get("Authorization"), " ")[1]
+	namespace, err := getNamespace(accessToken, api.tenant)
 	if err != nil {
 		handleError(w, resp, err, http.StatusInternalServerError)
 		return
@@ -83,12 +85,7 @@ func handleError(w http.ResponseWriter, resp clients.StatusResponse, err error, 
 	json.NewEncoder(w).Encode(resp)
 }
 
-func getNamespace(tokenData string, tenant *clients.Tenant) (*clients.Namespace, error) {
-	tokenJSON := &proxy.TokenJSON{}
-	err := json.Unmarshal([]byte(tokenData), tokenJSON)
-	if err != nil {
-		return nil, err
-	}
+func getNamespace(accessToken string, tenant *clients.Tenant) (*clients.Namespace, error) {
 	config, err := configuration.NewConfiguration()
 	if err != nil {
 		log.Fatal(err)
@@ -99,7 +96,7 @@ func getNamespace(tokenData string, tenant *clients.Tenant) (*clients.Namespace,
 		return nil, err
 	}
 
-	uid, err := proxy.GetTokenUID(tokenJSON.AccessToken, publicKey)
+	uid, err := proxy.GetTokenUID(accessToken, publicKey)
 	if err != nil {
 		return nil, err
 	}
