@@ -23,7 +23,7 @@ func CreateAPIRouter(api api.ProxyAPI) *httprouter.Router {
 func CreateJenkinsAPIRouter(jenkinsAPI jenkinsapi.JenkinsAPI) *httprouter.Router {
 	// Create router for API
 	jenkinsAPIRouter := httprouter.New()
-	jenkinsAPIRouter.GET("/api/jenkins/start", jenkinsAPI.Start)
+	jenkinsAPIRouter.POST("/api/jenkins/start", jenkinsAPI.Start)
 	return jenkinsAPIRouter
 }
 

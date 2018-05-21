@@ -9,8 +9,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,12 +19,12 @@ type JenkinsAPI interface {
 
 // JenkinsAPIImpl implements JenkinsAPI
 type jenkinsAPIImpl struct {
-	tenant *clients.Tenant
+	tenant clients.TenantService
 	idler  clients.IdlerService
 }
 
 // NewJenkinsAPI creates a new instance of JenkinsAPI
-func NewJenkinsAPI(tenant *clients.Tenant, idler clients.IdlerService) JenkinsAPI {
+func NewJenkinsAPI(tenant clients.TenantService, idler clients.IdlerService) JenkinsAPI {
 	return &jenkinsAPIImpl{
 		tenant: tenant,
 		idler:  idler,
@@ -36,25 +34,24 @@ func NewJenkinsAPI(tenant *clients.Tenant, idler clients.IdlerService) JenkinsAP
 // Start returns the Jenkins status for the current user
 func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	resp := clients.StatusResponse{}
-	log.Infof("Status API ran")
 
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		handleError(w, resp, errors.New("Could not find Bearer Token in Authorization Header"), http.StatusUnauthorized)
+		HandleError(w, resp, errors.New("Could not find Bearer Token in Authorization Header"), http.StatusUnauthorized)
 		return
 	}
 
 	accessToken := strings.Split(r.Header.Get("Authorization"), " ")[1]
-	namespace, err := getNamespace(accessToken, api.tenant)
+	namespace, err := api.tenant.GetNamespace(accessToken)
 	if err != nil {
-		handleError(w, resp, err, http.StatusInternalServerError)
+		HandleError(w, resp, err, http.StatusUnauthorized)
 		return
 	}
 	log.Infof("Found token info in the query. Namespace is %s and clusterURL is %s", namespace.Name, namespace.ClusterURL)
 
 	status, err := api.idler.State(namespace.Name, namespace.ClusterURL)
 	if err != nil {
-		handleError(w, resp, err, http.StatusInternalServerError)
+		HandleError(w, resp, err, http.StatusInternalServerError)
 		return
 	}
 	resp.Data = &clients.JenkinsInfo{
@@ -64,7 +61,7 @@ func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httpr
 	if status != clients.Running {
 		httpCode, err := api.idler.UnIdle(namespace.Name, namespace.ClusterURL)
 		if err != nil {
-			handleError(w, resp, err, httpCode)
+			HandleError(w, resp, err, httpCode)
 			return
 		}
 		w.WriteHeader(httpCode)
@@ -74,7 +71,8 @@ func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httpr
 
 }
 
-func handleError(w http.ResponseWriter, resp clients.StatusResponse, err error, httpCode int) {
+// HandleError logs the error and encodes it in the reponse
+func HandleError(w http.ResponseWriter, resp clients.StatusResponse, err error, httpCode int) {
 	log.Error(err)
 	w.WriteHeader(httpCode)
 	respErr := clients.ResponseError{
@@ -83,32 +81,4 @@ func handleError(w http.ResponseWriter, resp clients.StatusResponse, err error, 
 	}
 	resp.Errors = append(resp.Errors, respErr)
 	json.NewEncoder(w).Encode(resp)
-}
-
-func getNamespace(accessToken string, tenant *clients.Tenant) (*clients.Namespace, error) {
-	config, err := configuration.NewConfiguration()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	publicKey, err := proxy.GetPublicKey(config.GetKeycloakURL())
-	if err != nil {
-		return nil, err
-	}
-
-	uid, err := proxy.GetTokenUID(accessToken, publicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	ti, err := tenant.GetTenantInfo(uid)
-	if err != nil {
-		return nil, err
-	}
-	namespace, err := tenant.GetNamespaceByType(ti, "jenkins")
-	if err != nil {
-		return nil, err
-	}
-
-	return &namespace, nil
 }

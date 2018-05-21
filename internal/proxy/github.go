@@ -252,7 +252,7 @@ func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients
 		return clients.Namespace{}, err
 	}
 
-	n, err := p.tenant.GetNamespaceByType(ti, ServiceName)
+	n, err := clients.GetNamespaceByType(ti, ServiceName)
 	if err != nil {
 		return clients.Namespace{}, err
 	}
