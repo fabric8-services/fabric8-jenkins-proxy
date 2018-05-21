@@ -34,13 +34,14 @@
               200: function() {
                 console.log("Got 200, reloading...")
                 showStatus("Starting Jenkins", "Jenkins is up and running; loading..." )
-                window.location.reload(true)
-                },
+                // wait a bit longer for jenkins to boot properly after idle
+                setTimeout(function(){ window.location.reload(true) }, timeout)
+              },
               202: function(){
                 console.log("Got 202, waiting along..")
                 showStatus("Starting Jenkins", "Jenkins is currently idled. Please wait while we start it...")
                 setTimeout(check, timeout)
-                },
+              },
               503: function(){
                 console.log("Got 503, Cluster resources capacity is full. waiting along..")
                 showStatus("Failed to start Jenkins", "OpenShift cluster is experiencing heavy load. Retrying...")
@@ -53,8 +54,8 @@
             }
           });
         }
+
         check()
-        setTimeout(check, timeout);
       });
     </script>
 </head>
