@@ -32,8 +32,8 @@ type GHHookStruct struct {
 	} `json:"repository"`
 }
 
-func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requestLogEntry *log.Entry) (ns string, noProxy bool) {
-	noProxy = true
+func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requestLogEntry *log.Entry) (ns string, okToForward bool) {
+	okToForward = false
 	//Load request body if it's GH webhook
 	gh := GHHookStruct{}
 	defer r.Body.Close()
@@ -86,7 +86,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		return
 	}
 
-	noProxy = false
+	okToForward = true
 	r.Body = ioutil.NopCloser(bytes.NewReader(body))
 	//If Jenkins is up, we can simply proxy through
 	requestLogEntry.WithField("ns", ns).Infof(fmt.Sprintf("Passing through %s", r.URL.String()))

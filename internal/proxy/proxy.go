@@ -23,6 +23,9 @@ import (
 
 const (
 	defaultRetry = 15
+
+	// ServiceName is name of service that we are trying to idle or unidle
+	ServiceName = "jenkins"
 )
 
 var proxyLogger = log.WithFields(log.Fields{"component": "proxy"})
@@ -123,20 +126,20 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var ns string
 	var cacheKey string
-	var noProxy bool
+	var okToForward bool
 
 	// NOTE: Response payload and status codes (including errors) are written
 	// to the ResponseWriter (w) in the called methods
 	if isGH {
-		ns, noProxy = p.handleGitHubRequest(w, r, logEntryWithHash)
-		if noProxy {
-			return
-		}
-	} else { //If this is no GitHub traffic (e.g. user accessing UI)
-		cacheKey, ns, noProxy = p.handleJenkinsUIRequest(w, r, logEntryWithHash)
-		if noProxy {
-			return
-		}
+		ns, okToForward = p.handleGitHubRequest(w, r, logEntryWithHash)
+	} else {
+		// If this is no GitHub traffic (e.g. user accessing UI)
+		cacheKey, ns, okToForward = p.handleJenkinsUIRequest(w, r, logEntryWithHash)
+		logEntryWithHash.Infof("returned: |key: %q |ns: %q |fwd: %v|", cacheKey, ns, okToForward)
+	}
+
+	if !okToForward {
+		return
 	}
 
 	//Write usage stats to DB, run in a goroutine to not slow down the proxy
