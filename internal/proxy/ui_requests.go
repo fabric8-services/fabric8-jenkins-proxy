@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
+	"github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -75,7 +77,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			return
 		}
 
-		osoToken, err := GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
+		osoToken, err := util.GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 			return
@@ -196,7 +198,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 
 	//Check if we need to redirect to auth service
 	if needsAuth {
-		redirAuth := GetAuthURI(p.authURL, redirectURL.String())
+		redirAuth := util.GetAuthURI(p.authURL, redirectURL.String())
 		requestLogEntry.Infof("Redirecting to auth: %s", redirAuth)
 
 		w.Header().Set("Cache-Control", "no-cache")
@@ -235,13 +237,13 @@ func (p *Proxy) setIdledCookie(w http.ResponseWriter, pci CacheItem) {
 }
 
 func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci CacheItem, osioToken string, err error) {
-	tokenJSON := &TokenJSON{}
+	tokenJSON := &util.TokenJSON{}
 	err = json.Unmarshal(tokenData, tokenJSON)
 	if err != nil {
 		return
 	}
 
-	uid, err := GetTokenUID(tokenJSON.AccessToken, p.publicKey)
+	uid, err := util.GetTokenUID(tokenJSON.AccessToken, p.publicKey)
 	if err != nil {
 		return
 	}
@@ -252,7 +254,7 @@ func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci 
 	}
 	osioToken = tokenJSON.AccessToken
 
-	namespace, err := p.tenant.GetNamespaceByType(ti, ServiceName)
+	namespace, err := clients.GetNamespaceByType(ti, ServiceName)
 	if err != nil {
 		return
 	}
