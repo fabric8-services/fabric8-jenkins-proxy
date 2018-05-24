@@ -63,15 +63,18 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			return
 		}
 
-		//Break the process if the Jenkins is idled, set a cookie and redirect to self
+		// Break the process if the Jenkins is idled, set a cookie and redirect to self
 		if state != clients.Running {
-			_, err := p.idler.UnIdle(ns, clusterURL)
-			if err != nil {
+			if _, err := p.idler.UnIdle(ns, clusterURL); err != nil {
 				p.HandleError(w, err, requestLogEntry)
 				return
 			}
 
+			// jenkins is idled and there could be old cookies, so delete them as it
+			// will be invalid at this point
+			clearCookiesMatching(w, r, anyCookie)
 			p.setIdledCookie(w, pci)
+
 			requestLogEntry.WithField("ns", ns).Info("Redirecting to remove token from URL")
 			http.Redirect(w, r, redirectURL.String(), http.StatusFound) //Redirect to get rid of token in URL
 			return
@@ -84,18 +87,20 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 		}
 		requestLogEntry.WithField("ns", ns).Debug("Loaded OSO token")
 
-		statusCode, cookies, err := p.loginJenkins(pci, osoToken, requestLogEntry)
+		statusCode, jenkinsCookies, err := p.loginJenkins(pci, osoToken, requestLogEntry)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 			return
 		}
 		if statusCode == http.StatusOK {
-			for _, cookie := range cookies {
-				if cookie.Name == CookieJenkinsIdled {
+			clearCookiesMatching(w, r, anyCookie)
+			for _, cookie := range jenkinsCookies {
+				if isIdledCookie(cookie) {
 					continue
 				}
 				http.SetCookie(w, cookie)
-				if strings.HasPrefix(cookie.Name, SessionCookie) { //Find session cookie and use it's value as a key for cache
+				//Find session cookie and use it's value as a key for cache
+				if isSessionCookie(cookie) {
 					p.ProxyCache.SetDefault(cookie.Value, pci)
 					requestLogEntry.WithField("ns", ns).Infof("Cached Jenkins route %s in %s", pci.Route, cookie.Value)
 					requestLogEntry.WithField("ns", ns).Infof("Redirecting to %s", redirectURL.String())
@@ -118,17 +123,59 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			if !ok {
 				continue
 			}
-			if strings.HasPrefix(cookie.Name, SessionCookie) { //We found a session cookie in cache
-				cacheKey = cookie.Value
+
+			if isSessionCookie(cookie) {
+				//We found a session cookie in cache
+				// If jenkins is not "running", return loading page and status 202
 				pci := cacheVal.(CacheItem)
-				r.Host = pci.Route //Configure proxy upstream
-				r.URL.Host = pci.Route
-				r.URL.Scheme = pci.Scheme
 				ns = pci.NS
-				needsAuth = false //user is probably logged in, do not redirect
-				noProxy = false
+				cacheKey = cookie.Value
+
+				requestLogEntry.WithField("ns", ns).
+					Infof("Cached Jenkins route %s in %s", pci.Route, cookie.Value)
+
+				state, err := p.idler.State(ns, pci.ClusterURL)
+				if err != nil {
+					p.HandleError(w, err, requestLogEntry)
+					return
+				}
+				if state != clients.Running {
+					// we find a session cookie but the pod isn't running
+					// so lets unidle and clear the cookie and show loading page
+					code, err := p.idler.UnIdle(ns, pci.ClusterURL)
+					if err != nil {
+						p.HandleError(w, err, requestLogEntry)
+						return
+					}
+
+					if code == http.StatusOK {
+						code = http.StatusAccepted
+					} else if code != http.StatusServiceUnavailable {
+						p.HandleError(w, fmt.Errorf("Failed to send unidle request using fabric8-jenkins-idler"), requestLogEntry)
+					}
+
+					w.WriteHeader(code)
+					clearCookiesMatching(w, r, isSessionCookie)
+					p.setIdledCookie(w, pci)
+
+					err = p.processTemplate(w, ns, requestLogEntry)
+					if err != nil {
+						p.HandleError(w, err, requestLogEntry)
+						return
+					}
+					p.recordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
+
+				} else {
+					r.Host = pci.Route //Configure proxy upstream
+					r.URL.Host = pci.Route
+					r.URL.Scheme = pci.Scheme
+					needsAuth = false //user is probably logged in, do not redirect
+					noProxy = false
+				}
 				break
-			} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
+
+			} else if isIdledCookie(cookie) {
+				// Found a cookie saying Jenkins is idled, verify and act accordingly
 				cacheKey = cookie.Value
 				needsAuth = false
 				pci := cacheVal.(CacheItem)
@@ -224,6 +271,27 @@ func (p *Proxy) loginJenkins(pci CacheItem, osoToken string, requestLogEntry *lo
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode, resp.Cookies(), err
+}
+
+func clearCookiesMatching(w http.ResponseWriter, r *http.Request, expire func(cookie *http.Cookie) bool) {
+	for _, cookie := range r.Cookies() {
+		if expire(cookie) {
+			cookie.Expires = time.Unix(0, 0)
+		}
+		http.SetCookie(w, cookie)
+	}
+}
+
+func isSessionCookie(c *http.Cookie) bool {
+	return strings.HasPrefix(c.Name, SessionCookie)
+}
+
+func isIdledCookie(c *http.Cookie) bool {
+	return c.Name == CookieJenkinsIdled
+}
+
+func anyCookie(_ *http.Cookie) bool {
+	return true
 }
 
 func (p *Proxy) setIdledCookie(w http.ResponseWriter, pci CacheItem) {
