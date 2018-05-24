@@ -10,6 +10,7 @@ import (
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
+	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -78,6 +79,18 @@ func NewIdler(url string) IdlerService {
 	}
 }
 
+// Start a new request for idler and add a `Request-ID` header with a generated uuid
+func newRequest(url string) (req *http.Request, err error) {
+	req, err = http.NewRequest("GET", url, nil)
+	if err != nil {
+		return req, err
+	}
+
+	req.Header.Set("X-Request-ID", uuid.NewV4().String())
+
+	return
+}
+
 // State returns the state of Jenkins instance for the specified tenant
 func (i *idler) State(tenant string, openShiftAPIURL string) (podState, error) {
 	namespace := tenant
@@ -85,8 +98,8 @@ func (i *idler) State(tenant string, openShiftAPIURL string) (podState, error) {
 		namespace = tenant + namespaceSuffix
 		log.WithField("ns", tenant).Debugf("Adding namespace suffix - resulting namespace: %s", namespace)
 	}
-	req, err := http.NewRequest("GET",
-		fmt.Sprintf("%s/api/idler/status/%s", i.idlerAPI, namespace), nil)
+
+	req, err := newRequest(fmt.Sprintf("%s/api/idler/status/%s", i.idlerAPI, namespace))
 	if err != nil {
 		return UnknownState, err
 	}
@@ -100,7 +113,10 @@ func (i *idler) State(tenant string, openShiftAPIURL string) (podState, error) {
 		"type":    "state",
 	})
 
-	logger.Debug("Calling Idler API")
+	// Let's set this as Debug so we are not filling up the logs
+	log.WithFields(log.Fields{"requestid": req.Header.Get("X-Request-ID"),
+		"request": logging.FormatHTTPRequestWithSeparator(req, " "),
+		"type":    "state"}).Debug("Calling State API")
 
 	client := httpClient()
 	resp, err := client.Do(req)
@@ -138,7 +154,7 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 		namespace = tenant + namespaceSuffix
 	}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerAPI, namespace), nil)
+	req, err := newRequest(fmt.Sprintf("%s/api/idler/unidle/%s", i.idlerAPI, namespace))
 	if err != nil {
 		return 0, err
 	}
@@ -147,7 +163,9 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 	q.Add(OpenShiftAPIParam, util.EnsureSuffix(openShiftAPIURL, "/"))
 	req.URL.RawQuery = q.Encode()
 
-	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "unidle"}).Debug("Calling Idler API")
+	log.WithFields(log.Fields{"requestid": req.Header.Get("X-Request-ID"),
+		"request": logging.FormatHTTPRequestWithSeparator(req, " "),
+		"type":    "unidle"}).Info("Calling Idler API")
 
 	client := httpClient()
 	resp, err := client.Do(req)
@@ -170,12 +188,14 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 func (i *idler) Clusters() (map[string]string, error) {
 	var clusters = make(map[string]string)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/idler/cluster", i.idlerAPI), nil)
+	req, err := newRequest(fmt.Sprintf("%s/api/idler/cluster", i.idlerAPI))
 	if err != nil {
 		return clusters, err
 	}
 
-	log.WithFields(log.Fields{"request": logging.FormatHTTPRequestWithSeparator(req, " "), "type": "cluster"}).Debug("Calling Idler API")
+	log.WithFields(log.Fields{"requestid": req.Header.Get("X-Request-ID"),
+		"request": logging.FormatHTTPRequestWithSeparator(req, " "),
+		"type":    "cluster"}).Info("Calling Idler API")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
