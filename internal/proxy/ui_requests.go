@@ -57,26 +57,29 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 		nsLogger := requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 		nsLogger.Debug("Found token info in query")
 
-		state, err := p.idler.State(ns, clusterURL)
+		// we don't care about code here since only the state of jenkins pod
+		// running or not is what is relevant
+
+		state, _, err := p.startJenkins(ns, clusterURL)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 			return
 		}
 
-		//Break the process if the Jenkins is idled, set a cookie and redirect to self
 		if state != clients.Running {
-			_, err := p.idler.UnIdle(ns, clusterURL)
-			if err != nil {
-				p.HandleError(w, err, requestLogEntry)
-				return
-			}
+			// Break the process if Jenkins isn't running.
 
+			// Set "idled" cookie to indicate that jenkins is idled
+			// also cache the ns & cluster for faster lookup next time
 			p.setIdledCookie(w, pci)
-			requestLogEntry.WithField("ns", ns).Info("Redirecting to remove token from URL")
-			http.Redirect(w, r, redirectURL.String(), http.StatusFound) //Redirect to get rid of token in URL
+
+			// Redirect to get rid of token in URL
+			nsLogger.Info("Redirecting to remove token from URL")
+			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 			return
 		}
 
+		// Jenkins is running at this point
 		osoToken, err := util.GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
@@ -118,7 +121,8 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 			if !ok {
 				continue
 			}
-			if strings.HasPrefix(cookie.Name, SessionCookie) { //We found a session cookie in cache
+			if strings.HasPrefix(cookie.Name, SessionCookie) {
+				// We found a session cookie in cache
 				cacheKey = cookie.Value
 				pci := cacheVal.(CacheItem)
 				r.Host = pci.Route //Configure proxy upstream
@@ -128,31 +132,26 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 				needsAuth = false //user is probably logged in, do not redirect
 				noProxy = false
 				break
-			} else if cookie.Name == CookieJenkinsIdled { //Found a cookie saying Jenkins is idled, verify and act accordingly
+			} else if cookie.Name == CookieJenkinsIdled {
+				// Found a cookie saying Jenkins is idled, verify and act accordingly
 				cacheKey = cookie.Value
 				needsAuth = false
 				pci := cacheVal.(CacheItem)
 				ns = pci.NS
 				clusterURL := pci.ClusterURL
-				state, err := p.idler.State(ns, clusterURL)
+
+				state, code, err := p.startJenkins(ns, clusterURL)
 				if err != nil {
 					p.HandleError(w, err, requestLogEntry)
 					return
 				}
-				// If jenkins is not "running", return loading page and status 202
+
+				// error if unexpected code is returned
+				if code != http.StatusServiceUnavailable && code != http.StatusAccepted {
+					p.HandleError(w, fmt.Errorf("Failed to send unidle request using fabric8-jenkins-idler: code: %d", code), requestLogEntry)
+				}
+
 				if state != clients.Running {
-					code, err := p.idler.UnIdle(ns, clusterURL)
-					if err != nil {
-						p.HandleError(w, err, requestLogEntry)
-						return
-					}
-
-					if code == http.StatusOK {
-						code = http.StatusAccepted
-					} else if code != http.StatusServiceUnavailable {
-						p.HandleError(w, fmt.Errorf("Failed to send unidle request using fabric8-jenkins-idler"), requestLogEntry)
-					}
-
 					w.WriteHeader(code)
 					err = p.processTemplate(w, ns, requestLogEntry)
 					if err != nil {
@@ -160,10 +159,12 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, r
 						return
 					}
 					p.recordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
-				} else { //If Jenkins is running, remove the cookie
-					//OpenShift can take up to couple tens of second to update HAProxy configuration for new route
-					//so even if the pod is up, route might still return 500 - i.e. we need to check the route
-					//before claiming Jenkins is up
+
+				} else {
+					// Jenkins is running, remove the idled cookie
+					// OpenShift can take up to couple tens of second to update HAProxy configuration for new route
+					// so even if the pod is up, route might still return 500 - i.e. we need to check the route
+					// before claiming Jenkins is up
 					var statusCode int
 					statusCode, _, err = p.loginJenkins(pci, "", requestLogEntry)
 					if err != nil {
@@ -269,4 +270,32 @@ func (p *Proxy) processToken(tokenData []byte, requestLogEntry *log.Entry) (pci 
 	pci = NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
 
 	return
+}
+
+// unidles Jenkins only if it is idled and returns the
+// state of the pod, the http status of calling unidle, and error if any
+func (p *Proxy) startJenkins(ns, clusterURL string) (state clients.PodState, code int, err error) {
+	// Assume pods are starting and unidle only if it is in "idled" state
+	code = http.StatusAccepted
+
+	state, err = p.idler.State(ns, clusterURL)
+	if err != nil {
+		return
+	}
+
+	if state == clients.Idled {
+		// Unidle only if needed
+		if code, err = p.idler.UnIdle(ns, clusterURL); err != nil {
+			return
+		}
+	}
+
+	if code == http.StatusOK {
+		// XHR relies on 202 to retry and 200 to stop retrying and reload
+		// since we just started jenkins pods, change the code to 202 so
+		// that it retries
+		// SEE: static/html/index.html
+		code = http.StatusAccepted
+	}
+	return state, code, nil
 }
