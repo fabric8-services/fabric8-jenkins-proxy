@@ -101,7 +101,6 @@ objects:
           ports:
           - containerPort: 8080
             protocol: TCP
-          resources: {}
           terminationMessagePath: /dev/termination-log
           readinessProbe:
             httpGet:
@@ -149,6 +148,10 @@ objects:
       port: 9091
       protocol: TCP
       targetPort: 9091
+    - name: 9092-tcp
+      port: 9092
+      protocol: TCP
+      targetPort: 9092
     selector:
       service: jenkins-proxy
     sessionAffinity: None
