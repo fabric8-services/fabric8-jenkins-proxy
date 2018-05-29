@@ -1,0 +1,13 @@
+kind: Route
+apiVersion: v1
+metadata:
+  name: jenkins-proxy-api
+spec:
+  host: ''
+  port:
+    targetPort: 9092-tcp
+  to:
+    kind: Service
+    name: jenkins-proxy
+    weight: 100
+  wildcardPolicy: None
