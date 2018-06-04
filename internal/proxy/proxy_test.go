@@ -40,5 +40,5 @@ func TestGetUserWithRetry(t *testing.T) {
 
 	_, err := p.getUserWithRetry("http://test", logEntry, numberofretry)
 	assert.Error(t, err, "Faker")
-	assert.Equal(t, numberofretry+1, wit.testCounter)
+	assert.Equal(t, numberofretry, wit.testCounter)
 }

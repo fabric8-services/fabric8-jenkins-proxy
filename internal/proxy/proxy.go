@@ -73,7 +73,7 @@ func NewProxy(
 		tenant:           tenant,
 		wit:              wit,
 		idler:            idler,
-		bufferCheckSleep: 30,
+		bufferCheckSleep: 30 * time.Second,
 		redirect:         config.GetRedirectURL(),
 		authURL:          config.GetAuthURL(),
 		storageService:   storageService,

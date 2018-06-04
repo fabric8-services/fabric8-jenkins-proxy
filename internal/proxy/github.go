@@ -53,13 +53,15 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	requestLogEntry.WithField("json", gh).Debug("Processing GitHub JSON payload")
 
 	namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, requestLogEntry, defaultRetry)
-	ns = namespace.Name
-	clusterURL := namespace.ClusterURL
-	requestLogEntry.WithFields(log.Fields{"ns": ns, "cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
+	ns = namespace.Name
+	clusterURL := namespace.ClusterURL
+	nsLogger := requestLogEntry.WithField("ns", ns)
+	nsLogger.WithFields(log.Fields{"cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
+
 	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
@@ -89,7 +91,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	okToForward = true
 	r.Body = ioutil.NopCloser(bytes.NewReader(body))
 	//If Jenkins is up, we can simply proxy through
-	requestLogEntry.WithField("ns", ns).Infof(fmt.Sprintf("Passing through %s", r.URL.String()))
+	nsLogger.Infof("Passing through %s", r.URL.String())
 	return
 }
 
@@ -138,7 +140,9 @@ func (p *Proxy) ProcessBuffer() {
 						break
 					}
 
-					log.WithFields(log.Fields{"ns": ns, "repository": gh.Repository.CloneURL}).Info("Retrying request")
+					nsLogger := log.WithField("ns", ns)
+
+					nsLogger.WithFields(log.Fields{"repository": gh.Repository.CloneURL}).Info("Retrying request")
 					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
 					clusterURL := namespace.ClusterURL
 
@@ -161,8 +165,9 @@ func (p *Proxy) ProcessBuffer() {
 							}
 							break
 						}
+
 						client := http.DefaultClient
-						if r.Retries < p.maxRequestRetry { //Check how many times we retired (since the Jenkins started)
+						if r.Retries < p.maxRequestRetry { //Check how many times we retried since the Jenkins started
 							resp, err := client.Do(req)
 							if err != nil {
 								log.Error("Error: ", err)
@@ -175,23 +180,25 @@ func (p *Proxy) ProcessBuffer() {
 								break
 							}
 
-							if resp.StatusCode != 200 && resp.StatusCode != 404 { //Retry later if the response is not 200
-								log.Error(fmt.Sprintf("Got status %s after retrying request on %s", resp.Status, req.URL))
+							if resp.StatusCode == 200 {
+								nsLogger.Infof("Request to %q forwarded.", req.Host)
+							} else if resp.StatusCode == 404 || resp.StatusCode == 400 {
+								log.Warnf("Got status %q after retrying request on %s, throwing away the request", resp.Status, req.URL.String())
+							} else {
+								//Retry later if the response is not 200 or 400 or 404
+								log.Errorf("Got status %q after retrying request on %s", resp.Status, req.URL.String())
 								errs := p.storageService.IncrementRequestRetry(&r)
-								if len(errs) > 0 {
-									for _, e := range errs {
-										log.Error(e)
-									}
+								for _, e := range errs {
+									log.Error(e)
 								}
+
 								break
-							} else if resp.StatusCode == 404 || resp.StatusCode == 400 { //400 - missing payload
-								log.Warn(fmt.Sprintf("Got status %s after retrying request on %s, throwing away the request", resp.Status, req.URL))
 							}
 
-							log.WithField("ns", ns).Infof(fmt.Sprintf("Request for %s to %s forwarded.", ns, req.Host))
 						}
 
-						//Delete request if we tried too many times or the replay was successful
+						// Deleting request since we tried too many times or the replay was successful with 200
+						// or request was failed with 404 or 400
 						err = p.storageService.DeleteRequest(&r)
 						if err != nil {
 							log.Errorf(storage.ErrorFailedDelete, r.ID, r.Namespace, err)
@@ -203,26 +210,19 @@ func (p *Proxy) ProcessBuffer() {
 				}
 			}
 		}
-		time.Sleep(p.bufferCheckSleep * time.Second)
+		time.Sleep(p.bufferCheckSleep)
 	}
 }
 
 func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry, retry int) (clients.Namespace, error) {
 
-	for i := 0; i < retry; i++ {
-		namespace, err := p.getUser(repositoryCloneURL, logEntry)
-
-		if err == nil {
-			return namespace, err
+	for i := 1; i < retry; i++ {
+		if ns, err := p.getUser(repositoryCloneURL, logEntry); err == nil {
+			return ns, nil
 		}
-
-		time.Sleep(1000 * time.Millisecond)
-
+		time.Sleep(1 * time.Second)
 	}
-
-	// Last chance
 	return p.getUser(repositoryCloneURL, logEntry)
-
 }
 
 //GetUser returns a namespace name based on GitHub repository URL
