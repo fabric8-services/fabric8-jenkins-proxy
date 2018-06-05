@@ -30,6 +30,7 @@ type Store interface {
 	GetStatisticsUser(ns string) (o *Statistics, notFound bool, err error)
 
 	LogStats()
+	Reset()
 }
 
 // LogStorageStats enables logging of stogare statistics.

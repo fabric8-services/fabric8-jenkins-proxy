@@ -21,6 +21,7 @@ const (
 	defaultMaxRequestRetry           = "10"
 	defaultDebugMode                 = "false"
 	defaultHTTPSEnabled              = "false"
+	defaultResetDBFlag               = "false"
 )
 
 var (
@@ -54,6 +55,7 @@ func init() {
 	settings["GetMaxRequestRetry"] = Setting{"JC_MAX_REQUEST_RETRY", defaultMaxRequestRetry, []func(interface{}, string) error{util.IsInt}}
 	settings["GetDebugMode"] = Setting{"JC_DEBUG_MODE", defaultDebugMode, []func(interface{}, string) error{util.IsBool}}
 	settings["GetHTTPSEnabled"] = Setting{"JC_ENABLE_HTTPS", defaultHTTPSEnabled, []func(interface{}, string) error{util.IsBool}}
+	settings["GetResetDBFlag"] = Setting{"JC_RESET_DB_FLAG", defaultResetDBFlag, []func(interface{}, string) error{util.IsBool}}
 }
 
 // Setting is an element in the proxy configuration. It contains the environment
@@ -248,6 +250,16 @@ func (c *EnvConfig) GetDebugMode() bool {
 
 // GetHTTPSEnabled returns if https should be enabled as set via default, config file, or environment variable.
 func (c *EnvConfig) GetHTTPSEnabled() bool {
+	callPtr, _, _, _ := runtime.Caller(0)
+	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
+
+	b, _ := strconv.ParseBool(value)
+	return b
+}
+
+// GetResetDBFlag return true if we are supposed to reset the database according to the JC_RESET_DB_FLAG as set
+// via default, config file, or environment variable.
+func (c *EnvConfig) GetResetDBFlag() bool {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
 

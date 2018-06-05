@@ -100,3 +100,19 @@ func (s *DBStore) LogStats() {
 func (s *DBStore) updateRequest(r *Request) error {
 	return s.db.Save(r).Error
 }
+
+// Reset deletes the database schema
+func (s *DBStore) Reset() {
+	s.db.Exec("DROP SCHEMA public CASCADE;CREATE SCHEMA public;GRANT ALL ON SCHEMA public TO postgres;GRANT ALL ON SCHEMA public TO public;")
+	dbLogger.Infof("Schema dropped, recreating again")
+
+	request := &Request{}
+	if !s.db.HasTable(request) {
+		s.db.CreateTable(request)
+	}
+
+	stats := &Statistics{}
+	if !s.db.HasTable(stats) {
+		s.db.CreateTable(stats)
+	}
+}

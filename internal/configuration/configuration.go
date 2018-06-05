@@ -65,6 +65,10 @@ type Configuration interface {
 	// GetHTTPSEnabled returns if https should be enabled as set via default, config file, or environment variable
 	GetHTTPSEnabled() bool
 
+	// GetResetDBFlag return true if we are supposed to reset the database according to the JC_RESET_DB_FLAG as set
+	// via default, config file, or environment variable.
+	GetResetDBFlag() bool
+
 	// String returns a string representation of the configuration
 	String() string
 }
