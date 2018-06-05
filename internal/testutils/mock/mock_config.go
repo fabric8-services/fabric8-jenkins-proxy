@@ -22,6 +22,7 @@ type Config struct {
 	MaxRequestRetry           int
 	DebugMode                 bool
 	HTTPSEnabled              bool
+	ResetDBFlag               bool
 	Clusters                  map[string]string
 }
 
@@ -45,6 +46,7 @@ func NewConfig() Config {
 	c.RedirectURL = "https://localhost:8443/"
 	c.IndexPath = "static/html/index.html"
 
+	c.ResetDBFlag = false
 	return c
 }
 
@@ -148,6 +150,11 @@ func (c *Config) GetDebugMode() bool {
 // GetHTTPSEnabled return hardcoded http-enabled from test configuration.
 func (c *Config) GetHTTPSEnabled() bool {
 	return c.HTTPSEnabled
+}
+
+// GetResetDBFlag return hardcode reset db flag from test configuration
+func (c *Config) GetResetDBFlag() bool {
+	return c.ResetDBFlag
 }
 
 func (c *Config) String() string {

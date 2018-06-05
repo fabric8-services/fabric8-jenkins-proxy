@@ -58,6 +58,10 @@ func (m *mockStore) LogStats() {
 	dbLogger.Info("mock db stats")
 }
 
+func (m *mockStore) Reset() {
+	dbLogger.Info("Namesake function, mock reset the database")
+}
+
 func Test_logging_of_store_stats(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	testLogger, hook := test.NewNullLogger()

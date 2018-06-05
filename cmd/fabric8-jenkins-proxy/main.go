@@ -78,6 +78,10 @@ func main() {
 
 	store := storage.NewDBStorage(db)
 
+	if config.GetResetDBFlag() {
+		store.Reset()
+	}
+
 	// Create tenant client
 	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
 
