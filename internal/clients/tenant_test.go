@@ -17,7 +17,7 @@ func TestGetTenant(t *testing.T) {
 		t.Error(err)
 	}
 
-	n, err := ct.GetNamespaceByType(ti, "jenkins")
+	n, err := GetNamespaceByType(ti, "jenkins")
 	if err != nil {
 		t.Error(err)
 	}

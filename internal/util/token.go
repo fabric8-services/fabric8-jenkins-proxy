@@ -1,4 +1,4 @@
-package proxy
+package util
 
 import (
 	"crypto/rsa"

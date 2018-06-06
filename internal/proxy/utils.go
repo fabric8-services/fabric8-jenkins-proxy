@@ -3,10 +3,12 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"html/template"
 	"net/http"
 	"runtime"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
+	log "github.com/sirupsen/logrus"
 )
 
 //HandleError creates a JSON response with a given error and writes it to ResponseWriter
@@ -28,12 +30,12 @@ func (p *Proxy) HandleError(w http.ResponseWriter, err error, requestLogEntry *l
 	// create error response
 	w.WriteHeader(http.StatusInternalServerError)
 
-	pei := ErrorInfo{
+	pei := util.ErrorInfo{
 		Code:   fmt.Sprintf("%d", http.StatusInternalServerError),
 		Detail: err.Error(),
 	}
-	e := Error{
-		Errors: make([]ErrorInfo, 1),
+	e := util.Error{
+		Errors: make([]util.ErrorInfo, 1),
 	}
 	e.Errors[0] = pei
 
@@ -49,9 +51,15 @@ func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntr
 	if err != nil {
 		return
 	}
-	data := struct{ Retry int }{Retry: 15}
+	// Jenkins takes around 4 mins to start so start with
+	// 2 min, 1 min, ...  until 15 sec
+	// see index.html that implements the exponential backoff retry
+	data := struct {
+		RetryMaxInterval int
+		RetryMinInterval int
+	}{2 * 60, 15}
+
 	requestLogEntry.WithField("ns", ns).Debug("Templating index.html")
 	err = tmplt.Execute(w, data)
-
 	return
 }

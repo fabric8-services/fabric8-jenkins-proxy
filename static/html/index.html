@@ -18,12 +18,25 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script type="application/javascript">
       $(document).ready(function() {
-        var timeout = {{.Retry}}*1000
 
         function showStatus(header, body) {
           $("#header").text(header)
           $("#status").text(body)
         }
+
+        function expBackoffInterval(max, min) {
+          var current = max * 2
+          return function next() {
+            current = Math.max(current / 2, min)
+            return current
+          }
+        }
+
+        var retryMaxInterval = {{.RetryMaxInterval}} * 1000
+        var retryMinInterval = {{.RetryMinInterval}} * 1000
+
+        var nextInterval = expBackoffInterval(retryMaxInterval, retryMinInterval)
+
         function check() {
           console.log("Checking", window.location)
           $.ajax({
@@ -35,27 +48,30 @@
                 console.log("Got 200, reloading...")
                 showStatus("Starting Jenkins", "Jenkins is up and running; loading..." )
                 // wait a bit longer for jenkins to boot properly after idle
-                setTimeout(function(){ window.location.reload(true) }, timeout)
+                setTimeout(function(){ window.location.reload(true) }, retryMinInterval)
               },
               202: function(){
                 console.log("Got 202, waiting along..")
                 showStatus("Starting Jenkins", "Jenkins is currently idled. Please wait while we start it...")
-                setTimeout(check, timeout)
+                setTimeout(check, nextInterval())
               },
               503: function(){
                 console.log("Got 503, Cluster resources capacity is full. waiting along..")
                 showStatus("Failed to start Jenkins", "OpenShift cluster is experiencing heavy load. Retrying...")
-                setTimeout(check, timeout)
+                setTimeout(check, nextInterval())
               },
               default: function(xhr, status, e) {
                 console.error(status)
-                setTimeout(check, timeout)
+                setTimeout(check, nextInterval())
               }
             }
           });
         }
 
-        check()
+        // don't start immediately as the page is returned only if
+        // jenkins is idled and we assume that it won't be unidled
+        // as soon as the page is returned
+        setTimeout(check, nextInterval())
       });
     </script>
 </head>
@@ -63,7 +79,7 @@
   <div class="container">
     <h1 id="header"> Starting Jenkins ... </h1>
     <img src="https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif" />
-    <p>Status: <span id="status"> please wait...</span> </p>
+    <p>Status: <span id="status"> starting; please wait...</span> </p>
   </div>
 </body>
 </html>

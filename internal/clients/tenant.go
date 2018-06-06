@@ -9,6 +9,8 @@ import (
 
 	"errors"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,6 +29,12 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 		client:           &http.Client{},
 		logger:           logger,
 	}
+}
+
+// TenantService is contains methods that makes calls to tenant APIs
+type TenantService interface {
+	GetTenantInfo(tenantID string) (TenantInfo, error)
+	GetNamespace(accessToken string) (Namespace, error)
 }
 
 // Tenant is a simple client for fabric8-tenant.
@@ -116,7 +124,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 }
 
 // GetNamespaceByType searches tenant namespaces for a given type.
-func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
+func GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
 	for i := 0; i < len(ti.Data.Attributes.Namespaces); i++ {
 		n := ti.Data.Attributes.Namespaces[i]
 		if n.Type == typ {
@@ -127,4 +135,34 @@ func (t Tenant) GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err 
 
 	err = fmt.Errorf("could not find tenant %s Jenkins namespace", ti.Data.Attributes.Email)
 	return
+}
+
+// GetNamespace gets namespace given appropriate accessToken
+func (t Tenant) GetNamespace(accessToken string) (namespace Namespace, err error) {
+	config, err := configuration.NewConfiguration()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	publicKey, err := util.GetPublicKey(config.GetKeycloakURL())
+	if err != nil {
+		return
+	}
+
+	uid, err := util.GetTokenUID(accessToken, publicKey)
+	if err != nil {
+		return
+	}
+
+	ti, err := t.GetTenantInfo(uid)
+	if err != nil {
+		return
+	}
+	namespace, err = GetNamespaceByType(ti, "jenkins")
+	if err != nil {
+		return
+	}
+
+	return namespace, nil
 }

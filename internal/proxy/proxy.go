@@ -15,6 +15,7 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
@@ -22,6 +23,9 @@ import (
 
 const (
 	defaultRetry = 15
+
+	// ServiceName is name of service that we are trying to idle or unidle
+	ServiceName = "jenkins"
 )
 
 var proxyLogger = log.WithFields(log.Fields{"component": "proxy"})
@@ -55,17 +59,6 @@ type Proxy struct {
 	clusters        map[string]string
 }
 
-// Error represents list of error informations.
-type Error struct {
-	Errors []ErrorInfo
-}
-
-// ErrorInfo describes an HTTP error, consisting of HTTP status code and error detail.
-type ErrorInfo struct {
-	Code   string `json:"code"`
-	Detail string `json:"detail"`
-}
-
 // NewProxy creates an instance of Proxy client
 func NewProxy(
 	tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerService,
@@ -93,7 +86,7 @@ func NewProxy(
 	Recorder.Initialize()
 
 	//Collect and parse public key from Keycloak
-	pk, err := GetPublicKey(config.GetKeycloakURL())
+	pk, err := util.GetPublicKey(config.GetKeycloakURL())
 	if err != nil {
 		return p, err
 	}
@@ -133,20 +126,20 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	var ns string
 	var cacheKey string
-	var noProxy bool
+	var okToForward bool
 
 	// NOTE: Response payload and status codes (including errors) are written
 	// to the ResponseWriter (w) in the called methods
 	if isGH {
-		ns, noProxy = p.handleGitHubRequest(w, r, logEntryWithHash)
-		if noProxy {
-			return
-		}
-	} else { //If this is no GitHub traffic (e.g. user accessing UI)
-		cacheKey, ns, noProxy = p.handleJenkinsUIRequest(w, r, logEntryWithHash)
-		if noProxy {
-			return
-		}
+		ns, okToForward = p.handleGitHubRequest(w, r, logEntryWithHash)
+	} else {
+		// If this is no GitHub traffic (e.g. user accessing UI)
+		cacheKey, ns, okToForward = p.handleJenkinsUIRequest(w, r, logEntryWithHash)
+		logEntryWithHash.Infof("returned: |key: %q |ns: %q |fwd: %v|", cacheKey, ns, okToForward)
+	}
+
+	if !okToForward {
+		return
 	}
 
 	//Write usage stats to DB, run in a goroutine to not slow down the proxy
