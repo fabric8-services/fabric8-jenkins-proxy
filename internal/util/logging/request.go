@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// FormatHTTPRequestWithSeparator returns a formatted and readable string containing information of given HTTP request, seperated by given seperated.
+// FormatHTTPRequestWithSeparator returns a formatted and readable string containing information of given HTTP request, separated by given separated.
 func FormatHTTPRequestWithSeparator(r *http.Request, separator string) string {
 	var request []string
 

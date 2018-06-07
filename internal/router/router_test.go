@@ -85,7 +85,7 @@ func Test_JenkinsAPI_routes_are_setup(t *testing.T) {
 	mockedJenkinsAPI := &mockJenkinsAPI{}
 	mockedRouter := CreateJenkinsAPIRouter(mockedJenkinsAPI)
 	req, _ := http.NewRequest("POST", "/api/jenkins/start", nil)
-	req.Header.Add("Authorization", "Bearer DoesntMatter")
+	req.Header.Add("Authorization", "Bearer Doesn't Matter")
 	w := new(mockResponseWriter)
 	mockedRouter.ServeHTTP(w, req)
 	require.Equal(t, "{\"data\":{\"state\":\"\"}}\n", w.GetBody(), "Routing failed for /api/jenkins/start")

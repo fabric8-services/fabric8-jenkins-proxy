@@ -71,7 +71,7 @@ func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httpr
 
 }
 
-// HandleError logs the error and encodes it in the reponse
+// HandleError logs the error and encodes it in the response
 func HandleError(w http.ResponseWriter, resp clients.StatusResponse, err error, httpCode int) {
 	log.Error(err)
 	w.WriteHeader(httpCode)
