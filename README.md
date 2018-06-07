@@ -41,7 +41,7 @@ The following diagrams describe the data flow within the proxy for a received Gi
 <a id="how-to-build"></a>
 # How to build?
 
-The following paragraphs describe how to build and work with the source.
+The following paragraphs describe how to build and work with the code source.
 
 <a id="prerequisites"></a>
 ## Prerequisites
@@ -129,14 +129,14 @@ In your shell (from the root of fabric8-jenkins-proxy):
 
 To start proxy and other required services
 ```
-[user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token> 
-[user@localhost ~]$ ./scripts/setupLocalProxy.sh start 
+[user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token>
+[user@localhost ~]$ ./scripts/setupLocalProxy.sh start
 ```
-Run command below this in a seperate terminal so that we can see logs of the above command. 
+Run command below this in a separate terminal so that we can see logs of the above command.
 ```
-[user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token> 
-[user@localhost ~]$ eval $(./scripts/setupLocalProxy.sh env) 
-[user@localhost ~]$ fabric8-jenkins-proxy 
+[user@localhost ~]$ export DSAAS_PREVIEW_TOKEN=<dsaas-preview-token>
+[user@localhost ~]$ eval $(./scripts/setupLocalProxy.sh env)
+[user@localhost ~]$ fabric8-jenkins-proxy
 ```
 
 After you stop `fabric8-jenkins-proxy`, you would want to stop all the dependency services as well
@@ -181,12 +181,9 @@ This would show a spinning wheel until jenkins is idle. On running locally the h
 <a id="apis"></a>
 ## APIs
 
-This project opens two ports 9091 and 8080. Proxy runs on 8080 and API router runs 9091. 
+This project opens two ports 9091 and 8080. Proxy runs on 8080 and API router runs 9091.
 The API router has only one API, which is info API. An example is as follows
 
     Request: GET https://localhost:9091/api/info/ksagathi-preview
 
     Response: {"namespace":"ksagathi-preview","requests":0,"last_visit":0,"last_request":0}
-    
-
-

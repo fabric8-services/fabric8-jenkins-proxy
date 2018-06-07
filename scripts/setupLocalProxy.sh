@@ -8,7 +8,7 @@ set -o errexit
 set -o pipefail
 
 # XYZ = ${XYZ:-8000}
-# if env variable $XYZ is set, use that for XYZ, otherwise use 8000 
+# if env variable $XYZ is set, use that for XYZ, otherwise use 8000
 LOCAL_IDLER_PORT=${LOCAL_IDLER_PORT:-9001}
 LOCAL_TENANT_PORT=${LOCAL_TENANT_PORT:-9002}
 LOCAL_POSTGRES_PORT=${LOCAL_POSTGRES_PORT:-5432}
@@ -32,7 +32,7 @@ In your shell (from the root of fabric8-jenkins-proxy):
 
 > export DSAAS_PREVIEW_TOKEN=<dsaas-preview token>
 > ./scripts/${0##*/} start
-# Run command below this in a seperate terminal so that we can see logs of the above command. 
+# Run command below this in a separate terminal so that we can see logs of the above command.
 > export DSAAS_PREVIEW_TOKEN=<dsaas-preview token>
 > eval \$(./scripts/${0##*/} env)
 > fabric8-jenkins-proxy
@@ -284,4 +284,3 @@ case "$1" in
   *)
     printHelp
 esac
-
