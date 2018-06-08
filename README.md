@@ -181,9 +181,28 @@ This would show a spinning wheel until jenkins is idle. On running locally the h
 <a id="apis"></a>
 ## APIs
 
-This project opens two ports 9091 and 8080. Proxy runs on 8080 and API router runs 9091.
-The API router has only one API, which is info API. An example is as follows
+This project opens three ports 9091, 9092 and 8080. Proxy service running on 8080 is exposed at route https://jenkins.openshift.io and Jenkins API router running on 9092 is exposed on https://jenkins.api.openshift.io. API router running on 9091 is not exposed.
+
+### 9091
+The unexposed API router(9091) has only one API, which is info API. An example is as follows
 
     Request: GET https://localhost:9091/api/info/ksagathi-preview
 
     Response: {"namespace":"ksagathi-preview","requests":0,"last_visit":0,"last_request":0}
+
+Apart from this we have Prometheus running at `/metrics`
+
+### 9092
+Jenkins API has only one API, which gets us current state of the Jenkins instance and triggers its unidling.
+
+    Request: curl -X POST -H "Authorization: Bearer $ACCESS_TOKEN" https://jenkins.api.openshift.io/api/jenkins/start -k
+    
+    Response: {
+                    Data: { State: idled|starting|running},
+                    Errors : []ResponseError {
+                                    Code: httpStatusCode,
+                                    Description: "Description",
+                                    }
+            }
+
+
