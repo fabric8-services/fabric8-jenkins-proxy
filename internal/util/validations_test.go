@@ -72,8 +72,8 @@ func Test_IsDuration(t *testing.T) {
 		{"second", "10s", 10 * time.Second, []string{}},
 		{"minute", "2m", 2 * time.Minute, []string{}},
 		{"hour", "3h", 3 * time.Hour, []string{}},
-		{"FOO", "invalid", 0, []string{"Value for duration needs to be a time duration."}},
-		{"empty", "", 0, []string{"Value for duration needs to be a time duration."}},
+		{"FOO", "invalid", 0, []string{"value for duration needs to be a time duration"}},
+		{"empty", "", 0, []string{"value for duration needs to be a time duration"}},
 	}
 
 	for _, testcase := range tt {

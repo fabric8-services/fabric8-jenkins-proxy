@@ -164,7 +164,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 					needsAuth = false  // user is logged in; do not redirect
 					okToForward = true // good to be reverse-proxied
-					r.Host = pci.Route // Configure proxy upstream
+					r.Host = pci.Route
 					r.URL.Host = pci.Route
 					r.URL.Scheme = pci.Scheme
 					return
