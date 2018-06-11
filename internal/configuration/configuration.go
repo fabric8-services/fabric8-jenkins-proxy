@@ -1,5 +1,7 @@
 package configuration
 
+import "time"
+
 // Configuration declares methods to get configuration of the proxy.
 type Configuration interface {
 	// GetPostgresHost returns the postgres host as set via default, config file, or environment variable
@@ -64,6 +66,10 @@ type Configuration interface {
 
 	// GetHTTPSEnabled returns if https should be enabled as set via default, config file, or environment variable
 	GetHTTPSEnabled() bool
+
+	// GetGatewayTimeout returns the interval within which reverse proxy expects
+	// a response from the underlying jenkins server
+	GetGatewayTimeout() time.Duration
 
 	// String returns a string representation of the configuration
 	String() string

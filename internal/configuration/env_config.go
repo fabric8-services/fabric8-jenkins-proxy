@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ const (
 	defaultMaxRequestRetry           = "10"
 	defaultDebugMode                 = "false"
 	defaultHTTPSEnabled              = "false"
+	defaultGatewayTimeout            = "25s"
 )
 
 var (
@@ -54,6 +56,7 @@ func init() {
 	settings["GetMaxRequestRetry"] = Setting{"JC_MAX_REQUEST_RETRY", defaultMaxRequestRetry, []func(interface{}, string) error{util.IsInt}}
 	settings["GetDebugMode"] = Setting{"JC_DEBUG_MODE", defaultDebugMode, []func(interface{}, string) error{util.IsBool}}
 	settings["GetHTTPSEnabled"] = Setting{"JC_ENABLE_HTTPS", defaultHTTPSEnabled, []func(interface{}, string) error{util.IsBool}}
+	settings["GetGatewayTimeout"] = Setting{"JC_GATEWAY_TIMEOUT", defaultGatewayTimeout, []func(interface{}, string) error{util.IsDuration}}
 }
 
 // Setting is an element in the proxy configuration. It contains the environment
@@ -253,6 +256,16 @@ func (c *EnvConfig) GetHTTPSEnabled() bool {
 
 	b, _ := strconv.ParseBool(value)
 	return b
+}
+
+// GetGatewayTimeout returns the duration within which the reverse-proxy expects
+// a response.
+func (c *EnvConfig) GetGatewayTimeout() time.Duration {
+	callPtr, _, _, _ := runtime.Caller(0)
+	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
+
+	d, _ := time.ParseDuration(value)
+	return d
 }
 
 func (c *EnvConfig) String() string {
