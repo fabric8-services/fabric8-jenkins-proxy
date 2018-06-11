@@ -65,7 +65,7 @@ func IsBool(value interface{}, key string) error {
 func IsDuration(value interface{}, key string) error {
 	_, err := time.ParseDuration(value.(string))
 	if err != nil {
-		return fmt.Errorf("Value for %s needs to be a time duration.", key)
+		return fmt.Errorf("value for %s needs to be a time duration", key)
 	}
 	return nil
 }

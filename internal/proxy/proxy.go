@@ -4,7 +4,6 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
@@ -51,6 +51,7 @@ type Proxy struct {
 
 	//redirect is a base URL of the proxy
 	redirect        string
+	responseTimeout time.Duration
 	publicKey       *rsa.PublicKey
 	authURL         string
 	storageService  storage.Store
@@ -75,6 +76,7 @@ func NewProxy(
 		idler:            idler,
 		bufferCheckSleep: 30 * time.Second,
 		redirect:         config.GetRedirectURL(),
+		responseTimeout:  config.GetGatewayTimeout(),
 		authURL:          config.GetAuthURL(),
 		storageService:   storageService,
 		indexPath:        config.GetIndexPath(),
@@ -112,6 +114,10 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	Recorder.RecordReqByTypeTotal(requestType)
 
+	// store copy of the actual url so that it can be passed to reverse-proxy
+	// to force refreshing by redirecting to the actual url
+	actualURL := *r.URL
+
 	requestURL := logging.RequestMethodAndURL(r)
 	requestHeaders := logging.RequestHeaders(r)
 	requestHash := p.createRequestHash(requestURL, requestHeaders)
@@ -130,6 +136,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// NOTE: Response payload and status codes (including errors) are written
 	// to the ResponseWriter (w) in the called methods
+
 	if isGH {
 		ns, okToForward = p.handleGitHubRequest(w, r, logEntryWithHash)
 	} else {
@@ -147,30 +154,15 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		p.recordStatistics(ns, time.Now().Unix(), 0)
 	}()
 
-	reqURL := *r.URL
+	// at this point we know jenkins is up and running let the reverse-proxy
+	// forward request to actual jenkins
+	rp := &reverseproxy.ReverseProxy{
+		RedirectURL:     actualURL,
+		ResponseTimeout: p.responseTimeout,
+		Logger:          logEntryWithHash,
+	}
 
-	(&httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			log.WithField("ns", ns).WithField("url", reqURL.String()).Info("Proxying")
-		},
-		ModifyResponse: func(resp *http.Response) error {
-			//Check response from Jenkins and redirect if it got idled in the meantime
-			if resp.StatusCode == http.StatusServiceUnavailable ||
-				resp.StatusCode == http.StatusGatewayTimeout {
-
-				if len(cacheKey) > 0 { //Delete cache entry to force new check whether Jenkins is idled
-					log.Infof("Deleting cache key: %s", cacheKey)
-					p.ProxyCache.Delete(cacheKey)
-				}
-
-				if len(reqURL.String()) > 0 { //Block proxying to 503, redirect to self
-					log.Infof("Redirecting to %s, because %d", reqURL.String(), resp.StatusCode)
-					http.Redirect(w, r, reqURL.String(), http.StatusFound)
-				}
-			}
-			return nil
-		},
-	}).ServeHTTP(w, r)
+	rp.ServeHTTP(w, r)
 }
 
 func (p *Proxy) isGitHubRequest(r *http.Request) bool {
