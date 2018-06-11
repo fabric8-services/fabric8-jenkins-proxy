@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -56,6 +57,15 @@ func IsBool(value interface{}, key string) error {
 	_, err := strconv.ParseBool(value.(string))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Value for %s needs to be an bool.", key))
+	}
+	return nil
+}
+
+// IsDuration checks if value stored at a given key is a bool.
+func IsDuration(value interface{}, key string) error {
+	_, err := time.ParseDuration(value.(string))
+	if err != nil {
+		return fmt.Errorf("Value for %s needs to be a time duration.", key)
 	}
 	return nil
 }

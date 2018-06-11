@@ -1,5 +1,7 @@
 package mock
 
+import "time"
+
 // Config represents configuration required to run jenkins-proxy
 type Config struct {
 	PostgresHost              string
@@ -22,6 +24,7 @@ type Config struct {
 	MaxRequestRetry           int
 	DebugMode                 bool
 	HTTPSEnabled              bool
+	GatewayTimeout            time.Duration
 	Clusters                  map[string]string
 }
 
@@ -44,6 +47,7 @@ func NewConfig() Config {
 
 	c.RedirectURL = "https://localhost:8443/"
 	c.IndexPath = "static/html/index.html"
+	c.GatewayTimeout = 25 * time.Second
 
 	return c
 }
@@ -148,6 +152,11 @@ func (c *Config) GetDebugMode() bool {
 // GetHTTPSEnabled return hardcoded http-enabled from test configuration.
 func (c *Config) GetHTTPSEnabled() bool {
 	return c.HTTPSEnabled
+}
+
+// GetGatewayTimeout returns hardcoded gateway timeout from test configuration.
+func (c *Config) GetGatewayTimeout() time.Duration {
+	return c.GatewayTimeout
 }
 
 func (c *Config) String() string {
