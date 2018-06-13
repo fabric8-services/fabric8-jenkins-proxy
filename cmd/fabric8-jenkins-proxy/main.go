@@ -255,19 +255,17 @@ func setupSignalChannel(cancel context.CancelFunc) {
 }
 
 func newAPIServer(api api.ProxyAPI) *http.Server {
-	c := cors.New(cors.Options{
-		AllowCredentials: true,
-	})
-	srv := &http.Server{
+	return &http.Server{
 		Addr:    apiRouterPort,
-		Handler: c.Handler(router.CreateAPIRouter(api)),
+		Handler: router.CreateAPIRouter(api),
 	}
-	return srv
 }
 
 func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI) *http.Server {
 	c := cors.New(cors.Options{
 		AllowCredentials: true,
+		AllowedOrigins:   []string{"https://openshift.io", "https://*.openshift.io"},
+		AllowedMethods:   []string{"POST"},
 	})
 	srv := &http.Server{
 		Addr:    jenkinsAPIRouterPort,
