@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
 	"github.com/julienschmidt/httprouter"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -39,17 +38,4 @@ func TestAPIServerCORSHeaders(t *testing.T) {
 	writer = httptest.NewRecorder()
 	apiServer.Handler.ServeHTTP(writer, reader)
 	assert.Equal(t, "https://.openshift.io", writer.Header().Get("access-control-allow-origin"))
-}
-
-func TestProxyCORSHeaders(t *testing.T) {
-	apiServer := newProxyServer(&proxy.Proxy{})
-	reader, _ := http.NewRequest("GET", "/", nil)
-	randomOrigin := uuid.NewV4().String()
-	reader.Header.Set("origin", randomOrigin) // allowing everything for now.
-
-	writer := httptest.NewRecorder()
-	apiServer.Handler.ServeHTTP(writer, reader)
-
-	assert.Equal(t, "", writer.Header().Get("access-control-allow-origin"))
-
 }
