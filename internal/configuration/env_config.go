@@ -23,6 +23,7 @@ const (
 	defaultDebugMode                 = "false"
 	defaultHTTPSEnabled              = "false"
 	defaultGatewayTimeout            = "25s"
+	defaultAllowedOrigins            = "https://*openshift.io, https://localhost:*"
 )
 
 var (
@@ -57,6 +58,7 @@ func init() {
 	settings["GetDebugMode"] = Setting{"JC_DEBUG_MODE", defaultDebugMode, []func(interface{}, string) error{util.IsBool}}
 	settings["GetHTTPSEnabled"] = Setting{"JC_ENABLE_HTTPS", defaultHTTPSEnabled, []func(interface{}, string) error{util.IsBool}}
 	settings["GetGatewayTimeout"] = Setting{"JC_GATEWAY_TIMEOUT", defaultGatewayTimeout, []func(interface{}, string) error{util.IsDuration}}
+	settings["GetAllowedOrigins"] = Setting{"JC_ALLOWED_ORIGINS", defaultAllowedOrigins, []func(interface{}, string) error{util.IsNotEmpty}}
 }
 
 // Setting is an element in the proxy configuration. It contains the environment
@@ -266,6 +268,14 @@ func (c *EnvConfig) GetGatewayTimeout() time.Duration {
 
 	d, _ := time.ParseDuration(value)
 	return d
+}
+
+// GetAllowedOrigins returns string containing allowed origins separated with ", "
+func (c *EnvConfig) GetAllowedOrigins() string {
+	callPtr, _, _, _ := runtime.Caller(0)
+	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
+
+	return value
 }
 
 func (c *EnvConfig) String() string {

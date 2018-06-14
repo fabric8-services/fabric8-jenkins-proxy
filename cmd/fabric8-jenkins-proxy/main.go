@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
@@ -174,7 +175,7 @@ func startWorkers(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := newJenkinsAPIServer(jenkinsAPI)
+		srv := newJenkinsAPIServer(jenkinsAPI, config)
 
 		go func() {
 			mainLogger.Infof("Starting Jenkins Status API router on port %s", jenkinsAPIRouterPort)
@@ -261,10 +262,11 @@ func newAPIServer(api api.ProxyAPI) *http.Server {
 	}
 }
 
-func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI) *http.Server {
+func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI, config configuration.Configuration) *http.Server {
+	allowedMethods := strings.Split(config.GetAllowedOrigins(), ", ")
 	c := cors.New(cors.Options{
 		AllowCredentials: true,
-		AllowedOrigins:   []string{"https://openshift.io", "https://*.openshift.io"},
+		AllowedOrigins:   allowedMethods,
 		AllowedMethods:   []string{"POST"},
 	})
 	srv := &http.Server{

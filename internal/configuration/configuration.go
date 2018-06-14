@@ -71,6 +71,9 @@ type Configuration interface {
 	// a response from the underlying jenkins server
 	GetGatewayTimeout() time.Duration
 
+	// GetAllowedOrigins returns string containing allowed origins separated with ", "
+	GetAllowedOrigins() string
+
 	// String returns a string representation of the configuration
 	String() string
 }
