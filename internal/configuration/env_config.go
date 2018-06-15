@@ -23,7 +23,7 @@ const (
 	defaultDebugMode                 = "false"
 	defaultHTTPSEnabled              = "false"
 	defaultGatewayTimeout            = "25s"
-	defaultAllowedOrigins            = "https://*openshift.io, https://localhost:*"
+	defaultAllowedOrigins            = "https://*openshift.io,https://localhost:*"
 )
 
 var (
@@ -271,11 +271,11 @@ func (c *EnvConfig) GetGatewayTimeout() time.Duration {
 }
 
 // GetAllowedOrigins returns string containing allowed origins separated with ", "
-func (c *EnvConfig) GetAllowedOrigins() string {
+func (c *EnvConfig) GetAllowedOrigins() []string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
 
-	return value
+	return strings.Split(value, ",")
 }
 
 func (c *EnvConfig) String() string {

@@ -29,7 +29,7 @@ func TestAPIServerCORSHeaders(t *testing.T) {
 	config := mock.NewConfig()
 	apiServer := newJenkinsAPIServer(&MockJenkinsAPIImpl{}, &config)
 
-	reader, _ := http.NewRequest("POST", "/jenkins/start", nil)
+	reader, _ := http.NewRequest("POST", "/doesntmatter", nil)
 	// Check for origin "https://*.openshift.io"
 	randomOrigin := uuid.NewV4().String()
 	reader.Header.Set("Origin", "https://"+randomOrigin+".openshift.io")

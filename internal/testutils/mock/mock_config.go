@@ -25,7 +25,7 @@ type Config struct {
 	DebugMode                 bool
 	HTTPSEnabled              bool
 	GatewayTimeout            time.Duration
-	AllowedOrigins            string
+	AllowedOrigins            []string
 	Clusters                  map[string]string
 }
 
@@ -49,7 +49,7 @@ func NewConfig() Config {
 	c.RedirectURL = "https://localhost:8443/"
 	c.IndexPath = "static/html/index.html"
 	c.GatewayTimeout = 25 * time.Second
-	c.AllowedOrigins = "https://*openshift.io, https://localhost:*"
+	c.AllowedOrigins = []string{"https://*openshift.io", "https://localhost:*"}
 
 	return c
 }
@@ -162,7 +162,7 @@ func (c *Config) GetGatewayTimeout() time.Duration {
 }
 
 // GetAllowedOrigins returns hardcoded allowed origins
-func (c *Config) GetAllowedOrigins() string {
+func (c *Config) GetAllowedOrigins() []string {
 	return c.AllowedOrigins
 }
 

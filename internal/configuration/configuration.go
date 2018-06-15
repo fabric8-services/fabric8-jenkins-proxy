@@ -72,7 +72,7 @@ type Configuration interface {
 	GetGatewayTimeout() time.Duration
 
 	// GetAllowedOrigins returns string containing allowed origins separated with ", "
-	GetAllowedOrigins() string
+	GetAllowedOrigins() []string
 
 	// String returns a string representation of the configuration
 	String() string

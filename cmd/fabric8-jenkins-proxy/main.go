@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
@@ -263,10 +262,10 @@ func newAPIServer(api api.ProxyAPI) *http.Server {
 }
 
 func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI, config configuration.Configuration) *http.Server {
-	allowedMethods := strings.Split(config.GetAllowedOrigins(), ", ")
+	allowedOrigins := config.GetAllowedOrigins()
 	c := cors.New(cors.Options{
 		AllowCredentials: true,
-		AllowedOrigins:   allowedMethods,
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"POST"},
 	})
 	srv := &http.Server{
