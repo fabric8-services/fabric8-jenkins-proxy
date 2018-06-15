@@ -174,7 +174,7 @@ func startWorkers(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := newJenkinsAPIServer(jenkinsAPI)
+		srv := newJenkinsAPIServer(jenkinsAPI, config)
 
 		go func() {
 			mainLogger.Infof("Starting Jenkins Status API router on port %s", jenkinsAPIRouterPort)
@@ -255,19 +255,18 @@ func setupSignalChannel(cancel context.CancelFunc) {
 }
 
 func newAPIServer(api api.ProxyAPI) *http.Server {
-	c := cors.New(cors.Options{
-		AllowCredentials: true,
-	})
-	srv := &http.Server{
+	return &http.Server{
 		Addr:    apiRouterPort,
-		Handler: c.Handler(router.CreateAPIRouter(api)),
+		Handler: router.CreateAPIRouter(api),
 	}
-	return srv
 }
 
-func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI) *http.Server {
+func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI, config configuration.Configuration) *http.Server {
+	allowedOrigins := config.GetAllowedOrigins()
 	c := cors.New(cors.Options{
 		AllowCredentials: true,
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{"POST"},
 	})
 	srv := &http.Server{
 		Addr:    jenkinsAPIRouterPort,
