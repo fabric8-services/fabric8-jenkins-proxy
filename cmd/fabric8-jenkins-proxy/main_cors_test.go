@@ -30,6 +30,7 @@ func TestAPIServerCORSHeaders(t *testing.T) {
 	apiServer := newJenkinsAPIServer(&MockJenkinsAPIImpl{}, &config)
 
 	reader, _ := http.NewRequest("POST", "/doesntmatter", nil)
+
 	// Check for origin "https://*.openshift.io"
 	randomOrigin := uuid.NewV4().String()
 	reader.Header.Set("Origin", "https://"+randomOrigin+".openshift.io")
@@ -42,6 +43,20 @@ func TestAPIServerCORSHeaders(t *testing.T) {
 	writer = httptest.NewRecorder()
 	apiServer.Handler.ServeHTTP(writer, reader)
 	assert.Equal(t, "https://openshift.io", writer.Header().Get("access-control-allow-origin"))
+
+	// Check for origin "https://localhost:*"
+	randomOrigin = uuid.NewV4().String()
+	reader.Header.Set("Origin", "https://localhost:"+randomOrigin)
+	writer = httptest.NewRecorder()
+	apiServer.Handler.ServeHTTP(writer, reader)
+	assert.Equal(t, "https://localhost:"+randomOrigin, writer.Header().Get("access-control-allow-origin"))
+
+	// Check for origin "http://localhost:*"
+	randomOrigin = uuid.NewV4().String()
+	reader.Header.Set("Origin", "http://localhost:"+randomOrigin)
+	writer = httptest.NewRecorder()
+	apiServer.Handler.ServeHTTP(writer, reader)
+	assert.Equal(t, "http://localhost:"+randomOrigin, writer.Header().Get("access-control-allow-origin"))
 
 	// Check that we dont allow a random origin
 	randomOrigin = uuid.NewV4().String()
