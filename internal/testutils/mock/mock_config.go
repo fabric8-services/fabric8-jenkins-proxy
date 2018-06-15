@@ -49,7 +49,7 @@ func NewConfig() Config {
 	c.RedirectURL = "https://localhost:8443/"
 	c.IndexPath = "static/html/index.html"
 	c.GatewayTimeout = 25 * time.Second
-	c.AllowedOrigins = []string{"https://*openshift.io", "https://localhost:*"}
+	c.AllowedOrigins = []string{"https://*openshift.io", "https://localhost:*", "http://localhost:*"}
 
 	return c
 }

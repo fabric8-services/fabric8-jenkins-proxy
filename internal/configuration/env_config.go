@@ -23,7 +23,7 @@ const (
 	defaultDebugMode                 = "false"
 	defaultHTTPSEnabled              = "false"
 	defaultGatewayTimeout            = "25s"
-	defaultAllowedOrigins            = "https://*openshift.io,https://localhost:*"
+	defaultAllowedOrigins            = "https://*openshift.io,https://localhost:*,http://localhost:*"
 )
 
 var (
