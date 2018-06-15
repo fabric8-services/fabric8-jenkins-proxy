@@ -262,11 +262,11 @@ func newAPIServer(api api.ProxyAPI) *http.Server {
 }
 
 func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI, config configuration.Configuration) *http.Server {
-	allowedOrigins := config.GetAllowedOrigins()
 	c := cors.New(cors.Options{
-		AllowCredentials: true,
-		AllowedOrigins:   allowedOrigins,
-		AllowedMethods:   []string{"POST"},
+		AllowedOrigins: config.GetAllowedOrigins(),
+		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowedHeaders: []string{"*"},
+		Debug:          config.GetDebugMode(),
 	})
 	srv := &http.Server{
 		Addr:    jenkinsAPIRouterPort,
