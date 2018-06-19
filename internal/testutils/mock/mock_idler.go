@@ -10,18 +10,23 @@ import (
 type Idler struct {
 	idlerAPI   string
 	IdlerState clients.PodState
+	throwError bool // Used to test error scenarios
 }
 
 // NewMockIdler is a constructor for mock.Idler
-func NewMockIdler(idlerAPI string, state clients.PodState) (idler *Idler) {
+func NewMockIdler(idlerAPI string, state clients.PodState, throwError bool) (idler *Idler) {
 	return &Idler{
 		idlerAPI:   idlerAPI,
 		IdlerState: state,
+		throwError: throwError,
 	}
 }
 
 // State just returns the value set in Idler.state
 func (i *Idler) State(tenant string, openShiftAPIURL string) (clients.PodState, error) {
+	if i.throwError == true {
+		return clients.UnknownState, errors.New("This error is invoked for mocking error scenarios")
+	}
 	if openShiftAPIURL == "Valid_OpenShift_API_URL" {
 		return i.IdlerState, nil
 	}

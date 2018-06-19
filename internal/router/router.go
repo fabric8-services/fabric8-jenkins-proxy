@@ -24,6 +24,7 @@ func CreateJenkinsAPIRouter(jenkinsAPI jenkinsapi.JenkinsAPI) *httprouter.Router
 	// Create router for API
 	jenkinsAPIRouter := httprouter.New()
 	jenkinsAPIRouter.POST("/api/jenkins/start", jenkinsAPI.Start)
+	jenkinsAPIRouter.GET("/api/jenkins/status", jenkinsAPI.Status)
 	return jenkinsAPIRouter
 }
 

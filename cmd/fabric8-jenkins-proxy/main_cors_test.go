@@ -21,6 +21,11 @@ func (api *MockJenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ h
 	json.NewEncoder(w).Encode(resp)
 }
 
+func (api *MockJenkinsAPIImpl) Status(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	resp := clients.StatusResponse{}
+	json.NewEncoder(w).Encode(resp)
+}
+
 func TestAPIServerCORSHeaders(t *testing.T) {
 	config := mock.NewConfig()
 	apiServer := newJenkinsAPIServer(&MockJenkinsAPIImpl{}, &config)
