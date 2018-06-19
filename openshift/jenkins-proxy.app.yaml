@@ -14,14 +14,13 @@ objects:
     selector:
       service: jenkins-proxy
     strategy:
-      resources: {}
+      type: Rolling
       rollingParams:
         intervalSeconds: 1
         maxSurge: 25%
         maxUnavailable: 25%
         timeoutSeconds: 600
         updatePeriodSeconds: 1
-      type: Rolling
     template:
       metadata:
         labels:
@@ -127,7 +126,6 @@ objects:
               cpu: "500m"
         dnsPolicy: ClusterFirst
         restartPolicy: Always
-        securityContext: {}
         terminationGracePeriodSeconds: 30
     test: false
     triggers:
