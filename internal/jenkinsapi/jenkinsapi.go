@@ -15,6 +15,7 @@ import (
 //JenkinsAPI contains API to check whether Jenkins for the current user is idle|running|starting
 type JenkinsAPI interface {
 	Start(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
+	Status(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 }
 
 // JenkinsAPIImpl implements JenkinsAPI
@@ -31,23 +32,48 @@ func NewJenkinsAPI(tenant clients.TenantService, idler clients.IdlerService) Jen
 	}
 }
 
-// Start returns the Jenkins status for the current user
-func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	resp := clients.StatusResponse{}
-
+// Returns namespace from request headers
+func lookupNamespace(r *http.Request, t clients.TenantService) (clients.Namespace, error) {
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		HandleError(w, resp, errors.New("Could not find Bearer Token in Authorization Header"), http.StatusUnauthorized)
-		return
+		err := errors.New("Could not find Bearer token in Authorization Header")
+		return clients.Namespace{}, err
 	}
+	accessToken := strings.Split(authHeader, " ")[1]
+	namespace, err := t.GetNamespace(accessToken)
+	log.Infof("Found token info in the query. Namespace is %s and clusterURL is %s", namespace.Name, namespace.ClusterURL)
+	return namespace, err
+}
 
-	accessToken := strings.Split(r.Header.Get("Authorization"), " ")[1]
-	namespace, err := api.tenant.GetNamespace(accessToken)
+// Returns the Jenkins pods status for current user
+func (api *jenkinsAPIImpl) Status(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	resp := clients.StatusResponse{}
+
+	namespace, err := lookupNamespace(r, api.tenant)
 	if err != nil {
 		HandleError(w, resp, err, http.StatusUnauthorized)
 		return
 	}
-	log.Infof("Found token info in the query. Namespace is %s and clusterURL is %s", namespace.Name, namespace.ClusterURL)
+	status, err := api.idler.State(namespace.Name, namespace.ClusterURL)
+	if err != nil {
+		HandleError(w, resp, err, http.StatusInternalServerError)
+		return
+	}
+	resp.Data = &clients.JenkinsInfo{
+		State: status,
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
+// Start returns the Jenkins status for the current user
+func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	resp := clients.StatusResponse{}
+
+	namespace, err := lookupNamespace(r, api.tenant)
+	if err != nil {
+		HandleError(w, resp, err, http.StatusUnauthorized)
+		return
+	}
 
 	status, err := api.idler.State(namespace.Name, namespace.ClusterURL)
 	if err != nil {
@@ -68,7 +94,6 @@ func (api *jenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httpr
 	}
 
 	json.NewEncoder(w).Encode(resp)
-
 }
 
 // HandleError logs the error and encodes it in the response

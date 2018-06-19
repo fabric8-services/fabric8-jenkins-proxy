@@ -67,6 +67,23 @@ func (api *mockJenkinsAPI) Start(w http.ResponseWriter, r *http.Request, _ httpr
 	json.NewEncoder(w).Encode(resp)
 }
 
+// Status mock returns the Jenkins status for current user
+func (api *mockJenkinsAPI) Status(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	resp := clients.StatusResponse{}
+
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		jenkinsapi.HandleError(w, resp, errors.New("Could not find Bearer Token in Authorization Header"), http.StatusUnauthorized)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	resp.Data = &clients.JenkinsInfo{
+		State: clients.UnknownState,
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
 func Test_API_routes_are_setup(t *testing.T) {
 	mockedProxyAPI := &mockProxyAPI{}
 	mockedRouter := CreateAPIRouter(mockedProxyAPI)
