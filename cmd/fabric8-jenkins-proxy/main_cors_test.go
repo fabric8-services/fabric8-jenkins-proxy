@@ -10,13 +10,9 @@ import (
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/julienschmidt/httprouter"
-	uuid "github.com/satori/go.uuid"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
-
-type MockJenkinsAPI interface {
-	Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
-}
 
 type MockJenkinsAPIImpl struct{}
 
@@ -31,37 +27,36 @@ func TestAPIServerCORSHeaders(t *testing.T) {
 
 	reader, _ := http.NewRequest("POST", "/doesntmatter", nil)
 
-	// Check for origin "https://*.openshift.io"
 	randomOrigin := uuid.NewV4().String()
-	reader.Header.Set("Origin", "https://"+randomOrigin+".openshift.io")
+
+	corsTests := []struct {
+		name     string
+		given    string
+		expected string
+	}{
+		{name: "sub domain prefix", given: "https://" + randomOrigin + ".openshift.io", expected: "https://" + randomOrigin + ".openshift.io"},
+		{name: "only domain", given: "https://openshift.io", expected: "https://openshift.io"},
+		{name: "domain suffix", given: "https://localhost:" + randomOrigin, expected: "https://localhost:" + randomOrigin},
+		{name: "domain suffix non SSL", given: "http://localhost:" + randomOrigin, expected: "http://localhost:" + randomOrigin},
+		{name: "block random domain", given: "https://" + randomOrigin + ".io", expected: ""},
+	}
+
+	for _, test := range corsTests {
+		t.Run(test.name, func(t *testing.T) {
+			assertCorsHeaders(reader, test.given, test.expected, apiServer, t)
+		})
+	}
+}
+
+func assertCorsHeaders(r *http.Request, given string, expected string, apiServer *http.Server, t *testing.T) {
+	// GIVEN
+	r.Header.Set("Origin", given)
+
+	// WHEN
 	writer := httptest.NewRecorder()
-	apiServer.Handler.ServeHTTP(writer, reader)
-	assert.Equal(t, "https://"+randomOrigin+".openshift.io", writer.Header().Get("access-control-allow-origin"))
+	apiServer.Handler.ServeHTTP(writer, r)
 
-	// Check for origin "https://openshift.io"
-	reader.Header.Set("Origin", "https://openshift.io")
-	writer = httptest.NewRecorder()
-	apiServer.Handler.ServeHTTP(writer, reader)
-	assert.Equal(t, "https://openshift.io", writer.Header().Get("access-control-allow-origin"))
-
-	// Check for origin "https://localhost:*"
-	randomOrigin = uuid.NewV4().String()
-	reader.Header.Set("Origin", "https://localhost:"+randomOrigin)
-	writer = httptest.NewRecorder()
-	apiServer.Handler.ServeHTTP(writer, reader)
-	assert.Equal(t, "https://localhost:"+randomOrigin, writer.Header().Get("access-control-allow-origin"))
-
-	// Check for origin "http://localhost:*"
-	randomOrigin = uuid.NewV4().String()
-	reader.Header.Set("Origin", "http://localhost:"+randomOrigin)
-	writer = httptest.NewRecorder()
-	apiServer.Handler.ServeHTTP(writer, reader)
-	assert.Equal(t, "http://localhost:"+randomOrigin, writer.Header().Get("access-control-allow-origin"))
-
-	// Check that we dont allow a random origin
-	randomOrigin = uuid.NewV4().String()
-	reader.Header.Set("Origin", "https://"+randomOrigin+".io")
-	writer = httptest.NewRecorder()
-	apiServer.Handler.ServeHTTP(writer, reader)
-	assert.Equal(t, "", writer.Header().Get("access-control-allow-origin"))
+	// THEN
+	got := writer.Header().Get("access-control-allow-origin")
+	assert.Equal(t, expected, got)
 }
