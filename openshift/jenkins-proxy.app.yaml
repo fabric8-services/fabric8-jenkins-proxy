@@ -156,7 +156,7 @@ objects:
     type: ClusterIP
 parameters:
 - name: IMAGE
-  value: registry.devshift.net/fabric8-services/fabric8-jenkins-proxy
+  value: quay.io/openshiftio/rhel-fabric8-services-fabric8-jenkins-proxy
   required: true
 - name: IMAGE_TAG
   value: latest
