@@ -35,7 +35,8 @@ __check_defined = \
       $(error Undefined $1$(if $2, ($2))))
 
 .PHONY: all
-all: tools build test fmtcheck vet lint validate_commits image ## Compiles fabric8-jenkins-proxy and runs format and style checks
+all: tools validate_commits  ## Compiles fabric8-jenkins-proxy and runs format and style checks
+# all: tools build test fmtcheck vet lint validate_commits image ## Compiles fabric8-jenkins-proxy and runs format and style checks
 
 build: vendor ## Builds the fabric8-jenkins-proxy into $GOPATH/bin
 	 go install -ldflags="$(LD_FLAGS)" ./cmd/fabric8-jenkins-proxy
@@ -113,6 +114,7 @@ clean: ## Deletes all build artifacts
 
 .PHONY: validate_commits
 validate_commits: tools ## Validates git commit messages
+	env
 	git-validation -q -run short-subject,message_regexp='^(Revert\s*)?(Fix\s*)?(Issue\s*)?#[0-9]+ [A-Z]+.*' -range $(START_COMMIT_MESSAGE_VALIDATION)...
 
 .PHONY: help
