@@ -26,7 +26,7 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	return Tenant{
 		authToken:        authToken,
 		tenantServiceURL: tenantServiceURL,
-		client:           &http.Client{},
+		client:           util.HTTPClient(),
 		logger:           logger,
 	}
 }
@@ -104,6 +104,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 		"type": "id",
 		"id":   tenantID,
 	}).Info("Tenant by id")
+
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return

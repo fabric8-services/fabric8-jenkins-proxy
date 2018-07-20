@@ -125,7 +125,7 @@ func loadUser(env string, uuid string) (User, error) {
 	if err != nil {
 		return user, err
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := HTTPClient().Do(req)
 	if err != nil {
 		return user, err
 	}
