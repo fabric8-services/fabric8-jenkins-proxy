@@ -93,13 +93,13 @@ func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("Got status code %s (%d) from %s", resp.Status, resp.StatusCode, kcURL)
 		return
 	}
 
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return
@@ -116,10 +116,6 @@ func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
 	}
 
 	pk, err = jwt.ParseRSAPublicKeyFromPEM([]byte(fmt.Sprintf("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----", ri.PublicKey)))
-	if err != nil {
-		return
-	}
-
 	return
 }
 
