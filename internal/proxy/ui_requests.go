@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -21,8 +20,9 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 	okToForward = false // indicates if its ready to forward requests to Jenkins
 
 	// redirectURL is used for auth service as a target of successful auth redirect
-	redirectURL, err := url.ParseRequestURI(fmt.Sprintf("%s%s", strings.TrimRight(p.redirect, "/"), r.URL.Path))
+	redirectURL, err := url.ParseRequestURI(strings.TrimRight(p.redirect, "/") + r.URL.Path)
 	if err != nil {
+		logger.Errorf("Failed to create redirection url from %q and %q - error %s", p.redirect, r.URL.Path, err)
 		p.HandleError(w, err, logger)
 		return
 	}
@@ -32,13 +32,15 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		tjLogger := logger.WithField("part", "token_json")
 
 		if len(tj) < 1 {
-			p.HandleError(w, errors.New("could not read JWT token from URL"), tjLogger)
+			tjLogger.Errorf("could not read JWT token from URL")
+			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
 			return
 		}
 
 		pci, osioToken, err := p.processToken([]byte(tj[0]), tjLogger)
 		if err != nil {
-			p.HandleError(w, err, tjLogger)
+			tjLogger.Errorf("Error processing token_json to get osio-token")
+			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -48,11 +50,20 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		nsLogger := tjLogger.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 		nsLogger.Infof("found ns : %q, cluster: %q", ns, clusterURL)
 
+		osoToken, err := util.GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
+		if err != nil {
+			nsLogger.Errorf("Error when fetching OSO token: %s", err)
+			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+			return
+		}
+		nsLogger.Info("Fetched OSO token from OSIO token")
+
 		// we don't care about code here since only the state of jenkins pod -
 		// running or not is what is relevant
 		state, _, err := p.startJenkins(ns, clusterURL)
 		if err != nil {
-			p.HandleError(w, err, nsLogger)
+			nsLogger.Errorf("Error when starting Jenkins: %s", err)
+			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -77,23 +88,18 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		}
 
 		// Jenkins is running at this point; login and set the jenkins cookies
-		osoToken, err := util.GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
-		if err != nil {
-			p.HandleError(w, err, nsLogger)
-			return
-		}
-		nsLogger.Info("Fetched OSO token from OSIO token")
-
 		status, jenkinsCookies, err := p.loginJenkins(pci, osoToken, nsLogger)
 		if err != nil {
-			p.HandleError(w, err, nsLogger)
+			nsLogger.Errorf("Error when logging into jenkins: %s", err)
+			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 			return
 		}
 
 		nsLogger.Infof("Jenkins Login returned: %v", cookieNames(jenkinsCookies))
 
 		if status != http.StatusOK {
-			p.HandleError(w, fmt.Errorf("could not login to Jenkins in %q namespace", ns), nsLogger)
+			nsLogger.Errorf("Jenkins login returned status %d", status)
+			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 			return
 		}
 
