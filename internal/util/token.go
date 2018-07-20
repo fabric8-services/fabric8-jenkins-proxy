@@ -54,8 +54,8 @@ func GetOSOToken(authURL string, clusterURL string, token string) (osoToken stri
 		return
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	c := http.DefaultClient
 
+	c := HTTPClient()
 	resp, err := c.Do(req)
 	if err != nil {
 		return
@@ -88,7 +88,8 @@ func GetOSOToken(authURL string, clusterURL string, token string) (osoToken stri
 
 // GetPublicKey gets public key of keycloak realm which Proxy service is using.
 func GetPublicKey(kcURL string) (pk *rsa.PublicKey, err error) {
-	resp, err := http.Get(fmt.Sprintf("%s/auth/realms/fabric8/", strings.TrimRight(kcURL, "/")))
+	c := HTTPClient()
+	resp, err := c.Get(fmt.Sprintf("%s/auth/realms/fabric8/", strings.TrimRight(kcURL, "/")))
 	if err != nil {
 		return
 	}

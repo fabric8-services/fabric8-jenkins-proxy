@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
@@ -121,7 +120,7 @@ func (i *idler) State(tenant string, openShiftAPIURL string) (PodState, error) {
 		"request": logging.FormatHTTPRequestWithSeparator(req, " "),
 		"type":    "state"}).Debug("Calling State API")
 
-	client := httpClient()
+	client := util.HTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return UnknownState, err
@@ -170,7 +169,7 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 		"request": logging.FormatHTTPRequestWithSeparator(req, " "),
 		"type":    "unidle"}).Info("Calling Idler API")
 
-	client := httpClient()
+	client := util.HTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
@@ -227,10 +226,4 @@ func (i *idler) Clusters() (map[string]string, error) {
 
 func (e ResponseError) Error() string {
 	return fmt.Sprintf("%d: %s", e.Code, e.Description)
-}
-
-func httpClient() *http.Client {
-	return &http.Client{
-		Timeout: 20 * time.Second,
-	}
 }
