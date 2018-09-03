@@ -45,9 +45,6 @@ type Configuration interface {
 	// GetWitURL returns the WIT API URL as set via default, config file, or environment variable
 	GetWitURL() string
 
-	// GetKeycloakURL returns the Keycloak API URL as set via default, config file, or environment variable
-	GetKeycloakURL() string
-
 	// GetAuthToken returns the Auth token as set via default, config file, or environment variable
 	GetAuthToken() string
 

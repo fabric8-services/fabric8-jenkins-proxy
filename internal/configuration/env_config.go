@@ -49,7 +49,6 @@ func init() {
 	settings["GetAuthToken"] = Setting{"JC_AUTH_TOKEN", "", []func(interface{}, string) error{util.IsNotEmpty}}
 	settings["GetTenantURL"] = Setting{"JC_F8TENANT_API_URL", "", []func(interface{}, string) error{util.IsURL}}
 	settings["GetWitURL"] = Setting{"JC_WIT_API_URL", "", []func(interface{}, string) error{util.IsURL}}
-	settings["GetKeycloakURL"] = Setting{"JC_KEYCLOAK_URL", "", []func(interface{}, string) error{util.IsURL}}
 
 	// Misc
 	settings["GetRedirectURL"] = Setting{"JC_REDIRECT_URL", "", []func(interface{}, string) error{util.IsURL}}
@@ -194,14 +193,6 @@ func (c *EnvConfig) GetTenantURL() string {
 
 // GetWitURL returns the WIT API URL as set via default, config file, or environment variable.
 func (c *EnvConfig) GetWitURL() string {
-	callPtr, _, _, _ := runtime.Caller(0)
-	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
-
-	return value
-}
-
-// GetKeycloakURL returns the Keycloak API URL as set via default, config file, or environment variable.
-func (c *EnvConfig) GetKeycloakURL() string {
 	callPtr, _, _, _ := runtime.Caller(0)
 	value := getConfigValueFromEnv(util.NameOfFunction(callPtr))
 

@@ -17,7 +17,6 @@ type Config struct {
 	AuthURL                   string
 	TenantURL                 string
 	WitURL                    string
-	KeycloakURL               string
 	AuthToken                 string
 	RedirectURL               string
 	IndexPath                 string
@@ -43,8 +42,6 @@ func NewConfig() Config {
 	c.PostgresConnectionMaxIdle = -1
 	c.PostgresConnectionMaxOpen = -1
 	c.PostgresConnectionTimeout = 5
-
-	c.KeycloakURL = "https://sso.prod-preview.openshift.io"
 
 	c.RedirectURL = "https://localhost:8443/"
 	c.IndexPath = "static/html/index.html"
@@ -119,11 +116,6 @@ func (c *Config) GetTenantURL() string {
 // GetWitURL return hardcoded url of wit service from test configuration.
 func (c *Config) GetWitURL() string {
 	return c.WitURL
-}
-
-// GetKeycloakURL return hardcoded url of the keycloak server from test configuration.
-func (c *Config) GetKeycloakURL() string {
-	return c.KeycloakURL
 }
 
 // GetAuthToken return hardcoded value of auth token from test configuration.
