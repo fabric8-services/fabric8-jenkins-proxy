@@ -9,7 +9,7 @@ import (
 
 	"errors"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	log "github.com/sirupsen/logrus"
 )
@@ -140,18 +140,7 @@ func GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
 
 // GetNamespace gets namespace given appropriate accessToken
 func (t Tenant) GetNamespace(accessToken string) (namespace Namespace, err error) {
-	config, err := configuration.NewConfiguration()
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	publicKey, err := util.GetPublicKey(config.GetKeycloakURL())
-	if err != nil {
-		return
-	}
-
-	uid, err := util.GetTokenUID(accessToken, publicKey)
+	uid, err := auth.DefaultClient().UIDFromToken(accessToken)
 	if err != nil {
 		return
 	}
@@ -160,6 +149,7 @@ func (t Tenant) GetNamespace(accessToken string) (namespace Namespace, err error
 	if err != nil {
 		return
 	}
+
 	namespace, err = GetNamespaceByType(ti, "jenkins")
 	if err != nil {
 		return

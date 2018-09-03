@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/jenkinsapi"
@@ -77,6 +78,10 @@ func main() {
 	defer db.Close()
 
 	store := storage.NewDBStorage(db)
+
+	// Create auth client and set it as default; can be accessed by
+	// auth.DefaultClient() in other packages
+	auth.SetDefaultClient(auth.NewClient(config.GetAuthURL()))
 
 	// Create tenant client
 	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
