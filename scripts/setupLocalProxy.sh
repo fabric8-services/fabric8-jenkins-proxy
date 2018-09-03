@@ -209,7 +209,6 @@ env() {
     login
     setTokens
 
-    echo export JC_KEYCLOAK_URL=https://sso.prod-preview.openshift.io
     echo export JC_WIT_API_URL=https://api.prod-preview.openshift.io
     echo export JC_REDIRECT_URL=https://localhost:8080
     echo export JC_ENABLE_HTTPS=true
@@ -236,7 +235,6 @@ env() {
 #   None
 ###############################################################################
 unsetEnv() {
-    echo unset JC_KEYCLOAK_URL
     echo unset JC_WIT_API_URL
     echo unset JC_REDIRECT_URL
     echo unset JC_ENABLE_HTTPS
