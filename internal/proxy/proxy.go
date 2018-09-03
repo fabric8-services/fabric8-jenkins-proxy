@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
@@ -52,7 +50,6 @@ type Proxy struct {
 	//redirect is a base URL of the proxy
 	redirect        string
 	responseTimeout time.Duration
-	publicKey       *rsa.PublicKey
 	authURL         string
 	storageService  storage.Store
 	indexPath       string
@@ -86,13 +83,6 @@ func NewProxy(
 
 	//Initialize metrics
 	Recorder.Initialize()
-
-	//Collect and parse public key from Keycloak
-	pk, err := util.GetPublicKey(config.GetKeycloakURL())
-	if err != nil {
-		return p, err
-	}
-	p.publicKey = pk
 
 	//Spawn a routine to process buffered requests
 	go func() {

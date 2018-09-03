@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,7 +39,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 		pci, osioToken, err := p.processToken([]byte(tj[0]), tjLogger)
 		if err != nil {
-			tjLogger.Errorf("Error processing token_json to get osio-token")
+			tjLogger.Errorf("Error processing token_json to get osio-token: %q", err)
 			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
 			return
 		}
@@ -50,7 +50,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		nsLogger := tjLogger.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 		nsLogger.Infof("found ns : %q, cluster: %q", ns, clusterURL)
 
-		osoToken, err := util.GetOSOToken(p.authURL, pci.ClusterURL, osioToken)
+		osoToken, err := auth.DefaultClient().OSOTokenForCluster(pci.ClusterURL, osioToken)
 		if err != nil {
 			nsLogger.Errorf("Error when fetching OSO token: %s", err)
 			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
@@ -265,7 +265,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 	//Check if we need to redirect to auth service
 	if needsAuth {
-		redirAuth := util.GetAuthURI(p.authURL, redirectURL.String())
+		redirAuth := auth.DefaultClient().CreateRedirectURL(redirectURL.String())
 		logger.Infof("Redirecting to auth: %q", redirAuth)
 
 		// clear session and idle cookies as this is a fresh start
@@ -297,13 +297,13 @@ func (p *Proxy) loginJenkins(pci CacheItem, osoToken string, logger *log.Entry) 
 }
 
 func (p *Proxy) processToken(tokenData []byte, logger *log.Entry) (pci CacheItem, osioToken string, err error) {
-	tokenJSON := &util.TokenJSON{}
+	tokenJSON := &auth.TokenJSON{}
 	err = json.Unmarshal(tokenData, tokenJSON)
 	if err != nil {
 		return
 	}
 
-	uid, err := util.GetTokenUID(tokenJSON.AccessToken, p.publicKey)
+	uid, err := auth.DefaultClient().UIDFromToken(tokenJSON.AccessToken)
 	if err != nil {
 		return
 	}
