@@ -35,7 +35,6 @@ func Test_setting_required_parameters_lets_you_create_configuration(t *testing.T
 	os.Setenv("JC_F8TENANT_API_URL", "http://localhost:1234")
 	os.Setenv("JC_AUTH_URL", "http://localhost:1235")
 	os.Setenv("JC_WIT_API_URL", "http://localhost:1236")
-	os.Setenv("JC_KEYCLOAK_URL", "http://localhost:1237")
 	os.Setenv("JC_IDLER_API_URL", "http://localhost:1238")
 
 	os.Setenv("JC_AUTH_TOKEN", "snafu")

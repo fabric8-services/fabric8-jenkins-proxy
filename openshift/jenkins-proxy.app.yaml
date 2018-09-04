@@ -48,11 +48,6 @@ objects:
               configMapKeyRef:
                 name: jenkins-proxy
                 key: redirect.url
-          - name: JC_KEYCLOAK_URL
-            valueFrom:
-              configMapKeyRef:
-                name: auth
-                key: keycloak.url
           - name: JC_AUTH_URL
             valueFrom:
               configMapKeyRef:
