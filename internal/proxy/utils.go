@@ -57,7 +57,7 @@ func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntr
 	data := struct {
 		RetryMaxInterval int
 		RetryMinInterval int
-	}{2 * 60, 15}
+	}{45, 15}
 
 	requestLogEntry.WithField("ns", ns).Debug("Templating index.html")
 	err = tmplt.Execute(w, data)
