@@ -116,8 +116,8 @@ Both CI systems build all merges to master as well as pull requests.
 # Running locally
 
 The repository contains a script [`setupLocalProxy.sh`](./scripts/setupLocalProxy.sh) which can be used to run the Proxy locally.
-A prerequisite for this is access to https://console.rh-idev.openshift.com/.
-To run the script you need to export your OpenShift access token for console.rh-idev.openshift.com as DSAAS_PREVIEW_TOKEN.
+A prerequisite for this is access to https://console.dsaas-stg.openshift.com/.
+To run the script you need to export your OpenShift access token for console.dsaas-stg.openshift.com as DSAAS_PREVIEW_TOKEN.
 Note, In order to port forward you need to edit permissions on the dsaas-preview namespace.
 You need to have jq installed to run these commands. For fedora use `sudo dnf install jq`
 
