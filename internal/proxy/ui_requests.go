@@ -39,8 +39,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 		pci, osioToken, err := p.processToken([]byte(tj[0]), tjLogger)
 		if err != nil {
-			tjLogger.Errorf("Error processing token_json to get osio-token: %q", err)
-			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
+			p.HandleError(w, fmt.Errorf("Error processing token_json to get osio-token: %q", err), tjLogger)
 			return
 		}
 
