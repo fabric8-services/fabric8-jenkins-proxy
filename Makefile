@@ -35,7 +35,7 @@ __check_defined = \
       $(error Undefined $1$(if $2, ($2))))
 
 .PHONY: all
-all: tools build test fmtcheck vet lint validate_commits image ## Compiles fabric8-jenkins-proxy and runs format and style checks
+all: tools build test fmtcheck vet lint image ## Compiles fabric8-jenkins-proxy and runs format and style checks
 
 build: vendor ## Builds the fabric8-jenkins-proxy into $GOPATH/bin
 	 go install -ldflags="$(LD_FLAGS)" ./cmd/fabric8-jenkins-proxy
@@ -67,7 +67,7 @@ tools: tools.timestamp
 
 tools.timestamp:
 	go get -u github.com/golang/dep/cmd/dep
-	go get -u github.com/golang/lint/golint
+	go get -u golang.org/x/lint/golint
 	go get -u github.com/vbatts/git-validation/...
 	go get -u github.com/haya14busa/goverage
 	@touch tools.timestamp
@@ -110,10 +110,6 @@ clean: ## Deletes all build artifacts
 	rm -rf vendor
 	rm -rf tools.timestamp
 	rm -rf $(BUILD_DIR)
-
-.PHONY: validate_commits
-validate_commits: tools ## Validates git commit messages
-	git-validation -q -run short-subject,message_regexp='^(Revert\s*)?(Fix\s*)?(Issue\s*)?#[0-9]+ [A-Z]+.*' -range $(START_COMMIT_MESSAGE_VALIDATION)...
 
 .PHONY: help
 help: ## Prints this help
