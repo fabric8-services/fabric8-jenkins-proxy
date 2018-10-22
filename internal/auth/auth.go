@@ -186,7 +186,7 @@ func (c *Client) updatePublicKeysOnce() error {
 func (c *Client) updatePublicKeys() error {
 	tokenURL := strings.TrimRight(c.URL, "/") + "/api/token/keys?format=pem"
 
-	c.log.Info("Fetching public keys from %s", tokenURL)
+	c.log.Infof("Fetching public keys from %s", tokenURL)
 	resp, err := util.HTTPClient().Get(tokenURL)
 	if err != nil {
 		return err
