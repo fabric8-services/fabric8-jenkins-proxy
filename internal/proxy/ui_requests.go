@@ -32,8 +32,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		tjLogger := logger.WithField("part", "token_json")
 
 		if len(tj) < 1 {
-			tjLogger.Errorf("could not read JWT token from URL")
-			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
+			p.HandleError(w, fmt.Errorf("could not read JWT token from URL"), tjLogger)
 			return
 		}
 
@@ -51,8 +50,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 		osoToken, err := auth.DefaultClient().OSOTokenForCluster(pci.ClusterURL, osioToken)
 		if err != nil {
-			nsLogger.Errorf("Error when fetching OSO token: %s", err)
-			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+			p.HandleError(w, fmt.Errorf("Error when fetching OSO token: %s", err), nsLogger)
 			return
 		}
 		nsLogger.Info("Fetched OSO token from OSIO token")
@@ -61,8 +59,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		// running or not is what is relevant
 		state, _, err := p.startJenkins(ns, clusterURL)
 		if err != nil {
-			nsLogger.Errorf("Error when starting Jenkins: %s", err)
-			http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
+			p.HandleError(w, fmt.Errorf("Error when starting Jenkins: %s", err), nsLogger)
 			return
 		}
 
@@ -89,8 +86,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		// Jenkins is running at this point; login and set the jenkins cookies
 		status, jenkinsCookies, err := p.loginJenkins(pci, osoToken, nsLogger)
 		if err != nil {
-			nsLogger.Errorf("Error when logging into jenkins: %s", err)
-			http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+			p.HandleError(w, fmt.Errorf("Error when logging into jenkins: %s", err), nsLogger)
 			return
 		}
 
