@@ -153,6 +153,24 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 				scLogger := nsLogger.WithField("cookietype", "session")
 				scLogger.Infof("Cache has Jenkins route %q in %q", pci.Route, cookie.Value)
 
+				isSessionCookieValid, err := checkIfSessionCookieIsValid(pci, cookie)
+				if err != nil {
+					p.HandleError(w, err, scLogger)
+					return
+				}
+
+				if !isSessionCookieValid {
+					p.ProxyCache.Delete(cacheKey)
+					cacheKey = "" // cacheKey isn't valid any more
+
+					expireCookie(w, cookie)
+					scLogger.Infof("cookie %s is OLD; expiring the cookie and clear it from cache", cookie.Name)
+
+					// There could be multiple cookies starting with JSESSIONID.
+					// We need to check them all
+					continue
+				}
+
 				// ensure jenkins is running
 				state, _, err := p.startJenkins(ns, pci.ClusterURL)
 				if err != nil {
@@ -354,4 +372,30 @@ func (p *Proxy) startJenkins(ns, clusterURL string) (state clients.PodState, cod
 		code = http.StatusAccepted
 	}
 	return state, code, nil
+}
+
+func checkIfSessionCookieIsValid(pci CacheItem, cookie *http.Cookie) (bool, error) {
+	jenkinsURL := fmt.Sprintf("%s://%s", pci.Scheme, pci.Route)
+
+	req, _ := http.NewRequest("GET", jenkinsURL, nil)
+	req.AddCookie(cookie)
+
+	c := http.DefaultClient
+	resp, err := c.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, err
+	case http.StatusUnauthorized:
+		return false, err
+	case http.StatusForbidden:
+		return false, err
+	default:
+		err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
+		return false, err
+	}
 }
