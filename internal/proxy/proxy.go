@@ -158,7 +158,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	rp.ServeHTTP(w, r)
 
 	if !rp.IsValidSession {
-		cleanUpSession(w, r.Cookies(), p)
+		cleanupSession(w, r.Cookies(), p)
 	}
 }
 
@@ -230,7 +230,7 @@ func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, er
 	return route, "https", nil
 }
 
-func cleanUpSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
+func cleanupSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
 	for _, cookie := range cookies {
 		if cookiesutil.IsSessionCookie(cookie) {
 			var pci CacheItem
@@ -245,7 +245,7 @@ func cleanUpSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
 			}
 
 			cookiesutil.ExpireCookie(w, cookie)
-			proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name)
+			proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name, pci.NS)
 
 			// There could be multiple cookies starting with JSESSIONID.
 			// We need to check them all

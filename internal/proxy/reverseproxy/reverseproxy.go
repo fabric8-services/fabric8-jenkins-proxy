@@ -66,17 +66,18 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	if rr.err != nil {
 		logger.Warnf("Error %q - code: %d", rr.err, rr.statusCode)
-
-		if rr.statusCode == http.StatusForbidden {
-			var err error
-			rp.IsValidSession, err = checkSessionValidity(req)
-			if err != nil {
-				logger.Error(err)
-			}
-		}
-
-		// http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
+		http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
 	}
+
+	if rr.statusCode == http.StatusForbidden {
+		var err error
+		rp.IsValidSession, err = checkSessionValidity(req)
+		if err != nil {
+			logger.Error(err)
+		}
+		http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
+	}
+
 }
 
 func checkSessionValidity(req *http.Request) (bool, error) {
