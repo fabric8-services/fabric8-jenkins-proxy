@@ -12,6 +12,7 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
+	cookiesutil "github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
@@ -146,13 +147,19 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// at this point we know jenkins is up and running let the reverse-proxy
 	// forward request to actual jenkins
-	rp := &reverseproxy.ReverseProxy{
-		RedirectURL:     actualURL,
-		ResponseTimeout: p.responseTimeout,
-		Logger:          logEntryWithHash,
-	}
+	rp := reverseproxy.NewReverseProxy(
+		actualURL,
+		p.responseTimeout,
+		okToForward,
+
+		logEntryWithHash,
+	)
 
 	rp.ServeHTTP(w, r)
+
+	if !rp.IsValidSession {
+		cleanUpSession(w, r.Cookies(), p)
+	}
 }
 
 func (p *Proxy) isGitHubRequest(r *http.Request) bool {
@@ -221,4 +228,28 @@ func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, er
 	}
 	route := fmt.Sprintf("jenkins-%s.%s", ns, p.clusters[clusterURL])
 	return route, "https", nil
+}
+
+func cleanUpSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
+	for _, cookie := range cookies {
+		if cookiesutil.IsSessionCookie(cookie) {
+			var pci CacheItem
+
+			cacheKey := cookie.Value
+			cacheVal, ok := p.ProxyCache.Get(cacheKey)
+			if ok {
+				pci = cacheVal.(CacheItem)
+				p.ProxyCache.Delete(cacheKey)
+
+				proxyLogger.Infof("clearing cache for namespace: %s, cache_key: %s", pci.NS, cacheKey)
+			}
+
+			cookiesutil.ExpireCookie(w, cookie)
+			proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name)
+
+			// There could be multiple cookies starting with JSESSIONID.
+			// We need to check them all
+			continue
+		}
+	}
 }

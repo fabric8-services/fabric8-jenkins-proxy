@@ -2,10 +2,13 @@ package reverseproxy
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"time"
+
+	cookiesutil "github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -17,8 +20,22 @@ import (
 // within the timeout, a 302 to the same URL is sent back to the client.
 type ReverseProxy struct {
 	RedirectURL     url.URL
-	Logger          *log.Entry
 	ResponseTimeout time.Duration
+	IsValidSession  bool
+
+	Logger *log.Entry
+}
+
+// NewReverseProxy returns an instance of reverse proxy on passing redirect url,
+// response timeout, session validity flag and a logger object
+func NewReverseProxy(redirectURL url.URL, responseTimeout time.Duration, isSessionValid bool, logger *log.Entry) *ReverseProxy {
+	return &ReverseProxy{
+		RedirectURL:     redirectURL,
+		ResponseTimeout: responseTimeout,
+		IsValidSession:  isSessionValid,
+
+		Logger: logger,
+	}
 }
 
 func director(req *http.Request) {
@@ -35,6 +52,7 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		"redirect_url":     rp.RedirectURL.String(),
 		"request_url":      req.URL.String(),
 		"response_timeout": rp.ResponseTimeout,
+		"is_valid_session": rp.IsValidSession,
 	})
 
 	ctx, cancel := context.WithTimeout(req.Context(), rp.ResponseTimeout)
@@ -48,6 +66,51 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	if rr.err != nil {
 		logger.Warnf("Error %q - code: %d", rr.err, rr.statusCode)
-		http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
+
+		if rr.statusCode == http.StatusForbidden {
+			var err error
+			rp.IsValidSession, err = checkSessionValidity(req)
+			if err != nil {
+				logger.Error(err)
+			}
+		}
+
+		// http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
 	}
+}
+
+func checkSessionValidity(req *http.Request) (bool, error) {
+	requestURL := req.URL
+	cookies := req.Cookies()
+
+	jenkinsURL := fmt.Sprintf("%s://%s", requestURL.Scheme, requestURL.Host)
+
+	for _, cookie := range cookies {
+		if cookiesutil.IsSessionCookie(cookie) {
+
+			req, _ := http.NewRequest("GET", jenkinsURL, nil)
+			req.AddCookie(cookie)
+
+			c := http.DefaultClient
+			resp, err := c.Do(req)
+			if err != nil {
+				return false, err
+			}
+			defer resp.Body.Close()
+
+			switch resp.StatusCode {
+			case http.StatusOK:
+				return true, err
+			case http.StatusUnauthorized:
+				return false, err
+			case http.StatusForbidden:
+				return false, err
+			default:
+				err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
+				return false, err
+			}
+		}
+	}
+
+	return false, nil
 }
