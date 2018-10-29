@@ -59,10 +59,6 @@ func IsSessionOrIdledCookie(c *http.Cookie) bool {
 	return IsSessionCookie(c) || IsIdledCookie(c)
 }
 
-func anyCookie(_ *http.Cookie) bool {
-	return true
-}
-
 // SetIdledCookie set a cookie to indicate that jenkins is idled for namespace stored
 // in cache with cookie value as cache key
 func SetIdledCookie(w http.ResponseWriter) string {
