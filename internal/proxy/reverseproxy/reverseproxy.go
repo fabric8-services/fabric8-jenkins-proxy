@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ReverseProxy is a HTTP Handler that takes an incoming request and
+// ReverseProxy is an HTTP Handler that takes an incoming request and
 // sends it to another server (jenkins), proxying the response back to
 // the client if it is received within a timeout (responseTimeout).
 // In case the handler does not recieve any response from the server
@@ -43,7 +43,6 @@ func director(req *http.Request) {
 		// explicitly disable User-Agent so it's not set to default value
 		req.Header.Set("User-Agent", "")
 	}
-
 }
 
 func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -69,7 +68,7 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
 	}
 
-	if rr.statusCode == http.StatusForbidden {
+	if rr.statusCode >= 400 && rr.statusCode < 500 {
 		var err error
 		rp.IsValidSession, err = checkSessionValidity(req)
 		if err != nil {
@@ -89,11 +88,11 @@ func checkSessionValidity(req *http.Request) (bool, error) {
 	for _, cookie := range cookies {
 		if cookiesutil.IsSessionCookie(cookie) {
 
-			req, _ := http.NewRequest("GET", jenkinsURL, nil)
-			req.AddCookie(cookie)
+			r, _ := http.NewRequest("GET", jenkinsURL, nil)
+			r.AddCookie(cookie)
 
 			c := http.DefaultClient
-			resp, err := c.Do(req)
+			resp, err := c.Do(r)
 			if err != nil {
 				return false, err
 			}
@@ -102,8 +101,6 @@ func checkSessionValidity(req *http.Request) (bool, error) {
 			switch resp.StatusCode {
 			case http.StatusOK:
 				return true, err
-			case http.StatusUnauthorized:
-				return false, err
 			case http.StatusForbidden:
 				return false, err
 			default:

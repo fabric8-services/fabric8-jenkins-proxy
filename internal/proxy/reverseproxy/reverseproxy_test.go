@@ -23,7 +23,7 @@ func TestReverseProxy(t *testing.T) {
 		// if the "mode" is "hangup"
 		if r.Method == "GET" && r.FormValue("mode") == "hangup" {
 			if retries < 5 {
-				// NOTE Hijack results in calling  the handlerfunc again for the
+				// NOTE Hijack results in calling the handlerfunc again for the
 				// first time so for the first time retry will be incremented to 2
 				retries++
 				c, _, _ := w.(http.Hijacker).Hijack()
