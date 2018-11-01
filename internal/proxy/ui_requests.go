@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -37,7 +36,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			return
 		}
 
-		pci, osioToken, err := p.processToken([]byte(tj[0]), tjLogger)
+		pci, osioToken, err := p.jenkins.Info(tj[0])
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Error processing token_json to get osio-token: %q", err), tjLogger)
 			return
@@ -58,7 +57,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 		// we don't care about code here since only the state of jenkins pod -
 		// running or not is what is relevant
-		state, _, err := p.startJenkins(ns, clusterURL)
+		state, _, err := p.jenkins.Start(ns, clusterURL)
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Error when starting Jenkins: %s", err), nsLogger)
 			return
@@ -85,7 +84,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		}
 
 		// Jenkins is running at this point; login and set the jenkins cookies
-		status, jenkinsCookies, err := p.loginJenkins(pci, osoToken, nsLogger)
+		status, jenkinsCookies, err := p.jenkins.Login(pci, osoToken)
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Error when logging into jenkins: %s", err), nsLogger)
 			return
@@ -155,7 +154,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 				scLogger.Infof("Cache has Jenkins route %q in %q", pci.Route, cookie.Value)
 
 				// ensure jenkins is running
-				state, _, err := p.startJenkins(ns, pci.ClusterURL)
+				state, _, err := p.jenkins.Start(ns, pci.ClusterURL)
 				if err != nil {
 					p.HandleError(w, err, scLogger)
 					return
@@ -188,7 +187,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 				icLogger.Infof("Cache has Jenkins route %q in %q", pci.Route, cookie.Value)
 
 				needsAuth = false
-				state, code, err := p.startJenkins(ns, clusterURL)
+				state, code, err := p.jenkins.Start(ns, clusterURL)
 				if err != nil {
 					p.HandleError(w, err, icLogger)
 					return
@@ -220,7 +219,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 				// login is performed using "" token to only verify if jenkins is actually running
 				var statusCode int
-				statusCode, _, err = p.loginJenkins(pci, "", icLogger)
+				statusCode, _, err = p.jenkins.Login(pci, "")
 
 				if err != nil {
 					p.HandleError(w, err, icLogger)
@@ -272,6 +271,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 	return
 }
 
+/*
 func (p *Proxy) loginJenkins(pci CacheItem, osoToken string, logger *log.Entry) (int, []*http.Cookie, error) {
 	//Login to Jenkins with OSO token to get cookies
 	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", pci.Scheme, pci.Route)
@@ -297,7 +297,7 @@ func (p *Proxy) processToken(tokenData []byte, logger *log.Entry) (pci CacheItem
 	err = json.Unmarshal(tokenData, tokenJSON)
 	if err != nil {
 		return
-	}
+	}m
 
 	uid, err := auth.DefaultClient().UIDFromToken(tokenJSON.AccessToken)
 	if err != nil {
@@ -326,15 +326,16 @@ func (p *Proxy) processToken(tokenData []byte, logger *log.Entry) (pci CacheItem
 
 	return
 }
-
+*/
 // unidles Jenkins only if it is idled and returns the
 // state of the pod, the http status of calling unidle, and error if any
+/*
 func (p *Proxy) startJenkins(ns, clusterURL string) (state clients.PodState, code int, err error) {
 	// Assume pods are starting and unidle only if it is in "idled" state
 	code = http.StatusAccepted
 	nsLogger := log.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 
-	state, err = p.idler.State(ns, clusterURL)
+	state, err = p.jenkins.State(ns, clusterURL)
 	if err != nil {
 		return
 	}
@@ -356,3 +357,4 @@ func (p *Proxy) startJenkins(ns, clusterURL string) (state clients.PodState, cod
 	}
 	return state, code, nil
 }
+*/

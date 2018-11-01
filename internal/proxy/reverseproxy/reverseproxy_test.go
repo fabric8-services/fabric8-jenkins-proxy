@@ -104,7 +104,7 @@ func TestReverseProxy(t *testing.T) {
 	assert.Equal(t, res.Cookies()[0].Name, "flavor", "Cookie setting failed")
 
 	bodyBytes, _ := ioutil.ReadAll(res.Body)
-	assert.Equal(t, string(bodyBytes), backendResponse, "unexpected response body")
+	assert.Equal(t, backendResponse, string(bodyBytes), "unexpected response body")
 
 	assert.Equal(t, res.Trailer.Get("X-Trailer"), "trailer_value", "Trailer(X-Trailer)")
 	assert.Equal(t, res.Trailer.Get("X-Unannounced-Trailer"),

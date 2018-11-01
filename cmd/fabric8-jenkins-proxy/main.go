@@ -99,11 +99,14 @@ func main() {
 	}
 	mainLogger.WithField("clusters", clusters).Info("Retrieved cluster view")
 
-	start(config, &tenant, wit, idler, store, clusters)
+	codebase := proxy.NewCodebase(wit, &tenant, log.WithFields(log.Fields{"component": "proxy"}))
+	jenkins := proxy.NewJenkins(clusters, idler, tenant, log.WithFields(log.Fields{"component": "proxy"}))
+
+	start(config, codebase, jenkins, store, clusters)
 }
 
-func start(config configuration.Configuration, tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerService, store storage.Store, clusters map[string]string) {
-	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config, clusters)
+func start(config configuration.Configuration, codebase proxy.CodebaseService, jenkins proxy.JenkinsService, store storage.Store, clusters map[string]string) {
+	proxy, err := proxy.NewProxy(codebase, jenkins, store, config, clusters)
 	if err != nil {
 		log.Fatal(err)
 	}

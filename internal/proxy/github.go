@@ -3,10 +3,8 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
@@ -72,7 +70,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	r.URL.Host = route
 	r.Host = route
 
-	state, err := p.idler.State(ns, clusterURL)
+	state, err := p.jenkins.State(ns, clusterURL)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
@@ -81,7 +79,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	//If Jenkins is idle/stating, we need to cache the request and return success
 	if state != clients.Running {
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
-		_, err = p.idler.UnIdle(ns, clusterURL)
+		_, _, err = p.jenkins.Start(ns, clusterURL)
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 		}
@@ -146,7 +144,7 @@ func (p *Proxy) ProcessBuffer() {
 					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
 					clusterURL := namespace.ClusterURL
 
-					state, err := p.idler.State(ns, clusterURL)
+					state, err := p.jenkins.State(ns, clusterURL)
 					if err != nil {
 						log.Error(err)
 						break
@@ -235,26 +233,11 @@ func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients
 			}).Infof("Cache hit for repository %s", repositoryCloneURL)
 		return namespace, nil
 	}
-
 	logEntry.Infof("Cache miss for repository %s", repositoryCloneURL)
-	wi, err := p.wit.SearchCodebase(repositoryCloneURL)
-	if err != nil {
-		return clients.Namespace{}, err
-	}
 
-	if len(strings.TrimSpace(wi.OwnedBy)) == 0 {
-		return clients.Namespace{}, fmt.Errorf("unable to determine tenant id for repository %s", repositoryCloneURL)
-	}
-
-	logEntry.Infof("Found id %s for repo %s", wi.OwnedBy, repositoryCloneURL)
-	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
+	n, err := p.codebase.Namespace(repositoryCloneURL)
 	if err != nil {
-		return clients.Namespace{}, err
-	}
-
-	n, err := clients.GetNamespaceByType(ti, ServiceName)
-	if err != nil {
-		return clients.Namespace{}, err
+		return n, err
 	}
 
 	p.TenantCache.SetDefault(repositoryCloneURL, n)
