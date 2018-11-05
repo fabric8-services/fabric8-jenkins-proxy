@@ -16,15 +16,14 @@ import (
 // such as its url, which namespace it belongs to, which cluster it
 // belongs to etc
 type JenkinsService interface {
-	Info(tokenData string) (CacheItem, string, error)
-	Login(pci CacheItem, osoToken string) (int, []*http.Cookie, error)
-	State(ns string, clusterURL string) (clients.PodState, error)
-	Start(ns string, clusterURL string) (state clients.PodState, code int, err error)
+	Login(osoToken string) (int, []*http.Cookie, error)
+	State() (clients.PodState, error)
+	Start() (state clients.PodState, code int, err error)
 }
 
 // Jenkins implements Jenkins interface
 type Jenkins struct {
-	clusters map[string]string
+	info CacheItem
 
 	idler  clients.IdlerService
 	tenant clients.TenantService
@@ -32,64 +31,63 @@ type Jenkins struct {
 	logger *log.Entry
 }
 
-// NewJenkins returns an intance of Jenkins struct
-func NewJenkins(clusters map[string]string, idler clients.IdlerService, tenant clients.TenantService, logger *log.Entry) *Jenkins {
-	return &Jenkins{
-		clusters: clusters,
-		idler:    idler,
-		tenant:   tenant,
-		logger:   logger,
-	}
-}
+// GetJenkins returns an intance of Jenkins struct
+func GetJenkins(clusters map[string]string,
+	idler clients.IdlerService,
+	tenant clients.TenantService,
+	tokenData string,
+	logger *log.Entry) (*Jenkins, string, error) {
 
-// Info gets you proxy cache and OSIO token for a user to which given
-// token json belongs
-func (jenkins *Jenkins) Info(tokenData string) (CacheItem, string, error) {
 	tokenJSON := &auth.TokenJSON{}
 	err := json.Unmarshal([]byte(tokenData), tokenJSON)
 	if err != nil {
-		return CacheItem{}, "", err
+		return &Jenkins{}, "", err
 	}
 
 	uid, err := auth.DefaultClient().UIDFromToken(tokenJSON.AccessToken)
 	if err != nil {
-		return CacheItem{}, "", err
+		return &Jenkins{}, "", err
 	}
 
-	ti, err := jenkins.tenant.GetTenantInfo(uid)
+	ti, err := tenant.GetTenantInfo(uid)
 	if err != nil {
-		return CacheItem{}, "", err
+		return &Jenkins{}, "", err
 	}
 	osioToken := tokenJSON.AccessToken
 
 	namespace, err := clients.GetNamespaceByType(ti, ServiceName)
 	if err != nil {
-		return CacheItem{}, osioToken, err
+		return &Jenkins{}, osioToken, err
 	}
 
-	jenkins.logger.WithField("ns", namespace.Name).Debug("Extracted information from token")
-	route, scheme, err := jenkins.constructRoute(namespace.ClusterURL, namespace.Name)
+	logger.WithField("ns", namespace.Name).Debug("Extracted information from token")
+	route, scheme, err := constructRoute(clusters, namespace.ClusterURL, namespace.Name)
 	if err != nil {
-		return CacheItem{}, osioToken, err
+		return &Jenkins{}, osioToken, err
 	}
 
 	//Prepare an item for proxyCache - Jenkins info and OSO token
 	pci := NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
 
-	return pci, osioToken, nil
+	return &Jenkins{
+		info:   pci,
+		idler:  idler,
+		tenant: tenant,
+		logger: logger,
+	}, osioToken, nil
 }
 
 //Login to Jenkins with OSO token to get cookies
-func (jenkins *Jenkins) Login(pci CacheItem, osoToken string) (int, []*http.Cookie, error) {
+func (j *Jenkins) Login(osoToken string) (int, []*http.Cookie, error) {
 
-	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", pci.Scheme, pci.Route)
+	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", j.info.Scheme, j.info.Route)
 
 	req, _ := http.NewRequest("GET", jenkinsURL, nil)
 	if len(osoToken) > 0 {
-		jenkins.logger.WithField("ns", pci.NS).Infof("Jenkins login for %s", jenkinsURL)
+		j.logger.WithField("ns", j.info.NS).Infof("Jenkins login for %s", jenkinsURL)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", osoToken))
 	} else {
-		jenkins.logger.WithField("ns", pci.NS).Infof("Accessing Jenkins route %s", jenkinsURL)
+		j.logger.WithField("ns", j.info.NS).Infof("Accessing Jenkins route %s", jenkinsURL)
 	}
 	c := http.DefaultClient
 	resp, err := c.Do(req)
@@ -101,27 +99,29 @@ func (jenkins *Jenkins) Login(pci CacheItem, osoToken string) (int, []*http.Cook
 }
 
 // State returns state of Jenkins associated with given namespace
-func (jenkins *Jenkins) State(ns string, clusterURL string) (clients.PodState, error) {
-	return jenkins.idler.State(ns, clusterURL)
+func (j *Jenkins) State() (clients.PodState, error) {
+	return j.idler.State(j.info.NS, j.info.ClusterURL)
 }
 
 // Start unidles Jenkins only if it is idled and returns the
 // state of the pod, the http status of calling unidle, and error if any
-func (jenkins *Jenkins) Start(ns string, clusterURL string) (state clients.PodState, code int, err error) {
+func (j *Jenkins) Start() (state clients.PodState, code int, err error) {
 	// Assume pods are starting and unidle only if it is in "idled" state
 	code = http.StatusAccepted
+	ns := j.info.NS
+	clusterURL := j.info.ClusterURL
 	//nsLogger := log.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 
-	state, err = jenkins.idler.State(ns, clusterURL)
+	state, err = j.idler.State(ns, clusterURL)
 	if err != nil {
 		return
 	}
-	jenkins.logger.Infof("state : %q", state)
+	j.logger.Infof("state : %q", state)
 
 	if state == clients.Idled {
 		// Unidle only if needed
-		jenkins.logger.Infof("Unidling jenkins")
-		if code, err = jenkins.idler.UnIdle(ns, clusterURL); err != nil {
+		j.logger.Infof("Unidling jenkins")
+		if code, err = j.idler.UnIdle(ns, clusterURL); err != nil {
 			return
 		}
 	}
@@ -136,11 +136,11 @@ func (jenkins *Jenkins) Start(ns string, clusterURL string) (state clients.PodSt
 }
 
 // constructRoute returns Jenkins route based on a specific pattern
-func (jenkins *Jenkins) constructRoute(clusterURL string, ns string) (string, string, error) {
-	appSuffix := jenkins.clusters[clusterURL]
+func constructRoute(clusters map[string]string, clusterURL string, ns string) (string, string, error) {
+	appSuffix := clusters[clusterURL]
 	if len(appSuffix) == 0 {
 		return "", "", fmt.Errorf("could not find entry for cluster %s", clusterURL)
 	}
-	route := fmt.Sprintf("jenkins-%s.%s", ns, jenkins.clusters[clusterURL])
+	route := fmt.Sprintf("jenkins-%s.%s", ns, clusters[clusterURL])
 	return route, "https", nil
 }

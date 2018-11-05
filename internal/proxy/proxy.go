@@ -9,6 +9,7 @@ import (
 
 	"hash/fnv"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
 	cookiesutil "github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
@@ -43,11 +44,11 @@ type Proxy struct {
 	ProxyCache       *cache.Cache
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
-	//tenant           *clients.Tenant
-	//wit              clients.WIT
-	//idler            clients.IdlerService
-	codebase CodebaseService
-	jenkins  JenkinsService
+	tenant           *clients.Tenant
+	wit              clients.WIT
+	idler            clients.IdlerService
+	//codebase CodebaseService
+	//jenkins  JenkinsService
 	//redirect is a base URL of the proxy
 	redirect        string
 	responseTimeout time.Duration
@@ -60,7 +61,9 @@ type Proxy struct {
 
 // NewProxy creates an instance of Proxy client
 func NewProxy(
-	codebase CodebaseService, jenkins JenkinsService,
+	idler clients.IdlerService,
+	tenant *clients.Tenant,
+	wit clients.WIT,
 	storageService storage.Store,
 	config configuration.Configuration,
 	clusters map[string]string) (Proxy, error) {
@@ -69,10 +72,10 @@ func NewProxy(
 		TenantCache: cache.New(30*time.Minute, 40*time.Minute),
 		ProxyCache:  cache.New(15*time.Minute, 10*time.Minute),
 		visitLock:   &sync.Mutex{},
-		//tenant:           tenant,
-		//wit:              wit,
-		codebase:         codebase,
-		jenkins:          jenkins,
+		tenant:      tenant,
+		wit:         wit,
+		//codebase:         codebase,
+		//jenkins:          jenkins,
 		bufferCheckSleep: 30 * time.Second,
 		redirect:         config.GetRedirectURL(),
 		responseTimeout:  config.GetGatewayTimeout(),

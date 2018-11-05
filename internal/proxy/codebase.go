@@ -16,34 +16,35 @@ type CodebaseService interface {
 
 // Codebase is an implementation of the codebase interface
 type Codebase struct {
-	wit    clients.WIT
-	tenant clients.TenantService
-
-	logger *log.Entry
+	wit                clients.WIT
+	tenant             clients.TenantService
+	repositoryCloneURL string
+	logger             *log.Entry
 }
 
 // NewCodebase gets an instance of
-func NewCodebase(wit clients.WIT, tenant clients.TenantService, logger *log.Entry) *Codebase {
+func NewCodebase(wit clients.WIT, tenant clients.TenantService, repositoryCloneURL string, logger *log.Entry) *Codebase {
 	return &Codebase{
-		wit:    wit,
-		tenant: tenant,
-		logger: logger,
+		wit:                wit,
+		tenant:             tenant,
+		repositoryCloneURL: repositoryCloneURL,
+		logger:             logger,
 	}
 }
 
 // Namespace gives us details of user who owns given repository
-func (codebase *Codebase) Namespace(repositoryCloneURL string) (clients.Namespace, error) {
-	wi, err := codebase.wit.SearchCodebase(repositoryCloneURL)
+func (c *Codebase) Namespace() (clients.Namespace, error) {
+	wi, err := c.wit.SearchCodebase(c.repositoryCloneURL)
 	if err != nil {
 		return clients.Namespace{}, err
 	}
 
 	if len(strings.TrimSpace(wi.OwnedBy)) == 0 {
-		return clients.Namespace{}, fmt.Errorf("unable to determine tenant id for repository %s", repositoryCloneURL)
+		return clients.Namespace{}, fmt.Errorf("unable to determine tenant id for repository %s", c.repositoryCloneURL)
 	}
 
-	codebase.logger.Infof("Found id %s for repo %s", wi.OwnedBy, repositoryCloneURL)
-	ti, err := codebase.tenant.GetTenantInfo(wi.OwnedBy)
+	c.logger.Infof("Found id %s for repo %s", wi.OwnedBy, c.repositoryCloneURL)
+	ti, err := c.tenant.GetTenantInfo(wi.OwnedBy)
 	if err != nil {
 		return clients.Namespace{}, err
 	}
