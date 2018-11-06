@@ -47,8 +47,6 @@ type Proxy struct {
 	tenant           *clients.Tenant
 	wit              clients.WIT
 	idler            clients.IdlerService
-	//codebase CodebaseService
-	//jenkins  JenkinsService
 	//redirect is a base URL of the proxy
 	redirect        string
 	responseTimeout time.Duration

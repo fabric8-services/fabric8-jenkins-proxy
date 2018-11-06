@@ -183,9 +183,9 @@ func TestServeHTTP(t *testing.T) {
 
 	// Reverse proxy checks the session validity on recieving status Forbidden
 	// from jenkins
-	testSessionCheckWithoutCookie(t, rp)
-	testSessionCheckWithCookie(t, rp, cookiesutil.SessionCookie+uuid.NewV4().String())
-	testSessionCheckWithCookie(t, rp, "DoesntstartWithJSESSIONID")
+	testSessionCheck(t, rp, "")
+	testSessionCheck(t, rp, cookiesutil.SessionCookie+uuid.NewV4().String())
+	testSessionCheck(t, rp, "DoesntstartWithJSESSIONID")
 }
 
 func testProxyStatus(t *testing.T, rp *ReverseProxy, jenkinsStatusCode int, proxyStatusCode int) {
@@ -202,56 +202,43 @@ func testProxyStatus(t *testing.T, rp *ReverseProxy, jenkinsStatusCode int, prox
 	assert.Equal(t, proxyStatusCode, rr.Code)
 }
 
-func testSessionCheckWithoutCookie(t *testing.T, rp *ReverseProxy) {
+func testSessionCheck(t *testing.T, rp *ReverseProxy, cookieName string) {
 	defer gock.Off()
 
 	gock.New("https://jenkinsHost").
 		Get("/path").
-		Reply(403)
-
-	rr1 := httptest.NewRecorder()
-	req1, _ := http.NewRequest("GET", "https://jenkinsHost/path", nil)
-
-	rp.IsValidSession = true
-	assert.True(t, rp.IsValidSession)
-	// On finding Forbidden from jenkins, ServeHTTP would check for session
-	// by looking for session cookie. If it finds no session it means invalid
-	// If invalid it would set rep.IsValidSession to false
-	rp.ServeHTTP(rr1, req1)
-	assert.False(t, rp.IsValidSession)
-}
-
-func testSessionCheckWithCookie(t *testing.T, rp *ReverseProxy, cookieName string) {
-	defer gock.Off()
-
-	gock.New("https://jenkinsHost").
-		Get("/path").
-		Reply(403)
+		Reply(http.StatusForbidden)
 
 	gock.New("https://jenkinsHost").
 		Get("").
-		Reply(200)
+		Reply(http.StatusOK)
 
-	rr1 := httptest.NewRecorder()
-	req1, _ := http.NewRequest("GET", "https://jenkinsHost/path", nil)
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "https://jenkinsHost/path", nil)
 
-	cookie := http.Cookie{
-		Name:    cookieName,
-		Value:   uuid.NewV4().String(),
-		Expires: time.Now().Local().Add(time.Hour),
+	var cookie http.Cookie
+	if cookieName != "" {
+		cookie = http.Cookie{
+			Name:    cookieName,
+			Value:   uuid.NewV4().String(),
+			Expires: time.Now().Local().Add(time.Hour),
+		}
+		req.AddCookie(&cookie)
 	}
-	req1.AddCookie(&cookie)
 
+	// On finding Forbidden from jenkins, ServeHTTP would check for session
+	// by looking for session cookie. If it finds a session cookie(cookie name
+	// starting with JSESSIONID) it means  valid session
+	// If invalid it would set rep.IsValidSession to false
 	if cookiesutil.IsSessionCookie(&cookie) {
 		rp.IsValidSession = false
 		assert.False(t, rp.IsValidSession)
-		rp.ServeHTTP(rr1, req1)
+		rp.ServeHTTP(rr, req)
 		assert.True(t, rp.IsValidSession)
 	} else {
 		rp.IsValidSession = true
 		assert.True(t, rp.IsValidSession)
-		rp.ServeHTTP(rr1, req1)
+		rp.ServeHTTP(rr, req)
 		assert.False(t, rp.IsValidSession)
 	}
-
 }
