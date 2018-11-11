@@ -17,6 +17,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// AuthService talks to fabric8-auth for authentication and authorication
+type AuthService interface {
+	UIDFromToken(accessToken string) (sub string, err error)
+	OSOTokenForCluster(clusterURL, accessToken string) (osoToken string, err error)
+	CreateRedirectURL(to string) string
+}
+
 // Client used to access auth service
 type Client struct {
 	URL          string
@@ -36,16 +43,29 @@ type TokenJSON struct {
 	Errors           []util.ErrorInfo
 }
 
-var defaultClient *Client
+type Key struct {
+	KID string `json:"kid"`
+	Key string `json:"key"`
+}
+
+type KeyList struct {
+	Keys []Key `json:"keys"`
+}
+
+var defaultClient AuthService
 
 // SetDefaultClient set auth client that will be returned by auth.DefaultClient
-func SetDefaultClient(c *Client) {
+func SetDefaultClient(c AuthService) {
 	defaultClient = c
 }
 
 // DefaultClient returns default auth client
-func DefaultClient() *Client {
-	return defaultClient
+func DefaultClient() (AuthService, error) {
+	if defaultClient != nil {
+		return defaultClient, nil
+	}
+
+	return nil, fmt.Errorf("auth default client is nil")
 }
 
 // NewClient create a new auth client
@@ -203,16 +223,7 @@ func (c *Client) updatePublicKeys() error {
 		return err
 	}
 
-	type key struct {
-		KID string `json:"kid"`
-		Key string `json:"key"`
-	}
-
-	type keyList struct {
-		Keys []key `json:"keys"`
-	}
-
-	keys := &keyList{}
+	keys := &KeyList{}
 
 	if err = json.Unmarshal(body, keys); err != nil {
 		return err

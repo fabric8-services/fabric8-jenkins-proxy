@@ -36,7 +36,6 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			return
 		}
 
-		//pci, osioToken, err := p.jenkins.Info(tj[0])
 		jenkins, osioToken, err := GetJenkins(p.clusters, p.idler, p.tenant, tj[0], logger)
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Error processing token_json to get osio-token: %q", err), tjLogger)
@@ -49,7 +48,12 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		nsLogger := tjLogger.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 		nsLogger.Infof("found ns : %q, cluster: %q", ns, clusterURL)
 
-		osoToken, err := auth.DefaultClient().OSOTokenForCluster(jenkins.info.ClusterURL, osioToken)
+		authClient, err := auth.DefaultClient()
+		if err != nil {
+			p.HandleError(w, fmt.Errorf("Error while getting default auth client: %q", err), tjLogger)
+			return
+		}
+		osoToken, err := authClient.OSOTokenForCluster(jenkins.info.ClusterURL, osioToken)
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Error when fetching OSO token: %s", err), nsLogger)
 			return
@@ -267,7 +271,14 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 	//Check if we need to redirect to auth service
 	if needsAuth {
-		redirAuth := auth.DefaultClient().CreateRedirectURL(redirectURL.String())
+
+		authClient, err := auth.DefaultClient()
+		if err != nil {
+			p.HandleError(w, fmt.Errorf("Error while getting default auth client: %q", err), logger)
+			return
+		}
+
+		redirAuth := authClient.CreateRedirectURL(redirectURL.String())
 		logger.Infof("Redirecting to auth: %q", redirAuth)
 
 		// clear session and idle cookies as this is a fresh start

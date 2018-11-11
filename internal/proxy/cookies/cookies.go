@@ -33,7 +33,6 @@ func ExpireCookiesMatching(w http.ResponseWriter, r *http.Request, expire cookie
 		if expire(cookie) {
 			ExpireCookie(w, cookie)
 		}
-		http.SetCookie(w, cookie)
 	}
 }
 

@@ -12,7 +12,19 @@ type Tenant struct {
 
 // GetTenantInfo returns a tenant information based on tenant id.
 func (t Tenant) GetTenantInfo(tenantID string) (ti clients.TenantInfo, err error) {
-	return
+	return clients.TenantInfo{
+		Data: clients.TenantInfoData{
+			Attributes: clients.Attributes{
+				Namespaces: []clients.Namespace{
+					clients.Namespace{
+						ClusterURL: "Valid_OpenShift_API_URL",
+						Type:       "jenkins",
+					},
+				},
+			},
+			ID: "",
+		},
+	}, nil
 }
 
 // GetNamespace mock gets namespace

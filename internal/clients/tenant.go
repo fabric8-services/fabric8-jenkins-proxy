@@ -140,19 +140,23 @@ func GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
 
 // GetNamespace gets namespace given appropriate accessToken
 func (t Tenant) GetNamespace(accessToken string) (namespace Namespace, err error) {
-	uid, err := auth.DefaultClient().UIDFromToken(accessToken)
+	authClient, err := auth.DefaultClient()
 	if err != nil {
-		return
+		return Namespace{}, err
+	}
+	uid, err := authClient.UIDFromToken(accessToken)
+	if err != nil {
+		return Namespace{}, err
 	}
 
 	ti, err := t.GetTenantInfo(uid)
 	if err != nil {
-		return
+		return Namespace{}, err
 	}
 
 	namespace, err = GetNamespaceByType(ti, "jenkins")
 	if err != nil {
-		return
+		return Namespace{}, err
 	}
 
 	return namespace, nil

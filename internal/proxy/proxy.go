@@ -44,7 +44,7 @@ type Proxy struct {
 	ProxyCache       *cache.Cache
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
-	tenant           *clients.Tenant
+	tenant           clients.TenantService
 	wit              clients.WIT
 	idler            clients.IdlerService
 	//redirect is a base URL of the proxy
@@ -60,7 +60,7 @@ type Proxy struct {
 // NewProxy creates an instance of Proxy client
 func NewProxy(
 	idler clients.IdlerService,
-	tenant *clients.Tenant,
+	tenant clients.TenantService,
 	wit clients.WIT,
 	storageService storage.Store,
 	config configuration.Configuration,

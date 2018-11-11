@@ -44,7 +44,11 @@ func GetJenkins(clusters map[string]string,
 		return &Jenkins{}, "", err
 	}
 
-	uid, err := auth.DefaultClient().UIDFromToken(tokenJSON.AccessToken)
+	authClient, err := auth.DefaultClient()
+	if err != nil {
+		return &Jenkins{}, "", err
+	}
+	uid, err := authClient.UIDFromToken(tokenJSON.AccessToken)
 	if err != nil {
 		return &Jenkins{}, "", err
 	}
