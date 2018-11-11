@@ -17,8 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// AuthService talks to fabric8-auth for authentication and authorication
-type AuthService interface {
+// Service talks to fabric8-auth for authentication and authorication
+type Service interface {
 	UIDFromToken(accessToken string) (sub string, err error)
 	OSOTokenForCluster(clusterURL, accessToken string) (osoToken string, err error)
 	CreateRedirectURL(to string) string
@@ -43,24 +43,26 @@ type TokenJSON struct {
 	Errors           []util.ErrorInfo
 }
 
+// Key is a cryptographic key used for authentication and authorization
 type Key struct {
 	KID string `json:"kid"`
 	Key string `json:"key"`
 }
 
+// KeyList is a list of cryptographics keys used for authentication and authorization
 type KeyList struct {
 	Keys []Key `json:"keys"`
 }
 
-var defaultClient AuthService
+var defaultClient Service
 
 // SetDefaultClient set auth client that will be returned by auth.DefaultClient
-func SetDefaultClient(c AuthService) {
+func SetDefaultClient(c Service) {
 	defaultClient = c
 }
 
 // DefaultClient returns default auth client
-func DefaultClient() (AuthService, error) {
+func DefaultClient() (Service, error) {
 	if defaultClient != nil {
 		return defaultClient, nil
 	}

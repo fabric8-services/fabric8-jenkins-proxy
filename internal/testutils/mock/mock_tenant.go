@@ -6,7 +6,7 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 )
 
-// Tenant is a simple client for fabric8-tenant.
+// Tenant is a mock client for fabric8-tenant.
 type Tenant struct {
 }
 
@@ -16,7 +16,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti clients.TenantInfo, err error
 		Data: clients.TenantInfoData{
 			Attributes: clients.Attributes{
 				Namespaces: []clients.Namespace{
-					clients.Namespace{
+					{
 						ClusterURL: "Valid_OpenShift_API_URL",
 						Type:       "jenkins",
 					},
@@ -30,15 +30,14 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti clients.TenantInfo, err error
 // GetNamespace mock gets namespace
 func (t Tenant) GetNamespace(accessToken string) (namespace clients.Namespace, err error) {
 	if accessToken == "ValidToken" {
-		namespace = clients.Namespace{
+		return clients.Namespace{
 			ClusterURL: "Valid_OpenShift_API_URL",
 			Name:       "namespace-jenkins",
 			State:      "",
 			Type:       "jenkins",
-		}
-		return
+		}, nil
+
 	}
 
-	err = errors.New("Invalid Token")
-	return
+	return clients.Namespace{}, errors.New("Invalid Token")
 }

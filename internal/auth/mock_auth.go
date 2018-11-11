@@ -6,10 +6,12 @@ import (
 	"strings"
 )
 
+// MockAuth is a mock implementation of auth service
 type MockAuth struct {
 	URL string
 }
 
+// NewMockAuth creates a mock auth client
 func NewMockAuth(authURL string) *MockAuth {
 	return &MockAuth{
 		URL: authURL,
