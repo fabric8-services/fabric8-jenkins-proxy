@@ -5,15 +5,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	cache "github.com/patrickmn/go-cache"
+
 	uuid "github.com/satori/go.uuid"
+	gock "gopkg.in/h2non/gock.v1"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
-
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,9 +19,8 @@ const (
 )
 
 func TestBadToken(t *testing.T) {
-	p := Proxy{}
-	p.redirect = "http://redirect"
-	req := httptest.NewRequest("GET", "http://proxy/v1?token_json=BADTOKEN", nil)
+	p := NewMockProxy("")
+	req := httptest.NewRequest("GET", "http://proxy?token_json=BADTOKEN", nil)
 	w := httptest.NewRecorder()
 
 	p.handleJenkinsUIRequest(w, req, proxyLogger)
@@ -33,32 +29,21 @@ func TestBadToken(t *testing.T) {
 
 func TestNoTokenRedirectstoAuthService(t *testing.T) {
 
-	p := Proxy{}
-	auth.SetDefaultClient(auth.NewClient("http://authURL"))
-	p.redirect = "http://redirect"
+	p := NewMockProxy("")
 
-	req := httptest.NewRequest("GET", "http://proxy/v1", nil)
+	req := httptest.NewRequest("GET", "http://proxy", nil)
 	w := httptest.NewRecorder()
 
 	p.handleJenkinsUIRequest(w, req, proxyLogger)
 	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
-	assert.Equal(t, w.Header().Get("Location"), "http://authURL/api/login?redirect=http:%2F%2Fredirect%2Fv1")
+	assert.Equal(t, w.Header().Get("Location"), "http://authURL/api/login?redirect=http:%2F%2Fredirect")
 }
 
 func TestCorrectTokenWithJenkinsIdled(t *testing.T) {
-	m := make(map[string]string)
-	m["Valid_OpenShift_API_URL"] = "test_route"
-	p := Proxy{
-		tenant:     &mock.Tenant{},
-		idler:      mock.NewMockIdler("", clients.Idled, false),
-		clusters:   m,
-		ProxyCache: cache.New(15*time.Minute, 10*time.Minute),
-	}
-	p.redirect = "http://redirect"
 
-	auth.SetDefaultClient(auth.NewMockAuth("http://authURL"))
+	p := NewMockProxy(clients.Idled)
 
-	req := httptest.NewRequest("GET", "http://proxy/v1?token_json="+testTokenJSON, nil)
+	req := httptest.NewRequest("GET", "http://proxy?token_json="+testTokenJSON, nil)
 	req.AddCookie(&http.Cookie{
 		Name:  "JSESSIONID." + uuid.NewV4().String(),
 		Value: uuid.NewV4().String(),
@@ -68,12 +53,100 @@ func TestCorrectTokenWithJenkinsIdled(t *testing.T) {
 
 	p.handleJenkinsUIRequest(w, req, proxyLogger)
 	assert.Equal(t, http.StatusFound, w.Code)
-	setCookieHeaders := w.Header()["Set-Cookie"]
+	assert.Equal(t, w.Header().Get("Location"), "http://redirect")
 
+	setCookieHeaders := w.Header()["Set-Cookie"]
 	assert.Equal(t, 2, len(setCookieHeaders))
 	for _, a := range setCookieHeaders {
 		fmt.Println(a)
 	}
 	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
+	assert.Contains(t, setCookieHeaders[0], "Expires")
 	assert.Contains(t, setCookieHeaders[1], "JenkinsIdled=")
+	assert.NotContains(t, setCookieHeaders[1], "Expires")
+
+	// A proxy cacheitem is added to proxycache
+	items := p.ProxyCache.Items()
+	assert.Equal(t, len(items), 1)
+	for _, item := range items {
+		info, ok := item.Object.(CacheItem)
+		cacheItem := CacheItem{
+			ClusterURL: "Valid_OpenShift_API_URL",
+			NS:         "namespace-jenkins",
+			Scheme:     "https",
+			Route:      "jenkins-namespace-jenkins.test_route",
+		}
+		assert.True(t, ok, "item object is of type cache item")
+		assert.Equal(t, info, cacheItem)
+	}
+}
+
+func TestWithTokenJenkinsRunningButLoginFailed(t *testing.T) {
+	gock.New("https://jenkins-namespace-jenkins.test_route/securityRealm/commenceLogin?from=%2F").
+		Get("").
+		Reply(401)
+
+	p := NewMockProxy(clients.Running)
+
+	req := httptest.NewRequest("GET", "http://proxy?token_json="+testTokenJSON, nil)
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, w.Header().Get("Location"), "http://redirect")
+}
+
+func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
+	gock.New("https://jenkins-namespace-jenkins.test_route/securityRealm/commenceLogin?from=%2F").
+		Get("").
+		Reply(200).
+		SetHeaders(map[string]string{
+			"Set-Cookie": "JSESSIONID." + uuid.NewV4().String() + "=" + uuid.NewV4().String(),
+		})
+
+	p := NewMockProxy(clients.Running)
+
+	req := httptest.NewRequest("GET", "http://proxy?token_json="+testTokenJSON, nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JSESSIONID." + uuid.NewV4().String(),
+		Value: uuid.NewV4().String(),
+	})
+	req.AddCookie(&http.Cookie{
+		Name:  "JenkinsIdled",
+		Value: uuid.NewV4().String(),
+	})
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, w.Header().Get("Location"), "http://redirect")
+
+	setCookieHeaders := w.Header()["Set-Cookie"]
+	assert.Equal(t, 3, len(setCookieHeaders))
+	for _, a := range setCookieHeaders {
+		fmt.Println(a)
+	}
+
+	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
+	assert.Contains(t, setCookieHeaders[0], "Expires")
+	assert.Contains(t, setCookieHeaders[1], "JenkinsIdled=")
+	assert.Contains(t, setCookieHeaders[1], "Expires")
+	assert.Contains(t, setCookieHeaders[2], "JSESSIONID")
+	assert.NotContains(t, setCookieHeaders[2], "Expires")
+
+	items := p.ProxyCache.Items()
+	assert.Equal(t, len(items), 1)
+	for _, item := range items {
+		info, ok := item.Object.(CacheItem)
+		cacheItem := CacheItem{
+			ClusterURL: "Valid_OpenShift_API_URL",
+			NS:         "namespace-jenkins",
+			Scheme:     "https",
+			Route:      "jenkins-namespace-jenkins.test_route",
+		}
+		assert.True(t, ok, "item object is of type cache item")
+		assert.Equal(t, info, cacheItem)
+	}
 }

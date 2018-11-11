@@ -19,6 +19,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti clients.TenantInfo, err error
 					{
 						ClusterURL: "Valid_OpenShift_API_URL",
 						Type:       "jenkins",
+						Name:       "namespace-jenkins",
 					},
 				},
 			},
