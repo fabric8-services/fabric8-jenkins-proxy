@@ -156,7 +156,7 @@ func (t Tenant) GetNamespace(accessToken string) (namespace Namespace, err error
 
 	namespace, err = GetNamespaceByType(ti, "jenkins")
 	if err != nil {
-		return Namespace{}, err
+		return namespace, err
 	}
 
 	return namespace, nil
