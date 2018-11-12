@@ -36,7 +36,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			return
 		}
 
-		jenkins, osioToken, err := GetJenkins(p.clusters, p.idler, p.tenant, tj[0], logger)
+		jenkins, osioToken, err := GetJenkins(p.clusters, nil, p.idler, p.tenant, tj[0], logger)
 		if err != nil {
 			p.HandleError(w, fmt.Errorf("Error processing token_json to get osio-token: %q", err), tjLogger)
 			return
@@ -149,7 +149,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			pci := cacheVal.(CacheItem)
 			ns = pci.NS
 			clusterURL := pci.ClusterURL
-			jenkins, _, err := GetJenkins(nil, p.idler, p.tenant, "", cookieLogger)
+			jenkins, _, err := GetJenkins(nil, &pci, p.idler, p.tenant, "", cookieLogger)
 			if err != nil {
 				p.HandleError(w, err, cookieLogger)
 				return

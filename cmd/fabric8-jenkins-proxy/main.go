@@ -102,7 +102,7 @@ func main() {
 	start(config, idler, &tenant, wit, store, clusters)
 }
 
-func start(config configuration.Configuration, idler clients.IdlerService, tenant clients.TenantService, wit clients.WIT, store storage.Store, clusters map[string]string) {
+func start(config configuration.Configuration, idler clients.IdlerService, tenant clients.TenantService, wit clients.WITService, store storage.Store, clusters map[string]string) {
 	proxy, err := proxy.NewProxy(idler, tenant, wit, store, config, clusters)
 	if err != nil {
 		log.Fatal(err)

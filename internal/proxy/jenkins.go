@@ -33,10 +33,20 @@ type Jenkins struct {
 
 // GetJenkins returns an intance of Jenkins struct
 func GetJenkins(clusters map[string]string,
+	pci *CacheItem,
 	idler clients.IdlerService,
 	tenant clients.TenantService,
 	tokenData string,
 	logger *log.Entry) (*Jenkins, string, error) {
+
+	if pci != nil {
+		return &Jenkins{
+			info:   *pci,
+			idler:  idler,
+			tenant: tenant,
+			logger: logger,
+		}, "", nil
+	}
 
 	tokenJSON := &auth.TokenJSON{}
 	err := json.Unmarshal([]byte(tokenData), tokenJSON)
@@ -70,11 +80,8 @@ func GetJenkins(clusters map[string]string,
 		return &Jenkins{}, osioToken, err
 	}
 
-	//Prepare an item for proxyCache - Jenkins info and OSO token
-	pci := NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL)
-
 	return &Jenkins{
-		info:   pci,
+		info:   NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL),
 		idler:  idler,
 		tenant: tenant,
 		logger: logger,

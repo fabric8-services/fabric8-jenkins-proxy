@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	cookiesutil "github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
 
 	log "github.com/sirupsen/logrus"
@@ -78,6 +79,7 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func checkSessionValidity(req *http.Request) (bool, error) {
+
 	requestURL := req.URL
 	cookies := req.Cookies()
 
@@ -85,11 +87,24 @@ func checkSessionValidity(req *http.Request) (bool, error) {
 
 	for _, cookie := range cookies {
 		if cookiesutil.IsSessionCookie(cookie) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			time.AfterFunc(5*time.Second, func() {
+				cancel()
+			})
 
 			r, _ := http.NewRequest("GET", jenkinsURL, nil)
 			r.AddCookie(cookie)
+			r = r.WithContext(ctx)
 
-			c := http.DefaultClient
+			config, err := configuration.NewConfiguration()
+			if err != nil {
+				return false, err
+			}
+
+			c := &http.Client{
+				Timeout: config.GetGatewayTimeout(),
+			}
+
 			resp, err := c.Do(r)
 			if err != nil {
 				return false, err

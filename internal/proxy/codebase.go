@@ -16,14 +16,14 @@ type CodebaseService interface {
 
 // Codebase is an implementation of the codebase interface
 type Codebase struct {
-	wit                clients.WIT
+	wit                clients.WITService
 	tenant             clients.TenantService
 	repositoryCloneURL string
 	logger             *log.Entry
 }
 
 // NewCodebase gets an instance of
-func NewCodebase(wit clients.WIT, tenant clients.TenantService, repositoryCloneURL string, logger *log.Entry) *Codebase {
+func NewCodebase(wit clients.WITService, tenant clients.TenantService, repositoryCloneURL string, logger *log.Entry) *Codebase {
 	return &Codebase{
 		wit:                wit,
 		tenant:             tenant,

@@ -55,17 +55,20 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
-	ns = namespace.Name
-	clusterURL := namespace.ClusterURL
+
 	nsLogger := requestLogEntry.WithField("ns", ns)
 
-	jenkins, _, err := GetJenkins(nil, p.idler, p.tenant, "", requestLogEntry)
-	jenkins.info = CacheItem{
-		NS:         namespace.Name,
+	pci := CacheItem{
 		ClusterURL: namespace.ClusterURL,
+		NS:         ns,
+	}
+	jenkins, _, err := GetJenkins(p.clusters, &pci, p.idler, p.tenant, "", requestLogEntry)
+	if err != nil {
+		p.HandleError(w, err, requestLogEntry)
+		return
 	}
 
-	nsLogger.WithFields(log.Fields{"cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
+	nsLogger.WithFields(log.Fields{"cluster": pci.ClusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
 
 	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
 	if err != nil {
@@ -149,12 +152,12 @@ func (p *Proxy) ProcessBuffer() {
 
 					nsLogger.WithFields(log.Fields{"repository": gh.Repository.CloneURL}).Info("Retrying request")
 					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
-
-					jenkins, _, err := GetJenkins(nil, p.idler, p.tenant, "", nsLogger)
-					jenkins.info = CacheItem{
+					pci := CacheItem{
 						NS:         namespace.Name,
 						ClusterURL: namespace.ClusterURL,
 					}
+
+					jenkins, _, err := GetJenkins(p.clusters, &pci, p.idler, p.tenant, "", nsLogger)
 
 					state, err := jenkins.State()
 					if err != nil {

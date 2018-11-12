@@ -45,7 +45,7 @@ type Proxy struct {
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
 	tenant           clients.TenantService
-	wit              clients.WIT
+	wit              clients.WITService
 	idler            clients.IdlerService
 	//redirect is a base URL of the proxy
 	redirect        string
@@ -61,7 +61,7 @@ type Proxy struct {
 func NewProxy(
 	idler clients.IdlerService,
 	tenant clients.TenantService,
-	wit clients.WIT,
+	wit clients.WITService,
 	storageService storage.Store,
 	config configuration.Configuration,
 	clusters map[string]string) (Proxy, error) {
@@ -72,6 +72,7 @@ func NewProxy(
 		visitLock:        &sync.Mutex{},
 		tenant:           tenant,
 		wit:              wit,
+		idler:            idler,
 		bufferCheckSleep: 30 * time.Second,
 		redirect:         config.GetRedirectURL(),
 		responseTimeout:  config.GetGatewayTimeout(),
