@@ -125,9 +125,6 @@ func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
 
 	setCookieHeaders := w.Header()["Set-Cookie"]
 	assert.Equal(t, 3, len(setCookieHeaders))
-	for _, a := range setCookieHeaders {
-		fmt.Println(a)
-	}
 
 	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
 	assert.Contains(t, setCookieHeaders[0], "Expires")
@@ -149,4 +146,26 @@ func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
 		assert.True(t, ok, "item object is of type cache item")
 		assert.Equal(t, info, cacheItem)
 	}
+}
+
+func TestExpireCookieIfNotInCache(t *testing.T) {
+	p := NewMockProxy("")
+
+	req := httptest.NewRequest("GET", "http://proxy", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JSESSIONID." + uuid.NewV4().String(),
+		Value: uuid.NewV4().String(),
+	})
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	setCookieHeaders := w.Header()["Set-Cookie"]
+	assert.Equal(t, 2, len(setCookieHeaders))
+	for _, a := range setCookieHeaders {
+		fmt.Println(a)
+	}
+
+	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
+	assert.Contains(t, setCookieHeaders[0], "Expires")
 }
