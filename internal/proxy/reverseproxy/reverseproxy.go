@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	cookiesutil "github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
 
 	log "github.com/sirupsen/logrus"
@@ -68,8 +67,9 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		logger.Warnf("Error %q - code: %d", rr.err, rr.statusCode)
 
 		if rr.statusCode == http.StatusForbidden {
+			fmt.Println("YES HERE")
 			var err error
-			rp.IsValidSession, err = checkSessionValidity(req)
+			rp.IsValidSession, err = checkSessionValidity(req, rp)
 			if err != nil {
 				logger.Error(err)
 			}
@@ -78,7 +78,7 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func checkSessionValidity(req *http.Request) (bool, error) {
+func checkSessionValidity(req *http.Request, rp *ReverseProxy) (bool, error) {
 
 	requestURL := req.URL
 	cookies := req.Cookies()
@@ -87,39 +87,36 @@ func checkSessionValidity(req *http.Request) (bool, error) {
 
 	for _, cookie := range cookies {
 		if cookiesutil.IsSessionCookie(cookie) {
-			ctx, cancel := context.WithCancel(context.TODO())
-			time.AfterFunc(5*time.Second, func() {
-				cancel()
-			})
 
-			r, _ := http.NewRequest("GET", jenkinsURL, nil)
-			r.AddCookie(cookie)
-			r = r.WithContext(ctx)
+			checkSessionValidityWithCookie := func(cookie *http.Cookie, rp *ReverseProxy) (bool, error) {
+				ctx, cancel := context.WithTimeout(req.Context(), rp.ResponseTimeout)
+				defer cancel()
 
-			config, err := configuration.NewConfiguration()
-			if err != nil {
-				return false, err
+				r, _ := http.NewRequest("GET", jenkinsURL, nil)
+				r.AddCookie(cookie)
+				r = r.WithContext(ctx)
+
+				c := &http.Client{
+					Timeout: rp.ResponseTimeout,
+				}
+
+				resp, err := c.Do(r)
+				if err != nil {
+					return false, err
+				}
+				defer resp.Body.Close()
+				switch resp.StatusCode {
+				case http.StatusOK:
+					return true, err
+				case http.StatusForbidden:
+					return false, err
+				default:
+					err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
+					return false, err
+				}
 			}
 
-			c := &http.Client{
-				Timeout: config.GetGatewayTimeout(),
-			}
-
-			resp, err := c.Do(r)
-			if err != nil {
-				return false, err
-			}
-			defer resp.Body.Close()
-
-			switch resp.StatusCode {
-			case http.StatusOK:
-				return true, err
-			case http.StatusForbidden:
-				return false, err
-			default:
-				err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
-				return false, err
-			}
+			return checkSessionValidityWithCookie(cookie, rp)
 		}
 	}
 
