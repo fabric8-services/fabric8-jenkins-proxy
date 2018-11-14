@@ -221,16 +221,6 @@ func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
 	return
 }
 
-//constructRoute returns Jenkins route based on a specific pattern
-func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, error) {
-	appSuffix := p.clusters[clusterURL]
-	if len(appSuffix) == 0 {
-		return "", "", fmt.Errorf("could not find entry for cluster %s", clusterURL)
-	}
-	route := fmt.Sprintf("jenkins-%s.%s", ns, p.clusters[clusterURL])
-	return route, "https", nil
-}
-
 func cleanupSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
 	for _, cookie := range cookies {
 		if cookiesutil.IsSessionCookie(cookie) {

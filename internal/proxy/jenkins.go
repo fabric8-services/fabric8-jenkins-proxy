@@ -145,13 +145,3 @@ func (j *Jenkins) Start() (state clients.PodState, code int, err error) {
 	}
 	return state, code, nil
 }
-
-// constructRoute returns Jenkins route based on a specific pattern
-func constructRoute(clusters map[string]string, clusterURL string, ns string) (string, string, error) {
-	appSuffix := clusters[clusterURL]
-	if len(appSuffix) == 0 {
-		return "", "", fmt.Errorf("could not find entry for cluster %s", clusterURL)
-	}
-	route := fmt.Sprintf("jenkins-%s.%s", ns, clusters[clusterURL])
-	return route, "https", nil
-}

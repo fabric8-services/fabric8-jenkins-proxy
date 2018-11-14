@@ -70,7 +70,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 
 	nsLogger.WithFields(log.Fields{"cluster": pci.ClusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
 
-	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
+	route, scheme, err := constructRoute(p.clusters, namespace.ClusterURL, namespace.Name)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
