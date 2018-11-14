@@ -46,7 +46,7 @@ func (p *Proxy) HandleError(w http.ResponseWriter, err error, requestLogEntry *l
 	w.Write(eb)
 }
 
-func (p *Proxy) processTemplate(w http.ResponseWriter, ns string, requestLogEntry *log.Entry) (err error) {
+func processTemplate(w http.ResponseWriter, p *Proxy, ns string, requestLogEntry *log.Entry) (err error) {
 	tmplt, err := template.ParseFiles(p.indexPath)
 	if err != nil {
 		return

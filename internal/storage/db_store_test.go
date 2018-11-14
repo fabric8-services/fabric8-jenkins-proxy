@@ -3,6 +3,12 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
 	"github.com/jinzhu/gorm"
 	"github.com/satori/go.uuid"
@@ -10,11 +16,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/ory-am/dockertest.v3"
-	"io/ioutil"
-	"os"
-	"strconv"
-	"testing"
-	"time"
 )
 
 var (

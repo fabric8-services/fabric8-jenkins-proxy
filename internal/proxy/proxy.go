@@ -203,6 +203,9 @@ func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
 		return
 	}
 
+	if s == nil {
+		fmt.Println("Yo man 2")
+	}
 	if la != 0 {
 		s.LastAccessed = la
 	}

@@ -213,7 +213,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 				if state != clients.Running {
 					w.WriteHeader(code)
-					err = p.processTemplate(w, ns, icLogger)
+					err = processTemplate(w, p, ns, icLogger)
 					if err != nil {
 						p.HandleError(w, err, icLogger)
 					}
@@ -253,7 +253,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 				} else {
 					icLogger.Infof("Jenkins isn't running yet so process template")
 					w.WriteHeader(http.StatusAccepted)
-					err = p.processTemplate(w, ns, icLogger)
+					err = processTemplate(w, p, ns, icLogger)
 					if err != nil {
 						p.HandleError(w, err, icLogger)
 					}

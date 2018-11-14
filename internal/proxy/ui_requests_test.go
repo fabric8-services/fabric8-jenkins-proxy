@@ -82,6 +82,8 @@ func TestCorrectTokenWithJenkinsIdled(t *testing.T) {
 }
 
 func TestWithTokenJenkinsRunningButLoginFailed(t *testing.T) {
+	defer gock.Off()
+
 	gock.New("https://jenkins-namespace-jenkins.test_route/securityRealm/commenceLogin?from=%2F").
 		Get("").
 		Reply(401)
@@ -98,6 +100,8 @@ func TestWithTokenJenkinsRunningButLoginFailed(t *testing.T) {
 }
 
 func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
+	defer gock.Off()
+
 	gock.New("https://jenkins-namespace-jenkins.test_route/securityRealm/commenceLogin?from=%2F").
 		Get("").
 		Reply(200).
@@ -162,10 +166,125 @@ func TestExpireCookieIfNotInCache(t *testing.T) {
 	p.handleJenkinsUIRequest(w, req, proxyLogger)
 	setCookieHeaders := w.Header()["Set-Cookie"]
 	assert.Equal(t, 2, len(setCookieHeaders))
-	for _, a := range setCookieHeaders {
-		fmt.Println(a)
-	}
 
 	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
 	assert.Contains(t, setCookieHeaders[0], "Expires")
+}
+
+func TestIdledCookiePresentWhenJenkinsIdled(t *testing.T) {
+	p := NewMockProxy(clients.Idled)
+	cookieVal := uuid.NewV4().String()
+	cacheItem := CacheItem{
+		ClusterURL: "Valid_OpenShift_API_URL",
+		NS:         "namespace-jenkins",
+		Scheme:     "https",
+		Route:      "jenkins-namespace-jenkins.test_route",
+	}
+	p.ProxyCache.SetDefault(cookieVal, cacheItem)
+	req := httptest.NewRequest("GET", "http://proxy", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JenkinsIdled",
+		Value: cookieVal,
+	})
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	assert.Equal(t, http.StatusAccepted, w.Code)
+}
+
+func TestIdledCookiePresentWhenJenkinsRunning(t *testing.T) {
+	defer gock.Off()
+
+	gock.New("https://jenkins-namespace-jenkins.test_route/securityRealm/commenceLogin?from=%2F").
+		Get("").
+		Reply(403)
+
+	p := NewMockProxy(clients.Running)
+	cookieVal := uuid.NewV4().String()
+	cacheItem := CacheItem{
+		ClusterURL: "Valid_OpenShift_API_URL",
+		NS:         "namespace-jenkins",
+		Scheme:     "https",
+		Route:      "jenkins-namespace-jenkins.test_route",
+	}
+	p.ProxyCache.SetDefault(cookieVal, cacheItem)
+	req := httptest.NewRequest("GET", "http://proxy", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JenkinsIdled",
+		Value: cookieVal,
+	})
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	assert.Equal(t, http.StatusOK, w.Code) // ?
+	setCookieHeaders := w.Header()["Set-Cookie"]
+	assert.Equal(t, 1, len(setCookieHeaders))
+
+	assert.Contains(t, setCookieHeaders[0], "JenkinsIdled")
+	assert.Contains(t, setCookieHeaders[0], "Expires")
+	c, ok := p.ProxyCache.Get(cookieVal)
+	assert.False(t, ok, "key not found")
+	assert.Nil(t, c)
+
+}
+
+func TestSessionCookiePresentWhenJenkinsIdled(t *testing.T) {
+	p := NewMockProxy(clients.Idled)
+	cookieVal := uuid.NewV4().String()
+	cacheItem := CacheItem{
+		ClusterURL: "Valid_OpenShift_API_URL",
+		NS:         "namespace-jenkins",
+		Scheme:     "https",
+		Route:      "jenkins-namespace-jenkins.test_route",
+	}
+	p.ProxyCache.SetDefault(cookieVal, cacheItem)
+	req := httptest.NewRequest("GET", "http://proxy", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JSESSIONID." + uuid.NewV4().String(),
+		Value: cookieVal,
+	})
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+
+	setCookieHeaders := w.Header()["Set-Cookie"]
+	assert.Equal(t, 2, len(setCookieHeaders)) // Should be changed to one once we fix multiple cookie expiration
+
+	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
+	assert.Contains(t, setCookieHeaders[0], "Expires")
+
+	c, ok := p.ProxyCache.Get(cookieVal)
+	assert.False(t, ok, "key not found")
+	assert.Nil(t, c)
+}
+
+func TestSessionCookiePresentWhenJenkinsRunning(t *testing.T) {
+	p := NewMockProxy(clients.Running)
+	cookieVal := uuid.NewV4().String()
+	cacheItem := CacheItem{
+		ClusterURL: "Valid_OpenShift_API_URL",
+		NS:         "namespace-jenkins",
+		Scheme:     "https",
+		Route:      "jenkins-namespace-jenkins.test_route",
+	}
+	p.ProxyCache.SetDefault(cookieVal, cacheItem)
+	req := httptest.NewRequest("GET", "http://proxy", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JSESSIONID." + uuid.NewV4().String(),
+		Value: cookieVal,
+	})
+
+	w := httptest.NewRecorder()
+
+	p.handleJenkinsUIRequest(w, req, proxyLogger)
+	// Cause we have not set the code here, it should show 200
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	setCookieHeaders, ok := w.Header()["Set-Cookie"]
+	assert.False(t, ok, "No Set-Cookie header found")
+	assert.Nil(t, setCookieHeaders)
 }
