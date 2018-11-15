@@ -152,12 +152,20 @@ func (p *Proxy) ProcessBuffer() {
 
 					nsLogger.WithFields(log.Fields{"repository": gh.Repository.CloneURL}).Info("Retrying request")
 					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
+					if err != nil {
+						log.Error(err)
+						break
+					}
 					pci := CacheItem{
 						NS:         namespace.Name,
 						ClusterURL: namespace.ClusterURL,
 					}
 
 					jenkins, _, err := GetJenkins(p.clusters, &pci, p.idler, p.tenant, "", nsLogger)
+					if err != nil {
+						log.Error(err)
+						break
+					}
 
 					state, err := jenkins.State()
 					if err != nil {
