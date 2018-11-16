@@ -17,7 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Service talks to fabric8-auth for authentication and authorication
+// Service talks to fabric8-auth for authentication and authorization
 type Service interface {
 	UIDFromToken(accessToken string) (sub string, err error)
 	OSOTokenForCluster(clusterURL, accessToken string) (osoToken string, err error)
@@ -41,17 +41,6 @@ type TokenJSON struct {
 	ExpiresIn        int    `json:"expires_in"`
 	RefreshExpiresIn int    `json:"refresh_expires_in"`
 	Errors           []util.ErrorInfo
-}
-
-// Key is a cryptographic key used for authentication and authorization
-type Key struct {
-	KID string `json:"kid"`
-	Key string `json:"key"`
-}
-
-// KeyList is a list of cryptographics keys used for authentication and authorization
-type KeyList struct {
-	Keys []Key `json:"keys"`
 }
 
 var defaultClient Service
@@ -225,7 +214,16 @@ func (c *Client) updatePublicKeys() error {
 		return err
 	}
 
-	keys := &KeyList{}
+	// key is a cryptographic key used for authentication and authorization
+	type key struct {
+		KID string `json:"kid"`
+		Key string `json:"key"`
+	}
+	// keyList is a list of cryptographics keys used for authentication and authorization
+	type keyList struct {
+		Keys []key `json:"keys"`
+	}
+	keys := &keyList{}
 
 	if err = json.Unmarshal(body, keys); err != nil {
 		return err

@@ -67,7 +67,6 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		logger.Warnf("Error %q - code: %d", rr.err, rr.statusCode)
 
 		if rr.statusCode == http.StatusForbidden {
-			fmt.Println("YES HERE")
 			var err error
 			rp.IsValidSession, err = checkSessionValidity(req, rp)
 			if err != nil {

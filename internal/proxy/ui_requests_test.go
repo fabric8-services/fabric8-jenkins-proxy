@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -57,9 +56,7 @@ func TestCorrectTokenWithJenkinsIdled(t *testing.T) {
 
 	setCookieHeaders := w.Header()["Set-Cookie"]
 	assert.Equal(t, 2, len(setCookieHeaders))
-	for _, a := range setCookieHeaders {
-		fmt.Println(a)
-	}
+
 	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
 	assert.Contains(t, setCookieHeaders[0], "Expires")
 	assert.Contains(t, setCookieHeaders[1], "JenkinsIdled=")
@@ -162,9 +159,6 @@ func TestExpireCookieIfNotInCache(t *testing.T) {
 	p.handleJenkinsUIRequest(w, req, proxyLogger)
 	setCookieHeaders := w.Header()["Set-Cookie"]
 	assert.Equal(t, 2, len(setCookieHeaders))
-	for _, a := range setCookieHeaders {
-		fmt.Println(a)
-	}
 
 	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
 	assert.Contains(t, setCookieHeaders[0], "Expires")

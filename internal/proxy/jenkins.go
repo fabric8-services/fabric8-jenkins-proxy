@@ -16,7 +16,7 @@ import (
 // such as its url, which namespace it belongs to, which cluster it
 // belongs to etc
 type JenkinsService interface {
-	Login(osoToken string) (int, []*http.Cookie, error)
+	Login(osoToken string) (status int, cookie []*http.Cookie, err error)
 	State() (clients.PodState, error)
 	Start() (state clients.PodState, code int, err error)
 }
@@ -37,7 +37,7 @@ func GetJenkins(clusters map[string]string,
 	idler clients.IdlerService,
 	tenant clients.TenantService,
 	tokenData string,
-	logger *log.Entry) (*Jenkins, string, error) {
+	logger *log.Entry) (j *Jenkins, osioToken string, err error) {
 
 	if pci != nil {
 		return &Jenkins{
@@ -49,9 +49,9 @@ func GetJenkins(clusters map[string]string,
 	}
 
 	tokenJSON := &auth.TokenJSON{}
-	err := json.Unmarshal([]byte(tokenData), tokenJSON)
+	err = json.Unmarshal([]byte(tokenData), tokenJSON)
 	if err != nil {
-		return &Jenkins{}, "", err
+		return j, "", err
 	}
 
 	authClient, err := auth.DefaultClient()
@@ -67,7 +67,7 @@ func GetJenkins(clusters map[string]string,
 	if err != nil {
 		return &Jenkins{}, "", err
 	}
-	osioToken := tokenJSON.AccessToken
+	osioToken = tokenJSON.AccessToken
 
 	namespace, err := clients.GetNamespaceByType(ti, ServiceName)
 	if err != nil {
@@ -89,7 +89,7 @@ func GetJenkins(clusters map[string]string,
 }
 
 //Login to Jenkins with OSO token to get cookies
-func (j *Jenkins) Login(osoToken string) (int, []*http.Cookie, error) {
+func (j *Jenkins) Login(osoToken string) (status int, cookie []*http.Cookie, err error) {
 
 	jenkinsURL := fmt.Sprintf("%s://%s/securityRealm/commenceLogin?from=%%2F", j.info.Scheme, j.info.Route)
 
