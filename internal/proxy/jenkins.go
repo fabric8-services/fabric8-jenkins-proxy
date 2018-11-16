@@ -44,7 +44,7 @@ func GetJenkins(clusters map[string]string,
 			info:   *pci,
 			idler:  idler,
 			tenant: tenant,
-			logger: logger,
+			logger: logger.WithFields(log.Fields{"ns": pci.NS, "cluster": pci.ClusterURL}),
 		}, "", nil
 	}
 
@@ -84,7 +84,7 @@ func GetJenkins(clusters map[string]string,
 		info:   NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL),
 		idler:  idler,
 		tenant: tenant,
-		logger: logger,
+		logger: logger.WithFields(log.Fields{"ns": namespace.Name, "cluster": namespace.ClusterURL}),
 	}, osioToken, nil
 }
 
@@ -121,7 +121,6 @@ func (j *Jenkins) Start() (state clients.PodState, code int, err error) {
 	code = http.StatusAccepted
 	ns := j.info.NS
 	clusterURL := j.info.ClusterURL
-	//nsLogger := log.WithFields(log.Fields{"ns": ns, "cluster": clusterURL})
 
 	state, err = j.idler.State(ns, clusterURL)
 	if err != nil {

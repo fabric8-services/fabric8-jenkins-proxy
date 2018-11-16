@@ -28,7 +28,7 @@ func NewCodebase(wit clients.WITService, tenant clients.TenantService, repositor
 		wit:                wit,
 		tenant:             tenant,
 		repositoryCloneURL: repositoryCloneURL,
-		logger:             logger,
+		logger:             logger.WithFields(log.Fields{"repository": repositoryCloneURL}),
 	}
 }
 
