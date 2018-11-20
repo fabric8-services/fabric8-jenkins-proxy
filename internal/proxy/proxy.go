@@ -218,25 +218,26 @@ func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
 
 func cleanupSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
 	for _, cookie := range cookies {
-		if cookiesutil.IsSessionCookie(cookie) {
-			var pci CacheItem
-
-			cacheKey := cookie.Value
-			cacheVal, ok := p.ProxyCache.Get(cacheKey)
-			if ok {
-				pci = cacheVal.(CacheItem)
-				p.ProxyCache.Delete(cacheKey)
-
-				proxyLogger.Infof("clearing cache for namespace: %s, cache_key: %s", pci.NS, cacheKey)
-			}
-
-			cookiesutil.ExpireCookie(w, cookie)
-			proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name, pci.NS)
-
-			// There could be multiple cookies starting with JSESSIONID.
-			// We need to check them all
+		// There could be multiple cookies starting with JSESSIONID.
+		// We need to check them all
+		if !cookiesutil.IsSessionCookie(cookie) {
 			continue
 		}
+
+		var pci CacheItem
+
+		cacheKey := cookie.Value
+		cacheVal, ok := p.ProxyCache.Get(cacheKey)
+		if ok {
+			pci = cacheVal.(CacheItem)
+			p.ProxyCache.Delete(cacheKey)
+
+			proxyLogger.Infof("clearing cache for namespace: %s, cache_key: %s", pci.NS, cacheKey)
+		}
+
+		cookiesutil.ExpireCookie(w, cookie)
+		proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name, pci.NS)
+
 	}
 }
 
@@ -248,38 +249,40 @@ func checkSessionValidity(req *http.Request, responseTimeout time.Duration) (boo
 	jenkinsURL := fmt.Sprintf("%s://%s", requestURL.Scheme, requestURL.Host)
 
 	for _, cookie := range cookies {
-		if cookiesutil.IsSessionCookie(cookie) {
+		if !cookiesutil.IsSessionCookie(cookie) {
+			continue
+		}
 
-			checkSessionValidityWithCookie := func(cookie *http.Cookie, responseTimeout time.Duration) (bool, error) {
-				ctx, cancel := context.WithTimeout(req.Context(), responseTimeout)
-				defer cancel()
+		checkSessionValidityWithCookie := func(cookie *http.Cookie, responseTimeout time.Duration) (bool, error) {
+			ctx, cancel := context.WithTimeout(req.Context(), responseTimeout)
+			defer cancel()
 
-				r, _ := http.NewRequest("GET", jenkinsURL, nil)
-				r.AddCookie(cookie)
-				r = r.WithContext(ctx)
+			r, _ := http.NewRequest("GET", jenkinsURL, nil)
+			r.AddCookie(cookie)
+			r = r.WithContext(ctx)
 
-				c := &http.Client{
-					Timeout: responseTimeout,
-				}
-
-				resp, err := c.Do(r)
-				if err != nil {
-					return false, err
-				}
-				defer resp.Body.Close()
-				switch resp.StatusCode {
-				case http.StatusOK:
-					return true, err
-				case http.StatusForbidden:
-					return false, err
-				default:
-					err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
-					return false, err
-				}
+			c := &http.Client{
+				Timeout: responseTimeout,
 			}
 
-			return checkSessionValidityWithCookie(cookie, responseTimeout)
+			resp, err := c.Do(r)
+			if err != nil {
+				return false, err
+			}
+			defer resp.Body.Close()
+			switch resp.StatusCode {
+			case http.StatusOK:
+				return true, err
+			case http.StatusForbidden:
+				return false, err
+			default:
+				err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
+				return false, err
+			}
 		}
+
+		return checkSessionValidityWithCookie(cookie, responseTimeout)
+
 	}
 
 	return false, nil
