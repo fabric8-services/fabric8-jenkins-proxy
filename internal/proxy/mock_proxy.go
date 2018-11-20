@@ -27,10 +27,12 @@ func NewMockProxy(jenkinsState clients.PodState) *Proxy {
 	return &Proxy{
 		tenant: &mock.Tenant{},
 		idler:  mock.NewMockIdler("", jenkinsState, false),
+		wit:    &clients.MockWit{},
 		clusters: map[string]string{
 			"Valid_OpenShift_API_URL": "test_route",
 		},
 		ProxyCache:     cache.New(15*time.Minute, 10*time.Minute),
+		TenantCache:    cache.New(30*time.Minute, 40*time.Minute),
 		redirect:       "http://redirect",
 		indexPath:      strings.TrimSuffix(filepath.Dir(b), "/internal/proxy") + "/static/html/index.html",
 		storageService: &storage.MockStore{},
