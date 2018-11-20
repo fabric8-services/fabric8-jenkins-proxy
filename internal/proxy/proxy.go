@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -151,16 +152,10 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	rp := reverseproxy.NewReverseProxy(
 		actualURL,
 		p.responseTimeout,
-		okToForward,
-
+		p.OnError,
 		logEntryWithHash,
 	)
-
 	rp.ServeHTTP(w, r)
-
-	if !rp.IsValidSession {
-		cleanupSession(w, r.Cookies(), p)
-	}
 }
 
 func (p *Proxy) isGitHubRequest(r *http.Request) bool {
@@ -243,4 +238,64 @@ func cleanupSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
 			continue
 		}
 	}
+}
+
+func checkSessionValidity(req *http.Request, responseTimeout time.Duration) (bool, error) {
+
+	requestURL := req.URL
+	cookies := req.Cookies()
+
+	jenkinsURL := fmt.Sprintf("%s://%s", requestURL.Scheme, requestURL.Host)
+
+	for _, cookie := range cookies {
+		if cookiesutil.IsSessionCookie(cookie) {
+
+			checkSessionValidityWithCookie := func(cookie *http.Cookie, responseTimeout time.Duration) (bool, error) {
+				ctx, cancel := context.WithTimeout(req.Context(), responseTimeout)
+				defer cancel()
+
+				r, _ := http.NewRequest("GET", jenkinsURL, nil)
+				r.AddCookie(cookie)
+				r = r.WithContext(ctx)
+
+				c := &http.Client{
+					Timeout: responseTimeout,
+				}
+
+				resp, err := c.Do(r)
+				if err != nil {
+					return false, err
+				}
+				defer resp.Body.Close()
+				switch resp.StatusCode {
+				case http.StatusOK:
+					return true, err
+				case http.StatusForbidden:
+					return false, err
+				default:
+					err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
+					return false, err
+				}
+			}
+
+			return checkSessionValidityWithCookie(cookie, responseTimeout)
+		}
+	}
+
+	return false, nil
+}
+
+// OnError handles when there is an error while reverse proxy
+func (p *Proxy) OnError(rw http.ResponseWriter, req *http.Request, code int) error {
+	if code == http.StatusForbidden {
+		isValidSession, err := checkSessionValidity(req, p.responseTimeout)
+		if err != nil {
+			return err
+		}
+		if !isValidSession {
+			cleanupSession(rw, req.Cookies(), p)
+		}
+	}
+
+	return nil
 }

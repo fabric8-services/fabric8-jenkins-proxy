@@ -9,10 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
 
-	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -80,7 +78,11 @@ func TestReverseProxy(t *testing.T) {
 			proxyHandler := &ReverseProxy{
 				RedirectURL:     requestURL,
 				ResponseTimeout: 3 * time.Second,
-				Logger:          logger.WithField("mode", "testing"),
+				OnError: func(rw http.ResponseWriter, req *http.Request, code int) error {
+					return nil
+				},
+
+				Logger: logger.WithField("mode", "testing"),
 			}
 			proxyHandler.ServeHTTP(w, r)
 		}))
@@ -157,11 +159,13 @@ func TestServeHTTP(t *testing.T) {
 	rp := NewReverseProxy(
 		url.URL{
 			Scheme: "https",
-			Host:   "jenkinsHost",
+			Host:   "proxy",
 			Path:   "/path",
 		},
 		config.GetGatewayTimeout(),
-		false,
+		func(rw http.ResponseWriter, req *http.Request, code int) error {
+			return nil
+		},
 
 		log.WithFields(log.Fields{"component": "reverseproxy"}),
 	)
@@ -180,12 +184,6 @@ func TestServeHTTP(t *testing.T) {
 	testProxyStatus(t, rp, http.StatusAccepted, http.StatusAccepted)
 	testProxyStatus(t, rp, http.StatusUnauthorized, http.StatusUnauthorized)
 	testProxyStatus(t, rp, http.StatusFound, http.StatusFound)
-
-	// Reverse proxy checks the session validity on recieving status Forbidden
-	// from jenkins
-	testSessionCheck(t, rp, "")
-	testSessionCheck(t, rp, cookiesutil.SessionCookie+uuid.NewV4().String())
-	testSessionCheck(t, rp, "DoesntstartWithJSESSIONID")
 }
 
 func testProxyStatus(t *testing.T, rp *ReverseProxy, jenkinsStatusCode int, proxyStatusCode int) {
@@ -200,45 +198,4 @@ func testProxyStatus(t *testing.T, rp *ReverseProxy, jenkinsStatusCode int, prox
 
 	rp.ServeHTTP(rr, req)
 	assert.Equal(t, proxyStatusCode, rr.Code)
-}
-
-func testSessionCheck(t *testing.T, rp *ReverseProxy, cookieName string) {
-	defer gock.Off()
-
-	gock.New("https://jenkinsHost").
-		Get("/path").
-		Reply(http.StatusForbidden)
-
-	gock.New("https://jenkinsHost").
-		Get("").
-		Reply(http.StatusOK)
-
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "https://jenkinsHost/path", nil)
-
-	var cookie http.Cookie
-	if cookieName != "" {
-		cookie = http.Cookie{
-			Name:    cookieName,
-			Value:   uuid.NewV4().String(),
-			Expires: time.Now().Local().Add(time.Hour),
-		}
-		req.AddCookie(&cookie)
-	}
-
-	// On finding Forbidden from jenkins, ServeHTTP would check for session
-	// by looking for session cookie. If it finds a session cookie(cookie name
-	// starting with JSESSIONID) it means  valid session
-	// If invalid it would set rep.IsValidSession to false
-	if cookiesutil.IsSessionCookie(&cookie) {
-		rp.IsValidSession = false
-		assert.False(t, rp.IsValidSession)
-		rp.ServeHTTP(rr, req)
-		assert.True(t, rp.IsValidSession)
-	} else {
-		rp.IsValidSession = true
-		assert.True(t, rp.IsValidSession)
-		rp.ServeHTTP(rr, req)
-		assert.False(t, rp.IsValidSession)
-	}
 }

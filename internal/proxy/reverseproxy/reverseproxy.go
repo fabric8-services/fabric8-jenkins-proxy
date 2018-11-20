@@ -2,13 +2,10 @@ package reverseproxy
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"time"
-
-	cookiesutil "github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -21,18 +18,17 @@ import (
 type ReverseProxy struct {
 	RedirectURL     url.URL
 	ResponseTimeout time.Duration
-	IsValidSession  bool
-
-	Logger *log.Entry
+	OnError         func(http.ResponseWriter, *http.Request, int) error
+	Logger          *log.Entry
 }
 
 // NewReverseProxy returns an instance of reverse proxy on passing redirect url,
 // response timeout, session validity flag and a logger object
-func NewReverseProxy(redirectURL url.URL, responseTimeout time.Duration, isSessionValid bool, logger *log.Entry) *ReverseProxy {
+func NewReverseProxy(redirectURL url.URL, responseTimeout time.Duration, onError func(http.ResponseWriter, *http.Request, int) error, logger *log.Entry) *ReverseProxy {
 	return &ReverseProxy{
 		RedirectURL:     redirectURL,
 		ResponseTimeout: responseTimeout,
-		IsValidSession:  isSessionValid,
+		OnError:         onError,
 
 		Logger: logger,
 	}
@@ -46,12 +42,10 @@ func director(req *http.Request) {
 }
 
 func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-
 	logger := rp.Logger.WithFields(log.Fields{
 		"redirect_url":     rp.RedirectURL.String(),
 		"request_url":      req.URL.String(),
 		"response_timeout": rp.ResponseTimeout,
-		"is_valid_session": rp.IsValidSession,
 	})
 
 	ctx, cancel := context.WithTimeout(req.Context(), rp.ResponseTimeout)
@@ -66,58 +60,12 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if rr.err != nil {
 		logger.Warnf("Error %q - code: %d", rr.err, rr.statusCode)
 
-		if rr.statusCode == http.StatusForbidden {
-			var err error
-			rp.IsValidSession, err = checkSessionValidity(req, rp)
-			if err != nil {
-				logger.Error(err)
-			}
+		err := rp.OnError(rw, req, rr.statusCode)
+		if err != nil {
+			logger.Error(err)
 		}
+
 		http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)
+
 	}
-}
-
-func checkSessionValidity(req *http.Request, rp *ReverseProxy) (bool, error) {
-
-	requestURL := req.URL
-	cookies := req.Cookies()
-
-	jenkinsURL := fmt.Sprintf("%s://%s", requestURL.Scheme, requestURL.Host)
-
-	for _, cookie := range cookies {
-		if cookiesutil.IsSessionCookie(cookie) {
-
-			checkSessionValidityWithCookie := func(cookie *http.Cookie, rp *ReverseProxy) (bool, error) {
-				ctx, cancel := context.WithTimeout(req.Context(), rp.ResponseTimeout)
-				defer cancel()
-
-				r, _ := http.NewRequest("GET", jenkinsURL, nil)
-				r.AddCookie(cookie)
-				r = r.WithContext(ctx)
-
-				c := &http.Client{
-					Timeout: rp.ResponseTimeout,
-				}
-
-				resp, err := c.Do(r)
-				if err != nil {
-					return false, err
-				}
-				defer resp.Body.Close()
-				switch resp.StatusCode {
-				case http.StatusOK:
-					return true, err
-				case http.StatusForbidden:
-					return false, err
-				default:
-					err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
-					return false, err
-				}
-			}
-
-			return checkSessionValidityWithCookie(cookie, rp)
-		}
-	}
-
-	return false, nil
 }
