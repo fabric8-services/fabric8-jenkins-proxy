@@ -73,7 +73,7 @@ func TestCorrectTokenWithJenkinsIdled(t *testing.T) {
 			Scheme:     "https",
 			Route:      "jenkins-namespace-jenkins.test_route",
 		}
-		assert.True(t, ok, "item object is of type cache item")
+		assert.True(t, ok, "item object should be of type cache item")
 		assert.Equal(t, info, cacheItem)
 	}
 }
@@ -140,7 +140,7 @@ func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
 			Scheme:     "https",
 			Route:      "jenkins-namespace-jenkins.test_route",
 		}
-		assert.True(t, ok, "item object is of type cache item")
+		assert.True(t, ok, "item object should be of type cache item")
 		assert.Equal(t, info, cacheItem)
 	}
 }
