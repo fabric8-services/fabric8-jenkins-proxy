@@ -36,7 +36,7 @@ func ExpireCookiesMatching(w http.ResponseWriter, r *http.Request, expire cookie
 	}
 }
 
-// ExpireCookiesMatching expires all cookies that evaluates `expire` function into true
+// Filter returns all cookies that evaluates `filter` function into true
 func Filter(cookies []*http.Cookie, filter cookieFilterFn) []*http.Cookie {
 	filtered := []*http.Cookie{}
 
