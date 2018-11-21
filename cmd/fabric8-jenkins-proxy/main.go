@@ -99,11 +99,11 @@ func main() {
 	}
 	mainLogger.WithField("clusters", clusters).Info("Retrieved cluster view")
 
-	start(config, &tenant, wit, idler, store, clusters)
+	start(config, idler, &tenant, wit, store, clusters)
 }
 
-func start(config configuration.Configuration, tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerService, store storage.Store, clusters map[string]string) {
-	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config, clusters)
+func start(config configuration.Configuration, idler clients.IdlerService, tenant clients.TenantService, wit clients.WITService, store storage.Store, clusters map[string]string) {
+	proxy, err := proxy.NewProxy(idler, tenant, wit, store, config, clusters)
 	if err != nil {
 		log.Fatal(err)
 	}

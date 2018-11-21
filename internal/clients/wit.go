@@ -9,8 +9,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// WIT describes work item tracker service of OSIO.
-type WIT interface {
+// WITService describes work item tracker service of OSIO.
+type WITService interface {
 	SearchCodebase(repo string) (*WITInfo, error)
 }
 
@@ -21,7 +21,7 @@ type wit struct {
 }
 
 // NewWIT creates an instance of WIT client.
-func NewWIT(url string, token string) WIT {
+func NewWIT(url string, token string) WITService {
 	return &wit{
 		witURL:    url,
 		authToken: token,

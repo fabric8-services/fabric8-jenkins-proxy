@@ -90,7 +90,9 @@ func newMockAuthService(responses []string) *mockAuthService {
 }
 
 func TestClient_default_is_nil(t *testing.T) {
-	assert.Nil(t, DefaultClient(), "auth default client is nil")
+	authClient, err := DefaultClient()
+	assert.NotNil(t, err, "auth default client is nil")
+	assert.Nil(t, authClient, "auth default client is nil")
 }
 
 func TestClient_no_update_if_success(t *testing.T) {

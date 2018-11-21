@@ -48,3 +48,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/matryer/resync"
+
+[[constraint]]
+  name = "gopkg.in/h2non/gock.v1"
+  version = "=v1.0.12"

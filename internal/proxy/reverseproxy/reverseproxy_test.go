@@ -9,8 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
+
+	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func TestReverseProxy(t *testing.T) {
@@ -23,7 +27,7 @@ func TestReverseProxy(t *testing.T) {
 		// if the "mode" is "hangup"
 		if r.Method == "GET" && r.FormValue("mode") == "hangup" {
 			if retries < 5 {
-				// NOTE Hijack results in calling  the handlerfunc again for the
+				// NOTE Hijack results in calling the handlerfunc again for the
 				// first time so for the first time retry will be incremented to 2
 				retries++
 				c, _, _ := w.(http.Hijacker).Hijack()
@@ -74,7 +78,11 @@ func TestReverseProxy(t *testing.T) {
 			proxyHandler := &ReverseProxy{
 				RedirectURL:     requestURL,
 				ResponseTimeout: 3 * time.Second,
-				Logger:          logger.WithField("mode", "testing"),
+				OnError: func(rw http.ResponseWriter, req *http.Request, code int) error {
+					return nil
+				},
+
+				Logger: logger.WithField("mode", "testing"),
 			}
 			proxyHandler.ServeHTTP(w, r)
 		}))
@@ -104,7 +112,7 @@ func TestReverseProxy(t *testing.T) {
 	assert.Equal(t, res.Cookies()[0].Name, "flavor", "Cookie setting failed")
 
 	bodyBytes, _ := ioutil.ReadAll(res.Body)
-	assert.Equal(t, string(bodyBytes), backendResponse, "unexpected response body")
+	assert.Equal(t, backendResponse, string(bodyBytes), "unexpected response body")
 
 	assert.Equal(t, res.Trailer.Get("X-Trailer"), "trailer_value", "Trailer(X-Trailer)")
 	assert.Equal(t, res.Trailer.Get("X-Unannounced-Trailer"),
@@ -142,4 +150,52 @@ func TestReverseProxy(t *testing.T) {
 	body, err := ioutil.ReadAll(res.Body)
 	assert.Equal(t, string(body), "all good")
 
+}
+
+func TestServeHTTP(t *testing.T) {
+
+	config := mock.NewConfig()
+
+	rp := NewReverseProxy(
+		url.URL{
+			Scheme: "https",
+			Host:   "proxy",
+			Path:   "/path",
+		},
+		config.GetGatewayTimeout(),
+		func(rw http.ResponseWriter, req *http.Request, code int) error {
+			return nil
+		},
+
+		log.WithFields(log.Fields{"component": "reverseproxy"}),
+	)
+
+	// On recieving status BadGateway, GatewayTimeout, ServiceUnavailable
+	// or Forbidden from jenkins, reverse proxy should redirect that request to redirect
+	// url, thus writing status to Found (includes all)
+	testProxyStatus(t, rp, http.StatusBadGateway, http.StatusFound)
+	testProxyStatus(t, rp, http.StatusGatewayTimeout, http.StatusFound)
+	testProxyStatus(t, rp, http.StatusServiceUnavailable, http.StatusFound)
+	testProxyStatus(t, rp, http.StatusForbidden, http.StatusFound)
+
+	// On receiving any other status from jenkins, reverse proxy should also write the
+	// same status (does not include all cases)
+	testProxyStatus(t, rp, http.StatusOK, http.StatusOK)
+	testProxyStatus(t, rp, http.StatusAccepted, http.StatusAccepted)
+	testProxyStatus(t, rp, http.StatusUnauthorized, http.StatusUnauthorized)
+	testProxyStatus(t, rp, http.StatusFound, http.StatusFound)
+}
+
+func testProxyStatus(t *testing.T, rp *ReverseProxy, jenkinsStatusCode int, proxyStatusCode int) {
+	defer gock.Off()
+
+	gock.New("https://jenkinsHost").
+		Get("/path").
+		Reply(jenkinsStatusCode)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "https://jenkinsHost/path", nil)
+
+	rp.ServeHTTP(rr, req)
+	assert.Equal(t, proxyStatusCode, rr.Code)
 }

@@ -3,10 +3,8 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
@@ -57,12 +55,22 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		p.HandleError(w, err, requestLogEntry)
 		return
 	}
-	ns = namespace.Name
-	clusterURL := namespace.ClusterURL
-	nsLogger := requestLogEntry.WithField("ns", ns)
-	nsLogger.WithFields(log.Fields{"cluster": clusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
 
-	route, scheme, err := p.constructRoute(namespace.ClusterURL, namespace.Name)
+	nsLogger := requestLogEntry.WithField("ns", ns)
+
+	pci := CacheItem{
+		ClusterURL: namespace.ClusterURL,
+		NS:         ns,
+	}
+	jenkins, _, err := GetJenkins(p.clusters, &pci, p.idler, p.tenant, "", requestLogEntry)
+	if err != nil {
+		p.HandleError(w, err, requestLogEntry)
+		return
+	}
+
+	nsLogger.WithFields(log.Fields{"cluster": pci.ClusterURL, "repository": gh.Repository.CloneURL}).Info("Processing GitHub request ")
+
+	route, scheme, err := constructRoute(p.clusters, namespace.ClusterURL, namespace.Name)
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
@@ -72,7 +80,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	r.URL.Host = route
 	r.Host = route
 
-	state, err := p.idler.State(ns, clusterURL)
+	state, err := jenkins.State()
 	if err != nil {
 		p.HandleError(w, err, requestLogEntry)
 		return
@@ -81,7 +89,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	//If Jenkins is idle/stating, we need to cache the request and return success
 	if state != clients.Running {
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
-		_, err = p.idler.UnIdle(ns, clusterURL)
+		_, _, err = jenkins.Start()
 		if err != nil {
 			p.HandleError(w, err, requestLogEntry)
 		}
@@ -144,9 +152,22 @@ func (p *Proxy) ProcessBuffer() {
 
 					nsLogger.WithFields(log.Fields{"repository": gh.Repository.CloneURL}).Info("Retrying request")
 					namespace, err := p.getUserWithRetry(gh.Repository.CloneURL, proxyLogger, defaultRetry)
-					clusterURL := namespace.ClusterURL
+					if err != nil {
+						log.Error(err)
+						break
+					}
+					pci := CacheItem{
+						NS:         namespace.Name,
+						ClusterURL: namespace.ClusterURL,
+					}
 
-					state, err := p.idler.State(ns, clusterURL)
+					jenkins, _, err := GetJenkins(p.clusters, &pci, p.idler, p.tenant, "", nsLogger)
+					if err != nil {
+						log.Error(err)
+						break
+					}
+
+					state, err := jenkins.State()
 					if err != nil {
 						log.Error(err)
 						break
@@ -235,26 +256,12 @@ func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients
 			}).Infof("Cache hit for repository %s", repositoryCloneURL)
 		return namespace, nil
 	}
-
 	logEntry.Infof("Cache miss for repository %s", repositoryCloneURL)
-	wi, err := p.wit.SearchCodebase(repositoryCloneURL)
-	if err != nil {
-		return clients.Namespace{}, err
-	}
 
-	if len(strings.TrimSpace(wi.OwnedBy)) == 0 {
-		return clients.Namespace{}, fmt.Errorf("unable to determine tenant id for repository %s", repositoryCloneURL)
-	}
-
-	logEntry.Infof("Found id %s for repo %s", wi.OwnedBy, repositoryCloneURL)
-	ti, err := p.tenant.GetTenantInfo(wi.OwnedBy)
+	codebase := NewCodebase(p.wit, p.tenant, repositoryCloneURL, logEntry)
+	n, err := codebase.Namespace()
 	if err != nil {
-		return clients.Namespace{}, err
-	}
-
-	n, err := clients.GetNamespaceByType(ti, ServiceName)
-	if err != nil {
-		return clients.Namespace{}, err
+		return n, err
 	}
 
 	p.TenantCache.SetDefault(repositoryCloneURL, n)
