@@ -3,9 +3,13 @@ package proxy
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
+	log "github.com/sirupsen/logrus"
 
 	uuid "github.com/satori/go.uuid"
 	gock "gopkg.in/h2non/gock.v1"
@@ -162,4 +166,71 @@ func TestExpireCookieIfNotInCache(t *testing.T) {
 
 	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
 	assert.Contains(t, setCookieHeaders[0], "Expires")
+}
+
+func TestValidateSession(t *testing.T) {
+	// Reverse proxy checks the session validity on recieving status Forbidden
+	// from jenkins
+	defer gock.Off()
+
+	gock.New("https://jenkinsHost").
+		Get("/path").
+		Reply(http.StatusForbidden)
+
+	gock.New("https://jenkinsHost").
+		Get("").
+		Reply(http.StatusForbidden)
+
+	config := mock.NewConfig()
+
+	p := NewMockProxy(clients.Running)
+	cookieVal := uuid.NewV4().String()
+	info := CacheItem{
+		ClusterURL: "Valid_OpenShift_API_URL",
+		NS:         "namespace-jenkins",
+		Scheme:     "https",
+		Route:      "https://jenkinsHost",
+	}
+	p.ProxyCache.SetDefault(cookieVal, info)
+
+	req := httptest.NewRequest("GET", "https://jenkinsHost/path", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "JSESSIONID." + uuid.NewV4().String(),
+		Value: cookieVal,
+	})
+
+	w := httptest.NewRecorder()
+
+	rp := reverseproxy.NewReverseProxy(
+		//*req.URL,
+		url.URL{
+			Scheme: "https",
+			Host:   "proxy",
+			Path:   "/path",
+		},
+		config.GetGatewayTimeout(),
+		p.OnErrorUIRequest,
+
+		log.WithFields(log.Fields{"component": "testing"}),
+	)
+
+	// Session cookie exists and there a cache item in proxy cache
+	// with key as the cookie value, but session has expired from jenkins
+	// side. Proxy doesn't know about this just yet.
+	// Jenkins would return status forbidden on this, we expire cookie
+	// and delete the cache
+
+	_, ok := p.ProxyCache.Get(cookieVal)
+	assert.True(t, ok, "CacheItem exists")
+	rp.ServeHTTP(w, req)
+	_, ok = p.ProxyCache.Get(cookieVal)
+	assert.False(t, ok, "CacheItem has been deleted")
+
+	setCookieHeaders := w.Header()["Set-Cookie"]
+	assert.Equal(t, 1, len(setCookieHeaders))
+	assert.Contains(t, setCookieHeaders[0], "JSESSIONID")
+	assert.Contains(t, setCookieHeaders[0], "Expires")
+
+	// Redirects to the redirect url
+	assert.Equal(t, w.Header().Get("Location"), "https://proxy/path")
 }

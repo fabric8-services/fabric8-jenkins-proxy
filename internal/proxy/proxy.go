@@ -147,12 +147,20 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		p.recordStatistics(ns, time.Now().Unix(), 0)
 	}()
 
+	var onError func(http.ResponseWriter, *http.Request, int) error
+	if isGH {
+		onError = func(rw http.ResponseWriter, req *http.Request, code int) error {
+			return nil
+		}
+	} else {
+		onError = p.OnErrorUIRequest
+	}
 	// at this point we know jenkins is up and running let the reverse-proxy
 	// forward request to actual jenkins
 	rp := reverseproxy.NewReverseProxy(
 		actualURL,
 		p.responseTimeout,
-		p.OnError,
+		onError,
 		logEntryWithHash,
 	)
 	rp.ServeHTTP(w, r)
@@ -266,8 +274,8 @@ func checkSessionValidity(req *http.Request, sessionCookie *http.Cookie, timeout
 	return false, err
 }
 
-// OnError handles when there is an error while reverse proxy
-func (p *Proxy) OnError(rw http.ResponseWriter, req *http.Request, code int) error {
+// OnErrorUIRequest handles when there is an error while reverse proxy
+func (p *Proxy) OnErrorUIRequest(rw http.ResponseWriter, req *http.Request, code int) error {
 	if code != http.StatusForbidden {
 		return nil
 	}
