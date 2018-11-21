@@ -9,12 +9,12 @@ import (
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookieutil"
 	log "github.com/sirupsen/logrus"
 )
 
 func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, logger *log.Entry) (cacheKey, ns string, okToForward bool) {
-	logger.Infof("Incoming request: %s Cookies: %v ", r.URL.Path, cookiesutil.CookieNames(r.Cookies()))
+	logger.Infof("Incoming request: %s Cookies: %v ", r.URL.Path, cookieutil.CookieNames(r.Cookies()))
 
 	needsAuth := true   // indicates if we need to redirect to auth service
 	okToForward = false // indicates if its ready to forward requests to Jenkins
@@ -75,11 +75,11 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 			// jenkins is idled and there could be old jsession, so delete them as
 			// it will be invalid at this point
-			cookiesutil.ExpireCookiesMatching(w, r, cookiesutil.IsSessionCookie)
+			cookieutil.ExpireCookiesMatching(w, r, cookieutil.IsSessionCookie)
 
 			// Set "idled" cookie to indicate that jenkins is idled
 			// also cache the ns & cluster for faster lookup next time
-			uuid := cookiesutil.SetIdledCookie(w)
+			uuid := cookieutil.SetIdledCookie(w)
 			p.ProxyCache.SetDefault(uuid, jenkins.info)
 
 			// Redirect to set the idled cookied and to  get rid of token in URL
@@ -95,7 +95,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			return
 		}
 
-		nsLogger.Infof("Jenkins Login returned: %v", cookiesutil.CookieNames(jenkinsCookies))
+		nsLogger.Infof("Jenkins Login returned: %v", cookieutil.CookieNames(jenkinsCookies))
 
 		if status != http.StatusOK {
 			nsLogger.Errorf("Jenkins login returned status %d", status)
@@ -104,13 +104,13 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		}
 
 		// there could be old session cookies, so lets clear it
-		cookiesutil.ExpireCookiesMatching(w, r, cookiesutil.IsSessionOrIdledCookie)
+		cookieutil.ExpireCookiesMatching(w, r, cookieutil.IsSessionOrIdledCookie)
 
 		// set all cookies that we got from jenkins
-		jsessionCookie := cookiesutil.SetJenkinsCookies(w, jenkinsCookies)
+		jsessionCookie := cookieutil.SetJenkinsCookies(w, jenkinsCookies)
 		if jsessionCookie == nil {
 			// for some reason, login didn't return a session cookie
-			p.HandleError(w, fmt.Errorf("could not find cookie %q for %q", cookiesutil.SessionCookie, ns), nsLogger)
+			p.HandleError(w, fmt.Errorf("could not find cookie %q for %q", cookieutil.SessionCookie, ns), nsLogger)
 			return
 		}
 
@@ -132,7 +132,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 
 		for _, cookie := range r.Cookies() {
 
-			if !cookiesutil.IsSessionOrIdledCookie(cookie) {
+			if !cookieutil.IsSessionOrIdledCookie(cookie) {
 				continue // only the session and idled cookies are cached
 			}
 
@@ -141,7 +141,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 				// if the cookie is not in cache, it could be an old idled or jsessionid
 				// cookie so lets clear it
 				cookieLogger.Infof("cookies: %q is session or idle is OLD; expiring", cookie.Name)
-				cookiesutil.ExpireCookie(w, cookie)
+				cookieutil.ExpireCookie(w, cookie)
 				continue
 			}
 
@@ -159,7 +159,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			nsLogger := log.WithFields(log.Fields{"ns": ns, "cluster": clusterURL, "cookie": cookie.Name})
 			nsLogger.Infof("cookie: %q is in cache", cookie.Name)
 
-			if cookiesutil.IsSessionCookie(cookie) {
+			if cookieutil.IsSessionCookie(cookie) {
 				// We found a session cookie in cache
 				scLogger := nsLogger.WithField("cookietype", "session")
 				scLogger.Infof("Cache has Jenkins route %q in %q", pci.Route, cookie.Value)
@@ -186,13 +186,13 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 				// so lets clear the cookie and the cache entry
 				p.ProxyCache.Delete(cacheKey)
 				cacheKey = "" // cacheKey isn't valid any more
-				cookiesutil.ExpireCookiesMatching(w, r, cookiesutil.IsSessionOrIdledCookie)
+				cookieutil.ExpireCookiesMatching(w, r, cookieutil.IsSessionOrIdledCookie)
 				p.recordStatistics(pci.NS, time.Now().Unix(), 0) //FIXME - maybe do this at the beginning?
 
 				break // and do a reauth
 			}
 
-			if cookiesutil.IsIdledCookie(cookie) {
+			if cookieutil.IsIdledCookie(cookie) {
 				// Found a cookie saying Jenkins is idled
 				icLogger := nsLogger.WithField("cookietype", "idle")
 				icLogger.Infof("Cache has Jenkins route %q in %q", pci.Route, cookie.Value)
@@ -246,7 +246,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 					// acutal login to Jenkins with the token_json which will then setup
 					// the jsession cookies
 
-					cookiesutil.ExpireCookiesMatching(w, r, cookiesutil.IsSessionOrIdledCookie)
+					cookieutil.ExpireCookiesMatching(w, r, cookieutil.IsSessionOrIdledCookie)
 					p.ProxyCache.Delete(cacheKey)
 					cacheKey = ""
 
@@ -282,7 +282,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 		logger.Infof("Redirecting to auth: %q", redirAuth)
 
 		// clear session and idle cookies as this is a fresh start
-		cookiesutil.ExpireCookiesMatching(w, r, cookiesutil.IsSessionOrIdledCookie)
+		cookieutil.ExpireCookiesMatching(w, r, cookieutil.IsSessionOrIdledCookie)
 		w.Header().Set("Cache-Control", "no-cache")
 		http.Redirect(w, r, redirAuth, http.StatusTemporaryRedirect)
 	}

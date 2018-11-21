@@ -60,9 +60,8 @@ func (rp *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if rr.err != nil {
 		logger.Warnf("Error %q - code: %d", rr.err, rr.statusCode)
 
-		err := rp.OnError(rw, req, rr.statusCode)
-		if err != nil {
-			logger.Error(err)
+		if err := rp.OnError(rw, req, rr.statusCode); err != nil {
+			logger.Errorf("onError returned error: %s", err)
 		}
 
 		http.Redirect(rw, req, rp.RedirectURL.String(), http.StatusFound)

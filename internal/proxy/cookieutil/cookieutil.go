@@ -1,4 +1,4 @@
-package cookiesutil
+package cookieutil
 
 import (
 	"net/http"
@@ -34,6 +34,18 @@ func ExpireCookiesMatching(w http.ResponseWriter, r *http.Request, expire cookie
 			ExpireCookie(w, cookie)
 		}
 	}
+}
+
+// ExpireCookiesMatching expires all cookies that evaluates `expire` function into true
+func Filter(cookies []*http.Cookie, filter cookieFilterFn) []*http.Cookie {
+	filtered := []*http.Cookie{}
+
+	for _, cookie := range cookies {
+		if filter(cookie) {
+			filtered = append(filtered, cookie)
+		}
+	}
+	return filtered
 }
 
 // ExpireCookie expires a given cookie

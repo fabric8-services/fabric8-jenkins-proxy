@@ -13,7 +13,7 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookies"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookieutil"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
@@ -216,14 +216,8 @@ func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
 	return
 }
 
-func cleanupSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
-	for _, cookie := range cookies {
-		// There could be multiple cookies starting with JSESSIONID.
-		// We need to check them all
-		if !cookiesutil.IsSessionCookie(cookie) {
-			continue
-		}
-
+func (p *Proxy) invalidateSession(w http.ResponseWriter, sessionCookies []*http.Cookie) {
+	for _, cookie := range sessionCookies {
 		var pci CacheItem
 
 		cacheKey := cookie.Value
@@ -235,70 +229,63 @@ func cleanupSession(w http.ResponseWriter, cookies []*http.Cookie, p *Proxy) {
 			proxyLogger.Infof("clearing cache for namespace: %s, cache_key: %s", pci.NS, cacheKey)
 		}
 
-		cookiesutil.ExpireCookie(w, cookie)
+		cookieutil.ExpireCookie(w, cookie)
 		proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name, pci.NS)
 
 	}
 }
 
-func checkSessionValidity(req *http.Request, responseTimeout time.Duration) (bool, error) {
+func checkSessionValidity(req *http.Request, sessionCookie *http.Cookie, timeout time.Duration) (bool, error) {
 
 	requestURL := req.URL
-	cookies := req.Cookies()
-
 	jenkinsURL := fmt.Sprintf("%s://%s", requestURL.Scheme, requestURL.Host)
 
-	for _, cookie := range cookies {
-		if !cookiesutil.IsSessionCookie(cookie) {
-			continue
-		}
+	ctx, cancel := context.WithTimeout(req.Context(), timeout)
+	defer cancel()
 
-		checkSessionValidityWithCookie := func(cookie *http.Cookie, responseTimeout time.Duration) (bool, error) {
-			ctx, cancel := context.WithTimeout(req.Context(), responseTimeout)
-			defer cancel()
+	r, _ := http.NewRequest("GET", jenkinsURL, nil)
+	r.AddCookie(sessionCookie)
+	r = r.WithContext(ctx)
 
-			r, _ := http.NewRequest("GET", jenkinsURL, nil)
-			r.AddCookie(cookie)
-			r = r.WithContext(ctx)
+	c := &http.Client{Timeout: timeout}
 
-			c := &http.Client{
-				Timeout: responseTimeout,
-			}
-
-			resp, err := c.Do(r)
-			if err != nil {
-				return false, err
-			}
-			defer resp.Body.Close()
-			switch resp.StatusCode {
-			case http.StatusOK:
-				return true, err
-			case http.StatusForbidden:
-				return false, err
-			default:
-				err = fmt.Errorf("received unexpected error, code: %s", resp.Status)
-				return false, err
-			}
-		}
-
-		return checkSessionValidityWithCookie(cookie, responseTimeout)
-
+	resp, err := c.Do(r)
+	if err != nil {
+		return false, err
 	}
+	defer resp.Body.Close()
 
-	return false, nil
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, err
+
+	case http.StatusForbidden:
+		return false, err
+	}
+	err = fmt.Errorf("received unexpected status code: %s", resp.Status)
+	return false, err
 }
 
 // OnError handles when there is an error while reverse proxy
 func (p *Proxy) OnError(rw http.ResponseWriter, req *http.Request, code int) error {
-	if code == http.StatusForbidden {
-		isValidSession, err := checkSessionValidity(req, p.responseTimeout)
-		if err != nil {
-			return err
-		}
-		if !isValidSession {
-			cleanupSession(rw, req.Cookies(), p)
-		}
+	if code != http.StatusForbidden {
+		return nil
 	}
 
+	sessionCookies := cookieutil.Filter(req.Cookies(), cookieutil.IsSessionCookie)
+
+	if len(sessionCookies) > 1 {
+		p.invalidateSession(rw, sessionCookies)
+		return nil
+	}
+
+	valid, err := checkSessionValidity(req, sessionCookies[0], p.responseTimeout)
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		p.invalidateSession(rw, sessionCookies)
+	}
 	return nil
 }
