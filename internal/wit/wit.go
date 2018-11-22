@@ -1,4 +1,4 @@
-package clients
+package wit
 
 import (
 	"encoding/json"
@@ -9,33 +9,34 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// WITService describes work item tracker service of OSIO.
-type WITService interface {
-	SearchCodebase(repo string) (*WITInfo, error)
+// Service describes work item tracker service of OSIO.
+type Service interface {
+	SearchCodebase(repo string) (*Info, error)
 }
 
-type wit struct {
+// Client is a client that interacts with Work Item Tracker service
+type Client struct {
 	witURL    string
 	authToken string
 	client    *http.Client
 }
 
-// NewWIT creates an instance of WIT client.
-func NewWIT(url string, token string) WITService {
-	return &wit{
+// New creates an instance of WIT client.
+func New(url string, token string) Service {
+	return &Client{
 		witURL:    url,
 		authToken: token,
 		client:    &http.Client{},
 	}
 }
 
-// WITInfo holds information about owner of a git repository.
-type WITInfo struct {
+// Info holds information about owner of a git repository.
+type Info struct {
 	OwnedBy string
 }
 
 // UnmarshalJSON parses byte slice representing quite complicated API response into a simple struct.
-func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
+func (wi *Info) UnmarshalJSON(b []byte) (err error) {
 	type data struct {
 		Relationships struct {
 			Space struct {
@@ -84,7 +85,7 @@ func (wi *WITInfo) UnmarshalJSON(b []byte) (err error) {
 }
 
 // SearchCodebase finds and returns owner of a given repository based on URL.
-func (w *wit) SearchCodebase(repo string) (*WITInfo, error) {
+func (w *Client) SearchCodebase(repo string) (*Info, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/search/codebases", w.witURL), nil)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (w *wit) SearchCodebase(repo string) (*WITInfo, error) {
 		return nil, err
 	}
 
-	wi := &WITInfo{}
+	wi := &Info{}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	err = json.Unmarshal(body, wi)

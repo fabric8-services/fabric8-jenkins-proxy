@@ -6,7 +6,8 @@ import (
 	"net/http"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,16 +18,16 @@ import (
 // belongs to etc
 type JenkinsService interface {
 	Login(osoToken string) (status int, cookie []*http.Cookie, err error)
-	State() (clients.PodState, error)
-	Start() (state clients.PodState, code int, err error)
+	State() (idler.PodState, error)
+	Start() (state idler.PodState, code int, err error)
 }
 
 // Jenkins implements Jenkins interface
 type Jenkins struct {
 	info CacheItem
 
-	idler  clients.IdlerService
-	tenant clients.TenantService
+	idler  idler.Service
+	tenant tenant.Service
 
 	logger *log.Entry
 }
@@ -34,8 +35,8 @@ type Jenkins struct {
 // GetJenkins returns an intance of Jenkins struct
 func GetJenkins(clusters map[string]string,
 	pci *CacheItem,
-	idler clients.IdlerService,
-	tenant clients.TenantService,
+	idler idler.Service,
+	tenantClient tenant.Service,
 	tokenData string,
 	logger *log.Entry) (j *Jenkins, osioToken string, err error) {
 
@@ -43,7 +44,7 @@ func GetJenkins(clusters map[string]string,
 		return &Jenkins{
 			info:   *pci,
 			idler:  idler,
-			tenant: tenant,
+			tenant: tenantClient,
 			logger: logger.WithFields(log.Fields{"ns": pci.NS, "cluster": pci.ClusterURL}),
 		}, "", nil
 	}
@@ -63,13 +64,13 @@ func GetJenkins(clusters map[string]string,
 		return &Jenkins{}, "", err
 	}
 
-	ti, err := tenant.GetTenantInfo(uid)
+	ti, err := tenantClient.GetTenantInfo(uid)
 	if err != nil {
 		return &Jenkins{}, "", err
 	}
 	osioToken = tokenJSON.AccessToken
 
-	namespace, err := clients.GetNamespaceByType(ti, ServiceName)
+	namespace, err := tenant.GetNamespaceByType(ti, ServiceName)
 	if err != nil {
 		return &Jenkins{}, osioToken, err
 	}
@@ -83,7 +84,7 @@ func GetJenkins(clusters map[string]string,
 	return &Jenkins{
 		info:   NewCacheItem(namespace.Name, scheme, route, namespace.ClusterURL),
 		idler:  idler,
-		tenant: tenant,
+		tenant: tenantClient,
 		logger: logger.WithFields(log.Fields{"ns": namespace.Name, "cluster": namespace.ClusterURL}),
 	}, osioToken, nil
 }
@@ -110,13 +111,13 @@ func (j *Jenkins) Login(osoToken string) (status int, cookie []*http.Cookie, err
 }
 
 // State returns state of Jenkins associated with given namespace
-func (j *Jenkins) State() (clients.PodState, error) {
+func (j *Jenkins) State() (idler.PodState, error) {
 	return j.idler.State(j.info.NS, j.info.ClusterURL)
 }
 
 // Start unidles Jenkins only if it is idled and returns the
 // state of the pod, the http status of calling unidle, and error if any
-func (j *Jenkins) Start() (state clients.PodState, code int, err error) {
+func (j *Jenkins) Start() (state idler.PodState, code int, err error) {
 	// Assume pods are starting and unidle only if it is in "idled" state
 	code = http.StatusAccepted
 	ns := j.info.NS
@@ -128,7 +129,7 @@ func (j *Jenkins) Start() (state clients.PodState, code int, err error) {
 	}
 	j.logger.Infof("state : %q", state)
 
-	if state == clients.Idled {
+	if state == idler.Idled {
 		// Unidle only if needed
 		j.logger.Infof("Unidling jenkins")
 		if code, err = j.idler.UnIdle(ns, clusterURL); err != nil {

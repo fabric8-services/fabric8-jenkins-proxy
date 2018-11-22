@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookieutil"
 	log "github.com/sirupsen/logrus"
 )
@@ -68,7 +68,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 			return
 		}
 
-		if state != clients.Running {
+		if state != idler.Running {
 			// Break the process if Jenkins isn't running.
 
 			nsLogger.Infof("setting idled cookie: %v ", jenkins.info)
@@ -171,7 +171,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 					return
 				}
 
-				if state == clients.Running {
+				if state == idler.Running {
 					scLogger.Infof("jenkins is running | so rev proxy: %+v", pci)
 
 					needsAuth = false  // user is logged in; do not redirect
@@ -211,7 +211,7 @@ func (p *Proxy) handleJenkinsUIRequest(w http.ResponseWriter, r *http.Request, l
 					return
 				}
 
-				if state != clients.Running {
+				if state != idler.Running {
 					w.WriteHeader(code)
 					err = p.processTemplate(w, ns, icLogger)
 					if err != nil {

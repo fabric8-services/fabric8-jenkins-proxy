@@ -4,22 +4,22 @@ import (
 	"time"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	cache "github.com/patrickmn/go-cache"
 )
 
-// NewMockProxy returns an instance of proxy object that uses mocked dependency services
-func NewMockProxy(jenkinsState clients.PodState) *Proxy {
+// NewMock returns an instance of proxy object that uses mocked dependency services
+func NewMock(jenkinsState idler.PodState) *Proxy {
 
 	if jenkinsState == "" {
-		jenkinsState = clients.Idled
+		jenkinsState = idler.Idled
 	}
 	auth.SetDefaultClient(auth.NewMockAuth("http://authURL"))
 
 	return &Proxy{
-		tenant: &mock.Tenant{},
-		idler:  mock.NewMockIdler("", jenkinsState, false),
+		tenant: &tenant.Mock{},
+		idler:  idler.NewMock("", jenkinsState, false),
 		clusters: map[string]string{
 			"Valid_OpenShift_API_URL": "test_route",
 		},

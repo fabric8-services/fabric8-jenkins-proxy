@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
 	log "github.com/sirupsen/logrus"
 
 	uuid "github.com/satori/go.uuid"
@@ -22,7 +22,7 @@ const (
 )
 
 func TestBadToken(t *testing.T) {
-	p := NewMockProxy("")
+	p := NewMock("")
 	req := httptest.NewRequest("GET", "http://proxy?token_json=BADTOKEN", nil)
 	w := httptest.NewRecorder()
 
@@ -32,7 +32,7 @@ func TestBadToken(t *testing.T) {
 
 func TestNoTokenRedirectstoAuthService(t *testing.T) {
 
-	p := NewMockProxy("")
+	p := NewMock("")
 
 	req := httptest.NewRequest("GET", "http://proxy", nil)
 	w := httptest.NewRecorder()
@@ -44,7 +44,7 @@ func TestNoTokenRedirectstoAuthService(t *testing.T) {
 
 func TestCorrectTokenWithJenkinsIdled(t *testing.T) {
 
-	p := NewMockProxy(clients.Idled)
+	p := NewMock(idler.Idled)
 
 	req := httptest.NewRequest("GET", "http://proxy?token_json="+testTokenJSON, nil)
 	req.AddCookie(&http.Cookie{
@@ -87,7 +87,7 @@ func TestWithTokenJenkinsRunningButLoginFailed(t *testing.T) {
 		Get("").
 		Reply(401)
 
-	p := NewMockProxy(clients.Running)
+	p := NewMock(idler.Running)
 
 	req := httptest.NewRequest("GET", "http://proxy?token_json="+testTokenJSON, nil)
 
@@ -106,7 +106,7 @@ func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
 			"Set-Cookie": "JSESSIONID." + uuid.NewV4().String() + "=" + uuid.NewV4().String(),
 		})
 
-	p := NewMockProxy(clients.Running)
+	p := NewMock(idler.Running)
 
 	req := httptest.NewRequest("GET", "http://proxy?token_json="+testTokenJSON, nil)
 	req.AddCookie(&http.Cookie{
@@ -150,7 +150,7 @@ func TestWithTokenJenkinsRunningAndLoginSuccessful(t *testing.T) {
 }
 
 func TestExpireCookieIfNotInCache(t *testing.T) {
-	p := NewMockProxy("")
+	p := NewMock("")
 
 	req := httptest.NewRequest("GET", "http://proxy", nil)
 	req.AddCookie(&http.Cookie{
@@ -181,9 +181,9 @@ func TestValidateSession(t *testing.T) {
 		Get("").
 		Reply(http.StatusForbidden)
 
-	config := mock.NewConfig()
+	config := configuration.NewMock()
 
-	p := NewMockProxy(clients.Running)
+	p := NewMock(idler.Running)
 	cookieVal := uuid.NewV4().String()
 	info := CacheItem{
 		ClusterURL: "Valid_OpenShift_API_URL",
