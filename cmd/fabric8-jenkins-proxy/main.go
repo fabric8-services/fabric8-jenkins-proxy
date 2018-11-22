@@ -86,7 +86,7 @@ func main() {
 	auth.SetDefaultClient(auth.NewClient(config.GetAuthURL()))
 
 	// Create tenant client
-	tenant := tenant.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+	tenant := tenant.New(config.GetTenantURL(), config.GetAuthToken())
 
 	// Create WorkItemTracker client
 	wit := wit.New(config.GetWitURL(), config.GetAuthToken())
@@ -175,7 +175,7 @@ func startWorkers(
 		}
 	}()
 
-	tenant := tenant.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+	tenant := tenant.New(config.GetTenantURL(), config.GetAuthToken())
 	idler := idler.New(config.GetIdlerURL())
 	jenkinsAPI := jenkinsapi.NewJenkinsAPI(&tenant, idler)
 	wg.Add(1)

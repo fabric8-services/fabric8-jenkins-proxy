@@ -83,7 +83,7 @@ func TestProxy(t *testing.T) {
 
 	log.Info(fmt.Sprintf("JS: %s, OS: %s, TS: %s, IS: %s, WS: %s, AS: %s", js.URL, openShift.URL, ts.URL, is.URL, ws.URL, as.URL))
 
-	tenant := tenant.NewTenant(ts.URL, "xxx")
+	tenant := tenant.New(ts.URL, "xxx")
 	idler := idler.New(is.URL)
 	wit := wit.New(ws.URL, "xxx")
 

@@ -14,8 +14,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewTenant returns new Tenant client.
-func NewTenant(tenantServiceURL string, authToken string) Client {
+// New returns new Tenant client.
+func New(tenantServiceURL string, authToken string) Client {
 	logger := log.WithFields(
 		log.Fields{
 			"component": "tenant",
