@@ -31,7 +31,7 @@ func NewMock(jenkinsState idler.PodState) *Proxy {
 		ProxyCache:     cache.New(15*time.Minute, 10*time.Minute),
 		TenantCache:    cache.New(30*time.Minute, 40*time.Minute),
 		redirect:       "http://redirect",
-		storageService: &storage.MockStore{},
+		storageService: &storage.Mock{},
 		visitLock:      &sync.Mutex{},
 	}
 }
