@@ -150,7 +150,9 @@ func startWorkers(
 		}
 	}()
 
-	api := api.NewAPI(store)
+	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+
+	api := api.NewAPI(store, tenant)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -173,7 +175,6 @@ func startWorkers(
 		}
 	}()
 
-	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
 	idler := clients.NewIdler(config.GetIdlerURL())
 	jenkinsAPI := jenkinsapi.NewJenkinsAPI(&tenant, idler)
 	wg.Add(1)

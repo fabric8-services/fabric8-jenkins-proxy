@@ -48,6 +48,10 @@ func (i *mockProxyAPI) Info(w http.ResponseWriter, r *http.Request, ps httproute
 	w.WriteHeader(http.StatusOK)
 }
 
+func (i *mockProxyAPI) Clear(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	w.WriteHeader(http.StatusOK)
+}
+
 type mockJenkinsAPI struct{}
 
 // Start mock returns the Jenkins status for the current user

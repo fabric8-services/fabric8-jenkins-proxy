@@ -24,10 +24,12 @@ type Store interface {
 	GetUsers() (result []string, err error)
 	GetRequestsCount(ns string) (result int, err error)
 	DeleteRequest(r *Request) error
+	DeleteRequestsUser(ns string) error
 
 	CreateStatistics(o *Statistics) error
 	UpdateStatistics(o *Statistics) error
 	GetStatisticsUser(ns string) (o *Statistics, notFound bool, err error)
+	DeleteStatisticsUser(ns string) error
 
 	LogStats()
 }

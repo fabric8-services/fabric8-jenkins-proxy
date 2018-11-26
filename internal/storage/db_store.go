@@ -69,6 +69,11 @@ func (s *DBStore) DeleteRequest(r *Request) error {
 	return s.db.Delete(r).Error
 }
 
+// DeleteRequestsUser deletes requests of a namespace from the database.
+func (s *DBStore) DeleteRequestsUser(ns string) error {
+	return s.db.Unscoped().Table("requests").Where("namespace = ?", ns).Delete(&Request{}).Error
+}
+
 // CreateStatistics creates an entry of Statistics in the database.
 func (s *DBStore) CreateStatistics(o *Statistics) error {
 	return s.db.Create(o).Error
@@ -87,6 +92,11 @@ func (s *DBStore) GetStatisticsUser(ns string) (o *Statistics, notFound bool, er
 	err = d.Error
 	notFound = d.RecordNotFound()
 	return
+}
+
+// DeleteStatisticsUser deletes Statistics of a namespace from the database.
+func (s *DBStore) DeleteStatisticsUser(ns string) error {
+	return s.db.Unscoped().Table("statistics").Where("namespace = ?", ns).Delete(&Statistics{}).Error
 }
 
 // LogStats logs number of cached number of cached requests and statistics entries count.

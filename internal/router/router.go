@@ -15,6 +15,7 @@ func CreateAPIRouter(api api.ProxyAPI) *httprouter.Router {
 	// Create router for API
 	proxyRouter := httprouter.New()
 	proxyRouter.GET("/api/info/:namespace", api.Info)
+	proxyRouter.DELETE("/api/clear/metadata", api.Clear)
 	proxyRouter.Handler("GET", "/metrics", promhttp.Handler())
 	return proxyRouter
 }

@@ -42,6 +42,10 @@ func (m *mockStore) DeleteRequest(r *Request) error {
 	return nil
 }
 
+func (m *mockStore) DeleteRequestsUser(ns string) error {
+	return nil
+}
+
 func (m *mockStore) CreateStatistics(o *Statistics) error {
 	return nil
 }
@@ -52,6 +56,11 @@ func (m *mockStore) UpdateStatistics(o *Statistics) error {
 
 func (m *mockStore) GetStatisticsUser(ns string) (o *Statistics, notFound bool, err error) {
 	return nil, false, nil
+}
+
+// DeleteStatisticsUser deletes Statistics of a namespace from the database.
+func (m *mockStore) DeleteStatisticsUser(ns string) error {
+	return nil
 }
 
 func (m *mockStore) LogStats() {

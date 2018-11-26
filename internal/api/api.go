@@ -2,8 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/julienschmidt/httprouter"
@@ -13,16 +17,19 @@ import (
 //ProxyAPI is an API to serve user statistics
 type ProxyAPI interface {
 	Info(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
+	Clear(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 }
 
 type proxy struct {
 	storageService storage.Store
+	tenant         clients.TenantService
 }
 
 // NewAPI creates an instance of ProxyAPI on taking a storage/database service as input.
-func NewAPI(storageService storage.Store) ProxyAPI {
+func NewAPI(storageService storage.Store, tenant clients.TenantService) ProxyAPI {
 	return &proxy{
 		storageService: storageService,
+		tenant:         tenant,
 	}
 }
 
@@ -61,4 +68,44 @@ func (api *proxy) Info(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	}
 
 	json.NewEncoder(w).Encode(resp)
+}
+
+// Clear deletes statistics and requests for a given namespace
+func (api *proxy) Clear(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// Get the namespace from authorization header
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		err := errors.New("Could not find Bearer token in Authorization Header")
+		log.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	accessToken := strings.Split(authHeader, " ")[1]
+	namespace, err := api.tenant.GetNamespace(accessToken)
+	if err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	log.Infof("Found a valid token info in the authorization header. Namespace is %s", namespace.Name)
+
+	// TODO: Check if this there are statistics and requests with this namespace
+
+	err = api.storageService.DeleteStatisticsUser(namespace.Name)
+	if err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = api.storageService.DeleteRequestsUser(namespace.Name)
+	if err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
