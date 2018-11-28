@@ -6,9 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/jenkinsapi"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -67,30 +68,30 @@ func Test_Status_bad_idler(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func setupDependencyServices() (clients.TenantService, *mock.Idler) {
-	configuration := mock.NewConfig()
+func setupDependencyServices() (tenant.Service, *idler.Mock) {
+	configuration := configuration.NewMock()
 
 	configuration.IdlerURL = "doesnt_matter"
 
 	// Create tenant client
-	tenant := mock.Tenant{}
+	tenant := tenant.Mock{}
 
 	// Create Idler client
-	idler := mock.NewMockIdler(configuration.IdlerURL, clients.PodState("idled"), false)
+	idler := idler.NewMock(configuration.IdlerURL, idler.PodState("idled"), false)
 
 	return &tenant, idler
 }
 
-func setupBadDependencyServices() (clients.TenantService, *mock.Idler) {
-	configuration := mock.NewConfig()
+func setupBadDependencyServices() (tenant.Service, *idler.Mock) {
+	configuration := configuration.NewMock()
 
 	configuration.IdlerURL = "doesnt_matter"
 
 	// Create tenant client
-	tenant := mock.Tenant{}
+	tenant := tenant.Mock{}
 
 	// Create Idler client
-	idler := mock.NewMockIdler(configuration.IdlerURL, clients.PodState("idled"), true)
+	idler := idler.NewMock(configuration.IdlerURL, idler.PodState("idled"), true)
 
 	return &tenant, idler
 }

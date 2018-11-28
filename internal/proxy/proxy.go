@@ -10,13 +10,15 @@ import (
 
 	"hash/fnv"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookieutil"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/wit"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 )
@@ -45,9 +47,9 @@ type Proxy struct {
 	ProxyCache       *cache.Cache
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
-	tenant           clients.TenantService
-	wit              clients.WITService
-	idler            clients.IdlerService
+	tenant           tenant.Service
+	wit              wit.Service
+	idler            idler.Service
 	//redirect is a base URL of the proxy
 	redirect        string
 	responseTimeout time.Duration
@@ -58,11 +60,11 @@ type Proxy struct {
 	clusters        map[string]string
 }
 
-// NewProxy creates an instance of Proxy client
-func NewProxy(
-	idler clients.IdlerService,
-	tenant clients.TenantService,
-	wit clients.WITService,
+// New creates an instance of Proxy client
+func New(
+	idler idler.Service,
+	tenant tenant.Service,
+	wit wit.Service,
 	storageService storage.Store,
 	config configuration.Configuration,
 	clusters map[string]string) (Proxy, error) {

@@ -1,4 +1,4 @@
-package clients
+package idler
 
 import (
 	"testing"

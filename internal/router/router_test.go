@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/jenkinsapi"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/julienschmidt/httprouter"
@@ -52,7 +52,7 @@ type mockJenkinsAPI struct{}
 
 // Start mock returns the Jenkins status for the current user
 func (api *mockJenkinsAPI) Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	resp := clients.StatusResponse{}
+	resp := idler.StatusResponse{}
 
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -61,15 +61,15 @@ func (api *mockJenkinsAPI) Start(w http.ResponseWriter, r *http.Request, _ httpr
 	}
 
 	w.WriteHeader(http.StatusOK)
-	resp.Data = &clients.JenkinsInfo{
-		State: clients.UnknownState,
+	resp.Data = &idler.JenkinsInfo{
+		State: idler.UnknownState,
 	}
 	json.NewEncoder(w).Encode(resp)
 }
 
 // Status mock returns the Jenkins status for current user
 func (api *mockJenkinsAPI) Status(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	resp := clients.StatusResponse{}
+	resp := idler.StatusResponse{}
 
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -78,8 +78,8 @@ func (api *mockJenkinsAPI) Status(w http.ResponseWriter, r *http.Request, _ http
 	}
 
 	w.WriteHeader(http.StatusOK)
-	resp.Data = &clients.JenkinsInfo{
-		State: clients.UnknownState,
+	resp.Data = &idler.JenkinsInfo{
+		State: idler.UnknownState,
 	}
 	json.NewEncoder(w).Encode(resp)
 }

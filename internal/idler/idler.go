@@ -1,4 +1,4 @@
-package clients
+package idler
 
 import (
 	"encoding/json"
@@ -62,21 +62,21 @@ type StatusResponse struct {
 	Errors []ResponseError `json:"errors,omitempty"`
 }
 
-// IdlerService provides methods to talk to the idler client
-type IdlerService interface {
+// Service provides methods to talk to the idler client
+type Service interface {
 	UnIdle(tenant string, openShiftAPIURL string) (int, error)
 	State(tenant string, openShiftAPIURL string) (PodState, error)
 	Clusters() (map[string]string, error)
 }
 
-// idler is a hand-rolled Idler client using plain HTTP requests.
-type idler struct {
+// Client is a hand-rolled Idler client using plain HTTP requests.
+type Client struct {
 	idlerAPI string
 }
 
-// NewIdler returns an instance of idler client on taking URL of idler service as an input.
-func NewIdler(url string) IdlerService {
-	return &idler{
+// New returns an instance of idler client on taking URL of idler service as an input.
+func New(url string) Service {
+	return &Client{
 		idlerAPI: url,
 	}
 }
@@ -94,7 +94,7 @@ func newRequest(url string) (req *http.Request, err error) {
 }
 
 // State returns the state of Jenkins instance for the specified tenant
-func (i *idler) State(tenant string, openShiftAPIURL string) (PodState, error) {
+func (i *Client) State(tenant string, openShiftAPIURL string) (PodState, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
@@ -150,7 +150,7 @@ func (i *idler) State(tenant string, openShiftAPIURL string) (PodState, error) {
 }
 
 // UnIdle initiates un-idling of the Jenkins instance for the specified tenant.
-func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
+func (i *Client) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 	namespace := tenant
 	if !strings.HasSuffix(tenant, namespaceSuffix) {
 		namespace = tenant + namespaceSuffix
@@ -187,7 +187,7 @@ func (i *idler) UnIdle(tenant string, openShiftAPIURL string) (int, error) {
 
 // Clusters returns a map which maps the OpenShift API URL to the application DNS for this cluster. An empty map together with
 // an error is returned if an error occurs.
-func (i *idler) Clusters() (map[string]string, error) {
+func (i *Client) Clusters() (map[string]string, error) {
 	var clusters = make(map[string]string)
 
 	req, err := newRequest(fmt.Sprintf("%s/api/idler/cluster", i.idlerAPI))

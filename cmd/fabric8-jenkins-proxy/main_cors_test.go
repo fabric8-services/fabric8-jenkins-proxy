@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/julienschmidt/httprouter"
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -17,17 +17,17 @@ import (
 type MockJenkinsAPIImpl struct{}
 
 func (api *MockJenkinsAPIImpl) Start(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	resp := clients.StatusResponse{}
+	resp := idler.StatusResponse{}
 	json.NewEncoder(w).Encode(resp)
 }
 
 func (api *MockJenkinsAPIImpl) Status(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	resp := clients.StatusResponse{}
+	resp := idler.StatusResponse{}
 	json.NewEncoder(w).Encode(resp)
 }
 
 func TestAPIServerCORSHeaders(t *testing.T) {
-	config := mock.NewConfig()
+	config := configuration.NewMock()
 	apiServer := newJenkinsAPIServer(&MockJenkinsAPIImpl{}, &config)
 
 	reader, _ := http.NewRequest("POST", "/doesntmatter", nil)

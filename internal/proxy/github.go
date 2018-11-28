@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -87,7 +88,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	}
 
 	//If Jenkins is idle/stating, we need to cache the request and return success
-	if state != clients.Running {
+	if state != idler.Running {
 		p.storeGHRequest(w, r, ns, body, requestLogEntry)
 		_, _, err = jenkins.Start()
 		if err != nil {
@@ -176,7 +177,7 @@ func (p *Proxy) ProcessBuffer() {
 					if err != nil {
 						log.Error(err)
 					}
-					if state == clients.Running {
+					if state == idler.Running {
 						req, err := r.GetHTTPRequest()
 						if err != nil {
 							log.Errorf("Could not format request %s (%s): %s - deleting", r.ID, r.Namespace, err)
@@ -235,7 +236,7 @@ func (p *Proxy) ProcessBuffer() {
 	}
 }
 
-func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry, retry int) (clients.Namespace, error) {
+func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry, retry int) (tenant.Namespace, error) {
 
 	for i := 1; i < retry; i++ {
 		if ns, err := p.getUser(repositoryCloneURL, logEntry); err == nil {
@@ -247,9 +248,9 @@ func (p *Proxy) getUserWithRetry(repositoryCloneURL string, logEntry *log.Entry,
 }
 
 //GetUser returns a namespace name based on GitHub repository URL
-func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (clients.Namespace, error) {
+func (p *Proxy) getUser(repositoryCloneURL string, logEntry *log.Entry) (tenant.Namespace, error) {
 	if n, found := p.TenantCache.Get(repositoryCloneURL); found {
-		namespace := n.(clients.Namespace)
+		namespace := n.(tenant.Namespace)
 		logEntry.WithFields(
 			log.Fields{
 				"ns": namespace,

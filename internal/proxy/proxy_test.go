@@ -6,7 +6,7 @@ import (
 
 	"errors"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/wit"
 	cache "github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -16,9 +16,9 @@ type mockWit struct {
 	testCounter int // we will use this to count how many times this we get there
 }
 
-func (mw *mockWit) SearchCodebase(repo string) (*clients.WITInfo, error) {
+func (mw *mockWit) SearchCodebase(repo string) (*wit.Info, error) {
 	mw.testCounter++
-	return &clients.WITInfo{
+	return &wit.Info{
 		OwnedBy: "Faker",
 	}, errors.New("Reterror")
 }

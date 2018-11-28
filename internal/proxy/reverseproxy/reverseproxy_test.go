@@ -9,8 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
-
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -154,7 +153,7 @@ func TestReverseProxy(t *testing.T) {
 
 func TestServeHTTP(t *testing.T) {
 
-	config := mock.NewConfig()
+	config := configuration.NewMock()
 
 	rp := NewReverseProxy(
 		url.URL{

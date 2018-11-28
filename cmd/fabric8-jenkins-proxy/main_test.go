@@ -11,10 +11,12 @@ import (
 	"io/ioutil"
 	"strconv"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/testutils/mock"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/wit"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +24,7 @@ import (
 )
 
 var (
-	mockConfig = mock.NewConfig()
+	mockConfig = configuration.NewMock()
 )
 
 func TestMain(m *testing.M) {
@@ -81,9 +83,9 @@ func TestProxy(t *testing.T) {
 
 	log.Info(fmt.Sprintf("JS: %s, OS: %s, TS: %s, IS: %s, WS: %s, AS: %s", js.URL, openShift.URL, ts.URL, is.URL, ws.URL, as.URL))
 
-	tenant := clients.NewTenant(ts.URL, "xxx")
-	idler := clients.NewIdler(is.URL)
-	wit := clients.NewWIT(ws.URL, "xxx")
+	tenant := tenant.New(ts.URL, "xxx")
+	idler := idler.New(is.URL)
+	wit := wit.New(ws.URL, "xxx")
 
 	mockConfig.AuthURL = as.URL
 	mockConfig.TenantURL = ts.URL
