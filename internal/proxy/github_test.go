@@ -29,7 +29,11 @@ func TestGHWebHookRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "http://proxy", bytes.NewBuffer(gh))
 	req.Header.Add("User-Agent", "GitHub-Hookshot"+uuid.NewV4().String())
-	p.handleGitHubRequest(w, req, proxyLogger)
+	ns, okToForward := p.handleGitHubRequest(w, req, proxyLogger)
+
+	assert.Equal(t, ns, "namespace-jenkins")
+	assert.False(t, okToForward, "It should not be ok to forward")
+
 	_, ok := p.TenantCache.Get("https://github.com/test-username/test-repo.git")
 	assert.True(t, ok, "An entry should have been created in tenant cache with repo url as key")
 	// writes status http.StatusAccepted on accepting and storing the request
