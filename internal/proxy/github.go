@@ -57,6 +57,8 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		return
 	}
 
+	ns = namespace.Name
+
 	nsLogger := requestLogEntry.WithField("ns", ns)
 
 	pci := CacheItem{
