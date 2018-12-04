@@ -14,7 +14,7 @@ import (
 )
 
 // NewMock returns an instance of proxy object that uses mocked dependency services
-func NewMock(jenkinsState idler.PodState) *Proxy {
+func NewMock(jenkinsState idler.PodState, ownedBy string) *Proxy {
 
 	if jenkinsState == "" {
 		jenkinsState = idler.Idled
@@ -24,7 +24,9 @@ func NewMock(jenkinsState idler.PodState) *Proxy {
 	return &Proxy{
 		tenant: &tenant.Mock{},
 		idler:  idler.NewMock("", jenkinsState, false),
-		wit:    &wit.Mock{},
+		wit: &wit.Mock{
+			OwnedBy: ownedBy,
+		},
 		clusters: map[string]string{
 			"Valid_OpenShift_API_URL": "test_route",
 		},
