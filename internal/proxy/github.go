@@ -57,6 +57,8 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 		return
 	}
 
+	ns = namespace.Name
+
 	nsLogger := requestLogEntry.WithField("ns", ns)
 
 	pci := CacheItem{
@@ -101,6 +103,7 @@ func (p *Proxy) handleGitHubRequest(w http.ResponseWriter, r *http.Request, requ
 	r.Body = ioutil.NopCloser(bytes.NewReader(body))
 	//If Jenkins is up, we can simply proxy through
 	nsLogger.Infof("Passing through %s", r.URL.String())
+	w.WriteHeader(http.StatusOK)
 	return
 }
 

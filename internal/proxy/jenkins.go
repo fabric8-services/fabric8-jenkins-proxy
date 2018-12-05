@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -41,18 +42,22 @@ func GetJenkins(clusters map[string]string,
 	logger *log.Entry) (j *Jenkins, osioToken string, err error) {
 
 	if pci != nil {
-		return &Jenkins{
-			info:   *pci,
-			idler:  idler,
-			tenant: tenantClient,
-			logger: logger.WithFields(log.Fields{"ns": pci.NS, "cluster": pci.ClusterURL}),
-		}, "", nil
+		if pci.NS != "" && pci.ClusterURL != "" {
+			return &Jenkins{
+				info:   *pci,
+				idler:  idler,
+				tenant: tenantClient,
+				logger: logger.WithFields(log.Fields{"ns": pci.NS, "cluster": pci.ClusterURL}),
+			}, "", nil
+		}
+
+		return &Jenkins{}, "", errors.New("empty namespace and cluster URL in passed proxy cache item")
 	}
 
 	tokenJSON := &auth.TokenJSON{}
 	err = json.Unmarshal([]byte(tokenData), tokenJSON)
 	if err != nil {
-		return j, "", err
+		return &Jenkins{}, "", err
 	}
 
 	authClient, err := auth.DefaultClient()
