@@ -27,6 +27,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fabric8-services/fabric8-common/log"
+
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
 	goalogrus "github.com/goadesign/goa/logging/logrus"
 	"github.com/sirupsen/logrus"
@@ -293,7 +295,7 @@ func prepareAPIService(service *goa.Service) {
 	service.Use(middleware.ErrorHandler(service, true))
 	service.Use(middleware.Recover())
 
-	apiService.WithLogger(goalogrus.New(logrus.New()))
+	apiService.WithLogger(goalogrus.New(log.Logger()))
 	// Mount "stats" controller
 	c := api.NewStatsController(service, store)
 	app.MountStatsController(service, c)
