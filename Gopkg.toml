@@ -37,3 +37,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/matryer/resync"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/fabric8-services/fabric8-common"

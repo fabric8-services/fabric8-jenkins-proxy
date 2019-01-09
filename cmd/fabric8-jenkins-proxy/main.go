@@ -180,7 +180,6 @@ func startWorkers(
 	}()
 
 	apiService := goa.New("fabric8-jenkins-proxy-api")
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

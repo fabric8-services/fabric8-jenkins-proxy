@@ -26,7 +26,7 @@ var _ = Resource("stats", func() { // Resources group related API endpoints
 		})
 		Response(OK)       // Responses define the shape and status code
 		Response(NotFound) // of HTTP responses.
-		Response(BadRequest, ErrorMedia)
+		Response(InternalServerError, ErrorMedia)
 	})
 	Action("clear", func() { // Actions define a single API endpoint together
 		Description("Get info by namespace") // with its path, parameters (both path

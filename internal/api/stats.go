@@ -46,13 +46,13 @@ func (c *StatsController) Info(ctx *app.InfoStatsContext) error {
 			log.Debugf("Did not find data for %s", ns)
 		} else {
 			log.Error(err) //FIXME
-			return ctx.BadRequest(goa.ErrInternal(err))
+			return ctx.InternalServerError(goa.ErrInternal(err))
 		}
 	}
 	count, err := c.storageService.GetRequestsCount(ns)
 	if err != nil {
 		log.Error(err) //FIXME
-		return ctx.BadRequest(goa.ErrBadRequest(err))
+		return ctx.InternalServerError(goa.ErrInternal(err))
 	}
 
 	res := &app.Stats{

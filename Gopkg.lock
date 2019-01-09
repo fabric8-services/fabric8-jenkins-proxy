@@ -109,6 +109,17 @@
   version = "v0.3.3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:5553691e4784be207828d83e5f8ecd12b129a1d73b1d0867c99e2060c71929cf"
+  name = "github.com/fabric8-services/fabric8-common"
+  packages = [
+    "configuration",
+    "log",
+  ]
+  pruneopts = ""
+  revision = "5bb2b51fb241b42824f86cb79c50574ab0c0c57f"
+
+[[projects]]
   digest = "1:eb53021a8aa3f599d29c7102e65026242bdedce998a54837dc67f14b6a97c5fd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -117,7 +128,7 @@
   version = "v1.4.7"
 
 [[projects]]
-  digest = "1:ed8906e620b0e752212bdd8a101c81f79891ec04fa8f232c817ae5c51201ff41"
+  digest = "1:210fe6916f4a97e4f5e617691fbf13205db12cfaf483b30121d4257d611cf71b"
   name = "github.com/goadesign/goa"
   packages = [
     ".",
@@ -128,11 +139,12 @@
     "goatest",
     "logging/logrus",
     "middleware",
+    "middleware/security/jwt",
     "uuid",
   ]
   pruneopts = ""
-  revision = "e01bb31dd9403fa9d40747e1f93345bc96ea675e"
-  version = "v1.4.0"
+  revision = "5646a430cdeb66983d5ace3384e0a667c185abc7"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:3dd078fda7500c341bc26cfbc6c6a34614f295a2457149fc1045cab767cbcf18"
@@ -511,7 +523,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4ab2fc83e3222b69759dfd717e01d0cf38b133aabfacc29a86057021a2f1abd9"
+  digest = "1:1bee873b8f417fc58c796e2c8e76d015b4aeeecc5dac954a1b365d3e56f14b4c"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -520,18 +532,18 @@
     "websocket",
   ]
   pruneopts = ""
-  revision = "927f97764cc334a6575f4b7a1584a147864d5723"
+  revision = "45ffb0cd1ba084b73e26dee67e667e1be5acce83"
 
 [[projects]]
   branch = "master"
-  digest = "1:04494e21fbf5896db7542267f6a66013a7f289a2d202929bf9ec58de0cc783c2"
+  digest = "1:364c33c596f1f71654da4b6b027da5fe55d79cae35d51aef9caca4f6b5d3edc5"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = ""
-  revision = "cb59ee3660675d463e86971646692ea3e470021c"
+  revision = "20be8e55dc7b4b7a1b1660728164a8509d8c9209"
 
 [[projects]]
   digest = "1:5acd3512b047305d49e8763eef7ba423901e85d5dd2fd1e71778a0ea8de10bd4"
@@ -569,6 +581,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/dgrijalva/jwt-go",
+    "github.com/fabric8-services/fabric8-common/log",
     "github.com/goadesign/goa",
     "github.com/goadesign/goa/design",
     "github.com/goadesign/goa/design/apidsl",
