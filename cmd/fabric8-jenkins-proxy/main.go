@@ -49,7 +49,7 @@ var mainLogger = logrus.WithFields(logrus.Fields{"component": "main"})
 func init() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
-	level := logrus.InfoLevel
+	var level logrus.Level
 	switch levelStr, _ := os.LookupEnv("JC_LOGRUS_LEVEL"); levelStr {
 	case "info":
 		level = logrus.InfoLevel
