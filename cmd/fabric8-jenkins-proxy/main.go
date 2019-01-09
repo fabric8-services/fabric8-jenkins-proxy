@@ -66,7 +66,7 @@ func init() {
 }
 
 func main() {
-	mainLogrusger.Info("Starting  proxy..")
+	mainLogger.Info("Starting  proxy..")
 	mainLogger.Infof("Proxy version: %s", version.GetVersion())
 
 	// Init configuration
@@ -187,17 +187,20 @@ func startWorkers(
 		prepareAPIService(apiService)
 
 		go func() {
+			// Mount "stats" controller
+			c := api.NewStatsController(apiService, store)
+			app.MountStatsController(apiService, c)
+			router.CustomMuxHandle(apiService)
+
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
-			serviceListennAndServe(srv, cancel, config.GetHTTPSEnabled(), apiRouterPort)
+			serviceListennAndServe(apiService, cancel, config.GetHTTPSEnabled(), apiRouterPort)
 		}()
 
 		for {
 			select {
 			case <-ctx.Done():
 				mainLogger.Infof("Shutting down API router on port %s", apiRouterPort)
-				ctx, cancel := context.WithTimeout(ctx, shutdownTimeout*time.Second)
-				srv.Shutdown(ctx)
-				cancel()
+				apiService.CancelAll()
 				return
 			}
 		}
@@ -295,11 +298,7 @@ func prepareAPIService(service *goa.Service) {
 	service.Use(middleware.ErrorHandler(service, true))
 	service.Use(middleware.Recover())
 
-	apiService.WithLogger(goalogrus.New(log.Logger()))
-	// Mount "stats" controller
-	c := api.NewStatsController(service, store)
-	app.MountStatsController(service, c)
-	router.CustomMuxHandle(service)
+	service.WithLogger(goalogrus.New(log.Logger()))
 }
 
 func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI, config configuration.Configuration) *http.Server {
