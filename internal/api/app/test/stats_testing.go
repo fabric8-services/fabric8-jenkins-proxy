@@ -14,14 +14,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api/app"
-	"github.com/goadesign/goa"
-	"github.com/goadesign/goa/goatest"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api/app"
+	"github.com/goadesign/goa"
+	"github.com/goadesign/goa/goatest"
 )
 
 // ClearStatsBadRequest runs the method Clear of the given controller with the given parameters.
@@ -361,9 +362,8 @@ func InfoStatsNotFound(t goatest.TInterface, ctx context.Context, service *goa.S
 	// Setup service
 	var (
 		logBuf bytes.Buffer
-		resp   interface{}
 
-		respSetter goatest.ResponseSetterFunc = func(r interface{}) { resp = r }
+		respSetter goatest.ResponseSetterFunc = func(r interface{}) {}
 	)
 	if service == nil {
 		service = goatest.Service(&logBuf, respSetter)
