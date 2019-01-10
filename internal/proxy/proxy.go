@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,12 +10,15 @@ import (
 
 	"hash/fnv"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/metric"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/cookieutil"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy/reverseproxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/util/logging"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/wit"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 )
@@ -43,10 +47,9 @@ type Proxy struct {
 	ProxyCache       *cache.Cache
 	visitLock        *sync.Mutex
 	bufferCheckSleep time.Duration
-	tenant           *clients.Tenant
-	wit              clients.WIT
-	idler            clients.IdlerService
-
+	tenant           tenant.Service
+	wit              wit.Service
+	idler            idler.Service
 	//redirect is a base URL of the proxy
 	redirect        string
 	responseTimeout time.Duration
@@ -57,9 +60,11 @@ type Proxy struct {
 	clusters        map[string]string
 }
 
-// NewProxy creates an instance of Proxy client
-func NewProxy(
-	tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerService,
+// New creates an instance of Proxy client
+func New(
+	idler idler.Service,
+	tenant tenant.Service,
+	wit wit.Service,
 	storageService storage.Store,
 	config configuration.Configuration,
 	clusters map[string]string) (Proxy, error) {
@@ -144,14 +149,22 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		p.recordStatistics(ns, time.Now().Unix(), 0)
 	}()
 
+	var onError func(http.ResponseWriter, *http.Request, int) error
+	if isGH {
+		onError = func(rw http.ResponseWriter, req *http.Request, code int) error {
+			return nil
+		}
+	} else {
+		onError = p.OnErrorUIRequest
+	}
 	// at this point we know jenkins is up and running let the reverse-proxy
 	// forward request to actual jenkins
-	rp := &reverseproxy.ReverseProxy{
-		RedirectURL:     actualURL,
-		ResponseTimeout: p.responseTimeout,
-		Logger:          logEntryWithHash,
-	}
-
+	rp := reverseproxy.NewReverseProxy(
+		actualURL,
+		p.responseTimeout,
+		onError,
+		logEntryWithHash,
+	)
 	rp.ServeHTTP(w, r)
 }
 
@@ -213,12 +226,76 @@ func (p *Proxy) recordStatistics(ns string, la int64, lbf int64) (err error) {
 	return
 }
 
-//constructRoute returns Jenkins route based on a specific pattern
-func (p *Proxy) constructRoute(clusterURL string, ns string) (string, string, error) {
-	appSuffix := p.clusters[clusterURL]
-	if len(appSuffix) == 0 {
-		return "", "", fmt.Errorf("could not find entry for cluster %s", clusterURL)
+func (p *Proxy) invalidateSession(w http.ResponseWriter, sessionCookies []*http.Cookie) {
+	for _, cookie := range sessionCookies {
+		var pci CacheItem
+
+		cacheKey := cookie.Value
+		cacheVal, ok := p.ProxyCache.Get(cacheKey)
+		if ok {
+			pci = cacheVal.(CacheItem)
+			p.ProxyCache.Delete(cacheKey)
+
+			proxyLogger.Infof("clearing cache for namespace: %s, cache_key: %s", pci.NS, cacheKey)
+		}
+
+		cookieutil.ExpireCookie(w, cookie)
+		proxyLogger.Infof("cookie is OLD; expiring the cookie, cookie_name: %s, namespace: %s", cookie.Name, pci.NS)
+
 	}
-	route := fmt.Sprintf("jenkins-%s.%s", ns, p.clusters[clusterURL])
-	return route, "https", nil
+}
+
+func checkSessionValidity(req *http.Request, sessionCookie *http.Cookie, timeout time.Duration) (bool, error) {
+
+	requestURL := req.URL
+	jenkinsURL := fmt.Sprintf("%s://%s", requestURL.Scheme, requestURL.Host)
+
+	ctx, cancel := context.WithTimeout(req.Context(), timeout)
+	defer cancel()
+
+	r, _ := http.NewRequest("GET", jenkinsURL, nil)
+	r.AddCookie(sessionCookie)
+	r = r.WithContext(ctx)
+
+	c := &http.Client{Timeout: timeout}
+
+	resp, err := c.Do(r)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, err
+
+	case http.StatusForbidden:
+		return false, err
+	}
+	err = fmt.Errorf("received unexpected status code: %s", resp.Status)
+	return false, err
+}
+
+// OnErrorUIRequest handles when there is an error while reverse proxy
+func (p *Proxy) OnErrorUIRequest(rw http.ResponseWriter, req *http.Request, code int) error {
+	if code != http.StatusForbidden {
+		return nil
+	}
+
+	sessionCookies := cookieutil.Filter(req.Cookies(), cookieutil.IsSessionCookie)
+
+	if len(sessionCookies) > 1 {
+		p.invalidateSession(rw, sessionCookies)
+		return nil
+	}
+
+	valid, err := checkSessionValidity(req, sessionCookies[0], p.responseTimeout)
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		p.invalidateSession(rw, sessionCookies)
+	}
+	return nil
 }

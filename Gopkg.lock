@@ -147,6 +147,14 @@
   version = "v1.3.0"
 
 [[projects]]
+  digest = "1:530233672f656641b365f8efb38ed9fba80e420baff2ce87633813ab3755ed6d"
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  pruneopts = ""
+  revision = "51421b967af1f557f93a59e0057aaf15ca02e29c"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:3dd078fda7500c341bc26cfbc6c6a34614f295a2457149fc1045cab767cbcf18"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
@@ -307,7 +315,7 @@
   version = "v1.0.0-rc6"
 
 [[projects]]
-  digest = "1:fbef214fe15bb267e947cd09bd054d50e5d4e690829de671590e8706e84cfd4c"
+  digest = "1:df3f60bebc9b20d02657559333ac01c1fcafcc4363f088f7da7474547a717d75"
   name = "github.com/ory/dockertest"
   packages = [
     "docker",
@@ -336,8 +344,8 @@
     "docker/types/versions",
   ]
   pruneopts = ""
-  revision = "9f1141b78507d23603f6be530587664ebb63a8d2"
-  version = "v3.3.2"
+  revision = "df4d49d0a596abcdd3aea73f8b2561afcdbeed3c"
+  version = "v3.3.3"
 
 [[projects]]
   digest = "1:4c0404dc03d974acd5fcd8b8d3ce687b13bd169db032b89275e8b9d77b98ce8c"
@@ -385,11 +393,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:185cf55b1f44a1bf243558901c3f06efa5c64ba62cfdcbb1bf7bbe8c3fb68561"
+  digest = "1:3fa49ea0332c644e4d4ce3864d8eee2cc6c858cb52bf935e32c28d194a0f2bfa"
   name = "github.com/prometheus/client_model"
   packages = ["go"]
   pruneopts = ""
-  revision = "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f"
+  revision = "f287a105a20ec685d797f65cd0ce8fbeaef42da1"
 
 [[projects]]
   branch = "master"
@@ -523,7 +531,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1bee873b8f417fc58c796e2c8e76d015b4aeeecc5dac954a1b365d3e56f14b4c"
+  digest = "1:8f8dcac9a61bcd730617c266a2329e0eb49e3d2f7be239f4e64d9344666e0cba"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -532,18 +540,18 @@
     "websocket",
   ]
   pruneopts = ""
-  revision = "45ffb0cd1ba084b73e26dee67e667e1be5acce83"
+  revision = "be1c187aa6c66b9daa1d9461c228d17e9dd2cab7"
 
 [[projects]]
   branch = "master"
-  digest = "1:364c33c596f1f71654da4b6b027da5fe55d79cae35d51aef9caca4f6b5d3edc5"
+  digest = "1:682e21255aca5ab896dd001984417c1a13cea5fc7821c79455d9f9d34e35c6d1"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = ""
-  revision = "20be8e55dc7b4b7a1b1660728164a8509d8c9209"
+  revision = "48ac38b7c8cbedd50b1613c0fccacfc7d88dfcdf"
 
 [[projects]]
   digest = "1:5acd3512b047305d49e8763eef7ba423901e85d5dd2fd1e71778a0ea8de10bd4"
@@ -561,12 +569,20 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:fbef214fe15bb267e947cd09bd054d50e5d4e690829de671590e8706e84cfd4c"
+  digest = "1:6a8a36d8b25b669d77ff638f7acdf4d3439ce6c349461f246b2c450b0b4b3bc8"
+  name = "gopkg.in/h2non/gock.v1"
+  packages = ["."]
+  pruneopts = ""
+  revision = "a6029d17e101ac1594adafea9e63fd8c988a8701"
+  version = "v1.0.12"
+
+[[projects]]
+  digest = "1:df3f60bebc9b20d02657559333ac01c1fcafcc4363f088f7da7474547a717d75"
   name = "gopkg.in/ory-am/dockertest.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "9f1141b78507d23603f6be530587664ebb63a8d2"
-  version = "v3.3.2"
+  revision = "df4d49d0a596abcdd3aea73f8b2561afcdbeed3c"
+  version = "v3.3.3"
 
 [[projects]]
   digest = "1:cedccf16b71e86db87a24f8d4c70b0a855872eb967cb906a66b95de56aefbd0d"
@@ -588,6 +604,7 @@
     "github.com/goadesign/goa/goatest",
     "github.com/goadesign/goa/logging/logrus",
     "github.com/goadesign/goa/middleware",
+    "github.com/golang/mock/gomock",
     "github.com/jinzhu/gorm",
     "github.com/julienschmidt/httprouter",
     "github.com/lib/pq",
@@ -606,6 +623,7 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "golang.org/x/net/html",
+    "gopkg.in/h2non/gock.v1",
     "gopkg.in/ory-am/dockertest.v3",
   ]
   solver-name = "gps-cdcl"

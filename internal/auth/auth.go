@@ -17,6 +17,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Service talks to fabric8-auth for authentication and authorization
+type Service interface {
+	UIDFromToken(accessToken string) (sub string, err error)
+	OSOTokenForCluster(clusterURL, accessToken string) (osoToken string, err error)
+	CreateRedirectURL(to string) string
+}
+
 // Client used to access auth service
 type Client struct {
 	URL          string
@@ -36,16 +43,20 @@ type TokenJSON struct {
 	Errors           []util.ErrorInfo
 }
 
-var defaultClient *Client
+var defaultClient Service
 
 // SetDefaultClient set auth client that will be returned by auth.DefaultClient
-func SetDefaultClient(c *Client) {
+func SetDefaultClient(c Service) {
 	defaultClient = c
 }
 
 // DefaultClient returns default auth client
-func DefaultClient() *Client {
-	return defaultClient
+func DefaultClient() (Service, error) {
+	if defaultClient != nil {
+		return defaultClient, nil
+	}
+
+	return nil, fmt.Errorf("auth default client is nil")
 }
 
 // NewClient create a new auth client
@@ -203,15 +214,15 @@ func (c *Client) updatePublicKeys() error {
 		return err
 	}
 
+	// key is a cryptographic key used for authentication and authorization
 	type key struct {
 		KID string `json:"kid"`
 		Key string `json:"key"`
 	}
-
+	// keyList is a list of cryptographics keys used for authentication and authorization
 	type keyList struct {
 		Keys []key `json:"keys"`
 	}
-
 	keys := &keyList{}
 
 	if err = json.Unmarshal(body, keys); err != nil {

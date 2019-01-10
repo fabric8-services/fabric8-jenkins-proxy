@@ -1,4 +1,4 @@
-package clients
+package tenant
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ func TestGetTenant(t *testing.T) {
 	ts := tu.MockServer(tu.TenantData1(""))
 	defer ts.Close()
 
-	ct := NewTenant(ts.URL, "aaa")
+	ct := New(ts.URL, "aaa")
 	ti, err := ct.GetTenantInfo("2e15e957-0366-4802-bf1e-0d6fe3f11bb6")
 	if err != nil {
 		t.Error(err)
@@ -31,7 +31,7 @@ func TestGetError(t *testing.T) {
 	ts := tu.MockServer(tu.TenantData2())
 	defer ts.Close()
 
-	ct := NewTenant(ts.URL, "aaa")
+	ct := New(ts.URL, "aaa")
 	ti, err := ct.GetTenantInfo("2e15e957-0366-4802-bf1e-0d6fe3f11bb6")
 	if err == nil {
 		t.Error("Expected Errors to be populated in output")

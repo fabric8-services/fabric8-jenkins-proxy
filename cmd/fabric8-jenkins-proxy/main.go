@@ -8,12 +8,14 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api/app"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/clients"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/jenkinsapi"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/router"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/wit"
 	"github.com/goadesign/goa"
 	"github.com/goadesign/goa/middleware"
 
@@ -91,13 +93,13 @@ func main() {
 	auth.SetDefaultClient(auth.NewClient(config.GetAuthURL()))
 
 	// Create tenant client
-	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
+	tenant := tenant.New(config.GetTenantURL(), config.GetAuthToken())
 
 	// Create WorkItemTracker client
-	wit := clients.NewWIT(config.GetWitURL(), config.GetAuthToken())
+	wit := wit.New(config.GetWitURL(), config.GetAuthToken())
 
 	// Create Idler client
-	idler := clients.NewIdler(config.GetIdlerURL())
+	idler := idler.New(config.GetIdlerURL())
 
 	// Get the cluster view from the Idler
 	clusters, err := idler.Clusters()
@@ -106,11 +108,11 @@ func main() {
 	}
 	mainLogger.WithField("clusters", clusters).Info("Retrieved cluster view")
 
-	start(config, &tenant, wit, idler, store, clusters)
+	start(config, idler, &tenant, wit, store, clusters)
 }
 
-func start(config configuration.Configuration, tenant *clients.Tenant, wit clients.WIT, idler clients.IdlerService, store storage.Store, clusters map[string]string) {
-	proxy, err := proxy.NewProxy(tenant, wit, idler, store, config, clusters)
+func start(config configuration.Configuration, idler idler.Service, tenant tenant.Service, wit wit.Service, store storage.Store, clusters map[string]string) {
+	proxy, err := proxy.New(idler, tenant, wit, store, config, clusters)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -205,8 +207,8 @@ func startWorkers(
 		}
 	}()
 
-	tenant := clients.NewTenant(config.GetTenantURL(), config.GetAuthToken())
-	idler := clients.NewIdler(config.GetIdlerURL())
+	tenant := tenant.New(config.GetTenantURL(), config.GetAuthToken())
+	idler := idler.New(config.GetIdlerURL())
 	jenkinsAPI := jenkinsapi.NewJenkinsAPI(&tenant, idler)
 	wg.Add(1)
 	go func() {

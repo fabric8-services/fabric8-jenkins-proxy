@@ -1,9 +1,9 @@
-package mock
+package configuration
 
 import "time"
 
-// Config represents configuration required to run jenkins-proxy
-type Config struct {
+// Mock represents configuration required to run jenkins-proxy
+type Mock struct {
 	PostgresHost              string
 	PostgresPort              int
 	PostgresUser              string
@@ -28,9 +28,9 @@ type Config struct {
 	Clusters                  map[string]string
 }
 
-// NewConfig creates an instance of configuration
-func NewConfig() Config {
-	c := Config{}
+// NewMock creates an instance of configuration
+func NewMock() Mock {
+	c := Mock{}
 
 	// set some defaults which can be overridden as needed
 	c.PostgresHost = "localhost"
@@ -52,112 +52,112 @@ func NewConfig() Config {
 }
 
 // GetPostgresHost return hardcoded postgres host from test configuration.
-func (c *Config) GetPostgresHost() string {
+func (c *Mock) GetPostgresHost() string {
 	return c.PostgresHost
 }
 
 // GetPostgresPort return hardcoded postgres porn from test configuration.
-func (c *Config) GetPostgresPort() int {
+func (c *Mock) GetPostgresPort() int {
 	return c.PostgresPort
 }
 
 // GetPostgresUser return hardcoded postgres user from test configuration.
-func (c *Config) GetPostgresUser() string {
+func (c *Mock) GetPostgresUser() string {
 	return c.PostgresUser
 }
 
 // GetPostgresDatabase return hardcoded postgres database name from test configuration.
-func (c *Config) GetPostgresDatabase() string {
+func (c *Mock) GetPostgresDatabase() string {
 	return c.PostgresDatabase
 }
 
 // GetPostgresPassword return hardcoded postgres password from test configuration.
-func (c *Config) GetPostgresPassword() string {
+func (c *Mock) GetPostgresPassword() string {
 	return c.PostgresPassword
 }
 
 // GetPostgresSSLMode return hardcoded postgres ssl mode (ssl enabled or disabled) from test configuration.
-func (c *Config) GetPostgresSSLMode() string {
+func (c *Mock) GetPostgresSSLMode() string {
 	return c.PostgresSSLMode
 }
 
 // GetPostgresConnectionTimeout return hardcoded postgres connection timeout from test configuration.
-func (c *Config) GetPostgresConnectionTimeout() int {
+func (c *Mock) GetPostgresConnectionTimeout() int {
 	return c.PostgresConnectionTimeout
 }
 
 // GetPostgresConnectionMaxIdle return hardcoded number of connections that should be kept alive in the database connection pool at any given time from test configuration.
 // Here it is set to -1, which represents no restrictions/default behavior.
-func (c *Config) GetPostgresConnectionMaxIdle() int {
+func (c *Mock) GetPostgresConnectionMaxIdle() int {
 	return c.PostgresConnectionMaxIdle
 }
 
 // GetPostgresConnectionMaxOpen return hardcoded max number of open connections that should be open in the database connection pool from test configuration.
 // Here it is set to -1 represents no restrictions/default behavior.
-func (c *Config) GetPostgresConnectionMaxOpen() int {
+func (c *Mock) GetPostgresConnectionMaxOpen() int {
 	return c.PostgresConnectionMaxOpen
 }
 
 // GetIdlerURL return hardcoded url of idler service from test configuration.
-func (c *Config) GetIdlerURL() string {
+func (c *Mock) GetIdlerURL() string {
 	return c.IdlerURL
 }
 
 // GetAuthURL return hardcoded url of the fabric8-auth service from test configuration.
-func (c *Config) GetAuthURL() string {
+func (c *Mock) GetAuthURL() string {
 	return c.AuthURL
 }
 
 // GetTenantURL return hardcoded url of tenant service from test configuration.
-func (c *Config) GetTenantURL() string {
+func (c *Mock) GetTenantURL() string {
 	return c.TenantURL
 }
 
 // GetWitURL return hardcoded url of wit service from test configuration.
-func (c *Config) GetWitURL() string {
+func (c *Mock) GetWitURL() string {
 	return c.WitURL
 }
 
 // GetAuthToken return hardcoded value of auth token from test configuration.
-func (c *Config) GetAuthToken() string {
+func (c *Mock) GetAuthToken() string {
 	return c.AuthToken
 }
 
 // GetRedirectURL return hardcoded redirect url to be passed to the auth service from test configuration.
-func (c *Config) GetRedirectURL() string {
+func (c *Mock) GetRedirectURL() string {
 	return c.RedirectURL
 }
 
 // GetIndexPath return hardcoded path to loading page template from test configuration.
-func (c *Config) GetIndexPath() string {
+func (c *Mock) GetIndexPath() string {
 	return c.IndexPath
 }
 
 // GetMaxRequestRetry return hardcoded number of retries for webhook request forwarding from test configuration.
-func (c *Config) GetMaxRequestRetry() int {
+func (c *Mock) GetMaxRequestRetry() int {
 	return c.MaxRequestRetry
 }
 
 // GetDebugMode return hardcoded debug mode from test configuration.
-func (c *Config) GetDebugMode() bool {
+func (c *Mock) GetDebugMode() bool {
 	return c.DebugMode
 }
 
 // GetHTTPSEnabled return hardcoded http-enabled from test configuration.
-func (c *Config) GetHTTPSEnabled() bool {
+func (c *Mock) GetHTTPSEnabled() bool {
 	return c.HTTPSEnabled
 }
 
 // GetGatewayTimeout returns hardcoded gateway timeout from test configuration.
-func (c *Config) GetGatewayTimeout() time.Duration {
+func (c *Mock) GetGatewayTimeout() time.Duration {
 	return c.GatewayTimeout
 }
 
 // GetAllowedOrigins returns hardcoded allowed origins
-func (c *Config) GetAllowedOrigins() []string {
+func (c *Mock) GetAllowedOrigins() []string {
 	return c.AllowedOrigins
 }
 
-func (c *Config) String() string {
+func (c *Mock) String() string {
 	return "mockConfig"
 }

@@ -1,4 +1,4 @@
-package clients
+package tenant
 
 import (
 	"encoding/json"
@@ -14,8 +14,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewTenant returns new Tenant client.
-func NewTenant(tenantServiceURL string, authToken string) Tenant {
+// New returns new Tenant client.
+func New(tenantServiceURL string, authToken string) Client {
 	logger := log.WithFields(
 		log.Fields{
 			"component": "tenant",
@@ -23,7 +23,7 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 		},
 	)
 
-	return Tenant{
+	return Client{
 		authToken:        authToken,
 		tenantServiceURL: tenantServiceURL,
 		client:           util.HTTPClient(),
@@ -31,32 +31,32 @@ func NewTenant(tenantServiceURL string, authToken string) Tenant {
 	}
 }
 
-// TenantService is contains methods that makes calls to tenant APIs
-type TenantService interface {
-	GetTenantInfo(tenantID string) (TenantInfo, error)
+// Service is contains methods that makes calls to tenant APIs
+type Service interface {
+	GetTenantInfo(tenantID string) (Info, error)
 	GetNamespace(accessToken string) (Namespace, error)
 }
 
-// Tenant is a simple client for fabric8-tenant.
-type Tenant struct {
+// Client is a simple client for fabric8-tenant.
+type Client struct {
 	tenantServiceURL string
 	authToken        string
 	client           *http.Client
 	logger           *log.Entry
 }
 
-// TenantInfoList is a list of tenant information.
-type TenantInfoList struct {
-	Data []TenantInfoData
+// InfoList is a list of tenant information.
+type InfoList struct {
+	Data []InfoData
 	Meta struct {
 		TotalCount int
 	}
 	Errors []Error `json:"errors"`
 }
 
-// TenantInfo gives imformation about tenant.
-type TenantInfo struct {
-	Data   TenantInfoData
+// Info gives imformation about tenant.
+type Info struct {
+	Data   InfoData
 	Errors []Error `json:"errors"`
 }
 
@@ -66,8 +66,8 @@ type Error struct {
 	Detail string `json:"detail"`
 }
 
-// TenantInfoData give data about information such as attributes, id and type.
-type TenantInfoData struct {
+// InfoData give data about information such as attributes, id and type.
+type InfoData struct {
 	Attributes Attributes
 	ID         string
 	Type       string
@@ -89,7 +89,7 @@ type Namespace struct {
 }
 
 // GetTenantInfo returns a tenant information based on tenant id.
-func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
+func (t Client) GetTenantInfo(tenantID string) (ti Info, err error) {
 	if len(tenantID) == 0 {
 		err = errors.New("tenant ID cannot be empty string")
 		return
@@ -125,7 +125,7 @@ func (t Tenant) GetTenantInfo(tenantID string) (ti TenantInfo, err error) {
 }
 
 // GetNamespaceByType searches tenant namespaces for a given type.
-func GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
+func GetNamespaceByType(ti Info, typ string) (r Namespace, err error) {
 	for i := 0; i < len(ti.Data.Attributes.Namespaces); i++ {
 		n := ti.Data.Attributes.Namespaces[i]
 		if n.Type == typ {
@@ -139,20 +139,24 @@ func GetNamespaceByType(ti TenantInfo, typ string) (r Namespace, err error) {
 }
 
 // GetNamespace gets namespace given appropriate accessToken
-func (t Tenant) GetNamespace(accessToken string) (namespace Namespace, err error) {
-	uid, err := auth.DefaultClient().UIDFromToken(accessToken)
+func (t Client) GetNamespace(accessToken string) (namespace Namespace, err error) {
+	authClient, err := auth.DefaultClient()
 	if err != nil {
-		return
+		return namespace, err
+	}
+	uid, err := authClient.UIDFromToken(accessToken)
+	if err != nil {
+		return namespace, err
 	}
 
 	ti, err := t.GetTenantInfo(uid)
 	if err != nil {
-		return
+		return namespace, err
 	}
 
 	namespace, err = GetNamespaceByType(ti, "jenkins")
 	if err != nil {
-		return
+		return namespace, err
 	}
 
 	return namespace, nil

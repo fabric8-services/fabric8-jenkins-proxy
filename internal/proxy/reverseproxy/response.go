@@ -48,6 +48,12 @@ func (rr *responseRecorder) WriteHeader(code int) {
 		return
 	}
 
+	if code == http.StatusForbidden {
+		rr.err = fmt.Errorf("forbidden error: %d", code)
+		rr.log.Warnf("Error Forbidden WriteHeader %v - SKIPPED", code)
+		return
+	}
+
 	rr.log.Infof("WriteHeader %d - OK", code)
 	rr.ResponseWriter.WriteHeader(code)
 }
