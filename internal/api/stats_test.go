@@ -17,23 +17,19 @@ import (
 )
 
 func TestNewStatsController(t *testing.T) {
-	type args struct {
-		service *goa.Service
-		store   storage.Store
-	}
-	tests := []struct {
-		name string
-		args args
-		want *StatsController
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewStatsController(tt.args.service, tt.args.store); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewStatsController() = %v, want %v", got, tt.want)
-			}
-		})
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := storage.NewMockStore(ctrl)
+
+	service := goa.New("fabric8-jenkins-proxy-api")
+
+	want := &StatsController{
+		storageService: store}
+
+	got := NewStatsController(service, store)
+	if !reflect.DeepEqual(got.storageService, want.storageService) {
+		t.Errorf("NewStatsController() = %v, want %v", got, want)
 	}
 }
 
