@@ -13,7 +13,7 @@ endif
 IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
 
 BUILD_DIR = out
-PACKAGES = $(shell go list ./... | grep -v vendor/)
+PACKAGES = $(shell go list ./... | grep -v vendor/ | grep -v internal/design)
 SOURCE_DIRS = $(shell echo $(PACKAGES) | awk 'BEGIN{FS="/"; RS=" "}{print $$4}' | uniq)
 LD_FLAGS := -X github.com/fabric8-services/fabric8-jenkins-proxy/internal/version.version=$(IMAGE_TAG)
 
