@@ -127,7 +127,7 @@ func start(config configuration.Configuration, idler idler.Service, tenant tenan
 	wg.Wait()
 }
 
-func serviceListennAndServe(service *goa.Service, cancel context.CancelFunc,
+func startService(service *goa.Service, cancel context.CancelFunc,
 	enableHTTPS bool, port string) {
 	if enableHTTPS {
 		if err := service.ListenAndServeTLS(port, "server.crt", "server.key"); err != nil {
@@ -194,7 +194,7 @@ func startWorkers(
 			router.CustomMuxHandle(apiService)
 
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
-			serviceListennAndServe(apiService, cancel, config.GetHTTPSEnabled(), apiRouterPort)
+			startService(apiService, cancel, config.GetHTTPSEnabled(), apiRouterPort)
 		}()
 
 		for {
