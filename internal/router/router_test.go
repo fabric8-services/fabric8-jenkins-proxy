@@ -84,20 +84,6 @@ func (api *mockJenkinsAPI) Status(w http.ResponseWriter, r *http.Request, _ http
 	json.NewEncoder(w).Encode(resp)
 }
 
-func Test_API_routes_are_setup(t *testing.T) {
-	mockedProxyAPI := &mockProxyAPI{}
-	mockedRouter := CreateAPIRouter(mockedProxyAPI)
-	req, _ := http.NewRequest("GET", "/api/info/:namespace", nil)
-	w := new(mockResponseWriter)
-	mockedRouter.ServeHTTP(w, req)
-	require.Equal(t, "Info", w.GetBody(), "Routing failed for /api/info/:namespace")
-
-	req, _ = http.NewRequest("GET", "/metrics", nil)
-	w = new(mockResponseWriter)
-	mockedRouter.ServeHTTP(w, req)
-	require.Contains(t, w.GetBody(), "go_gc_duration_seconds", "Routing failed for /metrics")
-}
-
 func Test_JenkinsAPI_routes_are_setup(t *testing.T) {
 	mockedJenkinsAPI := &mockJenkinsAPI{}
 	mockedRouter := CreateJenkinsAPIRouter(mockedJenkinsAPI)

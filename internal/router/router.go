@@ -2,21 +2,23 @@ package router
 
 import (
 	"net/http"
+	"net/url"
 
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/jenkinsapi"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/proxy"
+	"github.com/goadesign/goa"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// CreateAPIRouter is creating a router for the REST API of the Proxy.
-func CreateAPIRouter(api api.ProxyAPI) *httprouter.Router {
-	// Create router for API
-	proxyRouter := httprouter.New()
-	proxyRouter.GET("/api/info/:namespace", api.Info)
-	proxyRouter.Handler("GET", "/metrics", promhttp.Handler())
-	return proxyRouter
+// CustomMuxHandle is adding routes for services like prometheus
+func CustomMuxHandle(service *goa.Service) {
+	mux := func() goa.MuxHandler {
+		return func(rw http.ResponseWriter, req *http.Request, v url.Values) {
+			promhttp.Handler().ServeHTTP(rw, req)
+		}
+	}()
+	service.Mux.Handle("GET", "/metrics", mux)
 }
 
 // CreateJenkinsAPIRouter is creating a router for the REST API of the Proxy.

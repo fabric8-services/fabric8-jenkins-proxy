@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api"
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/api/app"
+
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/auth"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/configuration"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/idler"
@@ -14,19 +16,24 @@ import (
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/storage"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/tenant"
 	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/wit"
+	"github.com/goadesign/goa"
+	"github.com/goadesign/goa/middleware"
 
 	"github.com/rs/cors"
 
 	"context"
-
-	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
-	log "github.com/sirupsen/logrus"
 
 	_ "net/http/pprof"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/fabric8-services/fabric8-common/log"
+
+	"github.com/fabric8-services/fabric8-jenkins-proxy/internal/version"
+	goalogrus "github.com/goadesign/goa/logging/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -39,25 +46,25 @@ const (
 	profilerPort                = ":6060"
 )
 
-var mainLogger = log.WithFields(log.Fields{"component": "main"})
+var mainLogger = logrus.WithFields(logrus.Fields{"component": "main"})
 
 func init() {
-	log.SetFormatter(&log.JSONFormatter{})
+	logrus.SetFormatter(&logrus.JSONFormatter{})
 
-	level := log.InfoLevel
-	switch levelStr, _ := os.LookupEnv("JC_LOG_LEVEL"); levelStr {
+	var level logrus.Level
+	switch levelStr, _ := os.LookupEnv("JC_LOGRUS_LEVEL"); levelStr {
 	case "info":
-		level = log.InfoLevel
+		level = logrus.InfoLevel
 	case "debug":
-		level = log.DebugLevel
+		level = logrus.DebugLevel
 	case "warning":
-		level = log.WarnLevel
+		level = logrus.WarnLevel
 	case "error":
-		level = log.ErrorLevel
+		level = logrus.ErrorLevel
 	default:
-		level = log.InfoLevel
+		level = logrus.InfoLevel
 	}
-	log.SetLevel(level)
+	logrus.SetLevel(level)
 }
 
 func main() {
@@ -67,7 +74,7 @@ func main() {
 	// Init configuration
 	config, err := configuration.NewConfiguration()
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
 	mainLogger.Infof("Proxy config: %s", config.String())
@@ -75,7 +82,7 @@ func main() {
 	// Connect to DB
 	db, err := storage.Connect(config)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	defer db.Close()
 
@@ -107,7 +114,7 @@ func main() {
 func start(config configuration.Configuration, idler idler.Service, tenant tenant.Service, wit wit.Service, store storage.Store, clusters map[string]string) {
 	proxy, err := proxy.New(idler, tenant, wit, store, config, clusters)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
 	// Start the various Go routines
@@ -120,16 +127,38 @@ func start(config configuration.Configuration, idler idler.Service, tenant tenan
 	wg.Wait()
 }
 
+func startService(service *goa.Service, cancel context.CancelFunc,
+	enableHTTPS bool, port string) {
+	if enableHTTPS {
+		if err := service.ListenAndServeTLS(port, "server.crt", "server.key"); err != nil {
+			logrus.Error(err)
+			cancel()
+			return
+		}
+	} else {
+		if err := service.ListenAndServe(port); err != nil {
+			logrus.Error(err)
+			cancel()
+			return
+		}
+	}
+
+	if err := service.ListenAndServe(":8080"); err != nil {
+		service.LogError("startup", "err", err)
+	}
+
+}
+
 func listenAndServe(srv *http.Server, cancel context.CancelFunc, enableHTTPS bool) {
 	if enableHTTPS {
 		if err := srv.ListenAndServeTLS("server.crt", "server.key"); err != nil {
-			log.Error(err)
+			logrus.Error(err)
 			cancel()
 			return
 		}
 	} else {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Error(err)
+			logrus.Error(err)
 			cancel()
 			return
 		}
@@ -152,24 +181,27 @@ func startWorkers(
 		}
 	}()
 
-	api := api.NewAPI(store)
+	apiService := goa.New("fabric8-jenkins-proxy-api")
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv := newAPIServer(api)
+		prepareAPIService(apiService)
 
 		go func() {
+			// Mount "stats" controller
+			c := api.NewStatsController(apiService, store)
+			app.MountStatsController(apiService, c)
+			router.CustomMuxHandle(apiService)
+
 			mainLogger.Infof("Starting API router on port %s", apiRouterPort)
-			listenAndServe(srv, cancel, config.GetHTTPSEnabled())
+			startService(apiService, cancel, config.GetHTTPSEnabled(), apiRouterPort)
 		}()
 
 		for {
 			select {
 			case <-ctx.Done():
 				mainLogger.Infof("Shutting down API router on port %s", apiRouterPort)
-				ctx, cancel := context.WithTimeout(ctx, shutdownTimeout*time.Second)
-				srv.Shutdown(ctx)
-				cancel()
+				apiService.CancelAll()
 				return
 			}
 		}
@@ -261,11 +293,13 @@ func setupSignalChannel(cancel context.CancelFunc) {
 	}()
 }
 
-func newAPIServer(api api.ProxyAPI) *http.Server {
-	return &http.Server{
-		Addr:    apiRouterPort,
-		Handler: router.CreateAPIRouter(api),
-	}
+func prepareAPIService(service *goa.Service) {
+	service.Use(middleware.RequestID())
+	service.Use(middleware.LogRequest(true))
+	service.Use(middleware.ErrorHandler(service, true))
+	service.Use(middleware.Recover())
+
+	service.WithLogger(goalogrus.New(log.Logger()))
 }
 
 func newJenkinsAPIServer(jenkinsAPI jenkinsapi.JenkinsAPI, config configuration.Configuration) *http.Server {
